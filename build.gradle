@@ -1,0 +1,42 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+project.ext.gdxVersion = "1.11.0"
+
+dependencies {
+    implementation "com.badlogicgames.gdx:gdx:$gdxVersion"
+    implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
+    implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+    
+    // For debugging
+    implementation 'org.slf4j:slf4j-api:1.7.30'
+    implementation 'ch.qos.logback:logback-classic:1.2.3'
+}
+
+application {
+    mainClass = 'com.mygdx.game.desktop.DesktopLauncher'
+}
+
+run {
+    // Enable debug logging
+    jvmArgs = ['-Dorg.slf4j.simpleLogger.defaultLogLevel=debug']
+    
+    // For debugging
+    standardInput = System.in
+    standardOutput = System.out
+}
+
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
+
+// Add debugging configuration
+tasks.withType(JavaCompile) {
+    options.debug = true
+    options.debugOptions.debugLevel = "source,lines,vars"
+}
