@@ -1,0 +1,38 @@
+# Gradle files
+.gradle/
+.gradle-wrapper/
+build/
+gradle-app.setting
+
+# Ignore Gradle wrapper jar file
+gradle-wrapper.jar
+gradle/wrapper/gradle-wrapper.jar
+
+# Ignore Gradle wrapper properties
+gradle/wrapper/gradle-wrapper.properties
+
+# Compiled class files
+*.class
+
+# Package files
+*.jar
+*.war
+*.ear
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+
+# Logs
+*.log
+
+# Local configuration file
+local.properties
+
+# Distribution archives
+*.tar.gz
+*.zip
+
+# Backup files
+*.bak
