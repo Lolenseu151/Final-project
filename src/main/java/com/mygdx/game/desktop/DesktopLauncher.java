@@ -11,13 +11,12 @@ public class DesktopLauncher {
         config.setWindowedMode(800, 600);
         config.useVsync(true);
         
-        // Enable debug logging
-        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "DEBUG");
+        // This is safe to keep or remove, as it's not the Gdx.app call
+        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "DEBUG"); 
         
         MyGdxGame game = new MyGdxGame();
-        // Set libGDX debug level
-        Gdx.app.setLogLevel(Gdx.app.LOG_DEBUG);
         
-        new Lwjgl3Application(game, config);
+        // This is the CRUCIAL line. It must be the last thing before the method ends.
+        new Lwjgl3Application(game, config); 
     }
 }
