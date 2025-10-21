@@ -6,14 +6,12 @@ plugins {
 repositories {
     mavenCentral()
 }
-<<<<<<< HEAD
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
     }
 }
-=======
->>>>>>> 25ebd588c7230c56d19f7cf0ce608c079f754c16
+
 
 project.ext.gdxVersion = "1.11.0"
 
@@ -40,13 +38,8 @@ run {
     standardOutput = System.out
 }
 
-<<<<<<< HEAD
 sourceCompatibility = 17
 targetCompatibility = 17
-=======
-sourceCompatibility = '21'
-targetCompatibility = '21'
->>>>>>> 25ebd588c7230c56d19f7cf0ce608c079f754c16
 
 // Add debugging configuration
 tasks.withType(JavaCompile) {
