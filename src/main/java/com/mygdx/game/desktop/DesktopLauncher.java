@@ -15,8 +15,6 @@ public class DesktopLauncher {
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "DEBUG");
         
         MyGdxGame game = new MyGdxGame();
-        // Set libGDX debug level
-        Gdx.app.setLogLevel(Gdx.app.LOG_DEBUG);
         
         new Lwjgl3Application(game, config);
     }

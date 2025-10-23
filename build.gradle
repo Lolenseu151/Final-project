@@ -32,8 +32,8 @@ run {
     standardOutput = System.out
 }
 
-sourceCompatibility = '21'
-targetCompatibility = '21'
+sourceCompatibility = '17'
+targetCompatibility = '17'
 
 // Add debugging configuration
 tasks.withType(JavaCompile) {
