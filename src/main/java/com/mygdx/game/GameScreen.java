@@ -19,6 +19,10 @@ public class GameScreen implements Screen {
     private static final float JUMP_VELOCITY = 500f;
     private static final float MAX_JUMP_HEIGHT = 200f;
     private float initialJumpY = 0f;
+    
+    // Fixed time-step constants for consistent physics
+    private static final float FIXED_TIME_STEP = 1/60f; // 60 FPS physics update
+    private float accumulator = 0f;
 
     public GameScreen(MyGdxGame game) {
         this.game = game;
@@ -29,10 +33,39 @@ public class GameScreen implements Screen {
 
     @Override
     public void render(float delta) {
-        // Update
-        updatePlayer(delta);
-        updateTime(delta);
+        // Cap delta to prevent "spiral of death" on very slow frames
+        if (delta > 0.25f) {
+            delta = 0.25f;
+        }
         
+        // Fixed time-step update loop
+        accumulator += delta;
+        while (accumulator >= FIXED_TIME_STEP) {
+            update(FIXED_TIME_STEP);
+            accumulator -= FIXED_TIME_STEP;
+        }
+        
+        // Rendering (happens at variable frame rate)
+        renderGame();
+    }
+    
+    /**
+     * Main game update method - called at fixed intervals for consistent physics.
+     * This ensures the game runs the same on all machines regardless of frame rate.
+     * 
+     * @param deltaTime Fixed time step (1/60th of a second = ~0.0167 seconds)
+     */
+    private void update(float deltaTime) {
+        updatePlayer(deltaTime);
+        updateTime(deltaTime);
+        // Add more update calls here as game grows (enemies, collectibles, etc.)
+    }
+    
+    /**
+     * Handles all rendering - called at variable frame rate.
+     * Separating update and render ensures smooth visuals on high refresh rate monitors.
+     */
+    private void renderGame() {
         // Clear screen
         Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
