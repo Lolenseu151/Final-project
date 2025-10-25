@@ -201,7 +201,7 @@ public class LevelManager {
         float timePenalty = 0f;
         
         // Check platform collisions (player standing on platforms)
-        checkPlatformCollisions(player);
+        checkPlatformCollisions(player, deltaTime);
         
         // Check document collection
         for (int i = documents.size - 1; i >= 0; i--) {
@@ -244,32 +244,92 @@ public class LevelManager {
     /**
      * Checks if the player is colliding with any platforms and handles landing
      */
-    private void checkPlatformCollisions(Fixer player) {
-        Rectangle playerBounds = player.getBounds();
-        boolean wasOnGround = player.isOnGround();
+    private void checkPlatformCollisions(Fixer player, float deltaTime) {
+        Rectangle p = player.getBounds();
         player.setOnGround(false); // Reset, will be set to true if on a platform
-        
+
+        // Cache current and previous edges
+        float vx = player.getVelocity().x;
+        float vy = player.getVelocity().y;
+        float prevLeft = p.x - vx * deltaTime;
+        float prevRight = prevLeft + p.width;
+        float prevBottom = p.y - vy * deltaTime;
+        float prevTop = prevBottom + p.height;
+        float curLeft = p.x;
+        float curRight = p.x + p.width;
+        float curBottom = p.y;
+        float curTop = p.y + p.height;
+
+        final float slop = 0.5f; // small tolerance to reduce jitter
+
         for (Rectangle platform : platforms) {
-            // Check if player is falling onto the platform
-            if (player.getVelocity().y <= 0) { // Moving down or stationary
-                // Check if player's bottom is near platform's top
-                float playerBottom = playerBounds.y;
-                float platformTop = platform.y + platform.height;
-                
-                // Check horizontal overlap
-                boolean horizontalOverlap = playerBounds.x < platform.x + platform.width &&
-                                          playerBounds.x + playerBounds.width > platform.x;
-                
-                // Check if player is landing on this platform
-                if (horizontalOverlap && 
-                    playerBottom <= platformTop && 
-                    playerBottom + Math.abs(player.getVelocity().y) >= platformTop - 5) {
-                    
-                    // Place player on top of platform
-                    playerBounds.y = platformTop;
+            float platLeft = platform.x;
+            float platRight = platform.x + platform.width;
+            float platBottom = platform.y;
+            float platTop = platform.y + platform.height;
+
+            // --- Vertical collisions ---
+            // Landing from above (one-way top surface): allow only when moving down and crossing the top
+            boolean horizOverlapForVertical = (curRight > platLeft + slop) && (curLeft < platRight - slop);
+            if (vy <= 0) {
+                // Continuity: if we're already essentially on the platform top and still overlapping horizontally,
+                // keep the player grounded (prevents falling through on flat motion when vy == 0)
+                if (horizOverlapForVertical && Math.abs(curBottom - platTop) <= 1.0f) {
+                    p.y = platTop;
                     player.setVelocityY(0);
                     player.setOnGround(true);
-                    break; // Only collide with one platform at a time
+                    // Recompute edges
+                    curBottom = p.y;
+                    curTop = p.y + p.height;
+                    continue;
+                }
+                if (horizOverlapForVertical && prevBottom > platTop && curBottom <= platTop) {
+                    // Snap to top
+                    p.y = platTop;
+                    player.setVelocityY(0);
+                    player.setOnGround(true);
+                    // Recompute current edges after resolution
+                    curBottom = p.y;
+                    curTop = p.y + p.height;
+                    continue; // Check other platforms for side collisions
+                }
+            }
+
+            // Hitting from below (barrier under platform): block when moving up and crossing the bottom
+            if (vy > 0) {
+                if (horizOverlapForVertical && prevTop < platBottom && curTop >= platBottom) {
+                    // Snap just below the platform
+                    p.y = platBottom - p.height;
+                    player.setVelocityY(0);
+                    // Recompute current edges after resolution
+                    curBottom = p.y;
+                    curTop = p.y + p.height;
+                    // Do not set onGround; remain airborne
+                    continue;
+                }
+            }
+
+            // --- Horizontal collisions (simple) ---
+            // Only when vertical ranges overlap and crossing a side edge
+            boolean vertOverlapForHorizontal = (curTop > platBottom + slop) && (curBottom < platTop - slop);
+            if (vertOverlapForHorizontal && vx != 0) {
+                // Crossing from left to right into the platform's left edge
+                if (prevRight <= platLeft && curRight > platLeft) {
+                    p.x = platLeft - p.width;
+                    player.setVelocityX(0);
+                    // update current edges
+                    curLeft = p.x;
+                    curRight = p.x + p.width;
+                    continue;
+                }
+                // Crossing from right to left into the platform's right edge
+                if (prevLeft >= platRight && curLeft < platRight) {
+                    p.x = platRight;
+                    player.setVelocityX(0);
+                    // update current edges
+                    curLeft = p.x;
+                    curRight = p.x + p.width;
+                    continue;
                 }
             }
         }
