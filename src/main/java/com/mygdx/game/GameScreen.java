@@ -24,7 +24,7 @@ public class GameScreen implements Screen {
     private final Fixer fixer;              // The player (Physics role)
     private final LevelManager levelManager; // Level management (Role 3)
     
-    private float remainingTime = 60; // 60 seconds game time
+    private float remainingTime = 180; // 180 seconds (3 minutes) game time
     
     // Fixed time-step constants for consistent physics
     private static final float FIXED_TIME_STEP = 1/60f; // 60 FPS physics update
@@ -207,7 +207,7 @@ public class GameScreen implements Screen {
      */
     private void restartGame() {
         currentState = GameState.RUNNING;
-        remainingTime = 60;
+        remainingTime = 180;
         fixer.reset(100, 100);
         levelManager.reset();
         accumulator = 0f;
@@ -229,7 +229,12 @@ public class GameScreen implements Screen {
         game.batch.begin();
         game.font.draw(game.batch, "Documents: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments(), 
             50, Gdx.graphics.getHeight() - 20);
-        game.font.draw(game.batch, "Time: " + String.format("%.1f", remainingTime), 
+        
+        // Format time as MM:SS
+        int minutes = (int) (remainingTime / 60);
+        int seconds = (int) (remainingTime % 60);
+        String timeText = String.format("Time: %d:%02d", minutes, seconds);
+        game.font.draw(game.batch, timeText, 
             Gdx.graphics.getWidth() - 150, Gdx.graphics.getHeight() - 20);
         
         // Show instructions
