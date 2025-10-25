@@ -1,0 +1,203 @@
+package com.mygdx.game;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
+import com.badlogic.gdx.ScreenAdapter;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.TimeUtils;
+
+package com.mygdx.game;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
+
+public class GameScreen implements Screen {
+    private final MyGdxGame game;
+    private OrthographicCamera camera;
+    private ShapeRenderer shapeRenderer;
+    private Rectangle player;
+    private float playerVX = 0, playerVY = 0;
+    private float hustleSpeed = 220f;
+    private float dashSpeed = 420f;
+    private float dashTime = 0.15f, dashCooldown = 0.5f;
+    private float dashTimer = 0, dashCooldownTimer = 0;
+    private boolean dashing = false;
+    private float momentum = 1f;
+
+    // Timer
+    private float auditTimer = 60f; // seconds
+    private boolean gameOver = false, win = false;
+
+    // Collectibles and goal
+    private Array<Rectangle> documents = new Array<>();
+    private Rectangle shredder;
+    private int docsCollected = 0, docsTotal = 3;
+
+    // Obstacles
+    private Array<Rectangle> redTapes = new Array<>();
+    private Array<Rectangle> auditorBeams = new Array<>();
+    private float timePenalty = 5f;
+
+    public GameScreen(MyGdxGame game) {
+        this.game = game;
+        camera = new OrthographicCamera(800, 600);
+        camera.setToOrtho(false, 800, 600);
+        shapeRenderer = new ShapeRenderer();
+        player = new Rectangle(100, 100, 40, 40);
+        // Place documents
+        documents.add(new Rectangle(200, 500, 24, 24));
+        documents.add(new Rectangle(600, 400, 24, 24));
+        documents.add(new Rectangle(400, 200, 24, 24));
+        // Place shredder
+        shredder = new Rectangle(700, 50, 40, 40);
+        // Place obstacles
+        redTapes.add(new Rectangle(300, 300, 80, 20));
+        auditorBeams.add(new Rectangle(500, 250, 120, 10));
+    }
+
+    @Override
+    public void render(float delta) {
+        if (!gameOver) update(delta);
+
+        Gdx.gl.glClearColor(0.1f, 0.1f, 0.12f, 1);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        camera.update();
+        shapeRenderer.setProjectionMatrix(camera.combined);
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        // Draw player
+        shapeRenderer.setColor(0.2f, 0.6f, 0.7f, 1);
+        shapeRenderer.rect(player.x, player.y, player.width, player.height);
+        // Draw documents
+        shapeRenderer.setColor(1, 1, 0.2f, 1);
+        for (Rectangle doc : documents) shapeRenderer.rect(doc.x, doc.y, doc.width, doc.height);
+        // Draw shredder
+        shapeRenderer.setColor(0.8f, 0.2f, 0.2f, 1);
+        shapeRenderer.rect(shredder.x, shredder.y, shredder.width, shredder.height);
+        // Draw red tape
+        shapeRenderer.setColor(1, 0, 0, 1);
+        for (Rectangle tape : redTapes) shapeRenderer.rect(tape.x, tape.y, tape.width, tape.height);
+        // Draw auditor beams
+        shapeRenderer.setColor(0.7f, 0.7f, 1, 1);
+        for (Rectangle beam : auditorBeams) shapeRenderer.rect(beam.x, beam.y, beam.width, beam.height);
+        shapeRenderer.end();
+
+        // HUD
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(1, 1, 1, 1);
+        shapeRenderer.rect(10, 560, 200, 30); // timer box
+        shapeRenderer.end();
+
+        game.batch.begin();
+        game.batch.setColor(1,1,1,1);
+        game.batch.draw(game.batch.getTexture(), 0, 0, 0, 0); // dummy draw to avoid warnings
+        game.batch.setColor(1,1,1,1);
+        game.batch.end();
+
+        // Simple HUD text
+        game.batch.begin();
+        game.batch.setColor(1,1,1,1);
+        game.batch.getFont().draw(game.batch, "Audit Timer: " + (int)auditTimer, 20, 580);
+        game.batch.getFont().draw(game.batch, "Documents: " + docsCollected + "/" + docsTotal, 20, 560);
+        if (gameOver) {
+            String msg = win ? "COVER-UP COMPLETE!" : "AUDIT TEAM ARRIVED!";
+            game.batch.getFont().draw(game.batch, msg, 300, 320);
+        }
+        game.batch.end();
+    }
+
+    private void update(float dt) {
+        // Timer
+        auditTimer -= dt;
+        if (auditTimer <= 0) {
+            auditTimer = 0;
+            gameOver = true;
+            win = false;
+            return;
+        }
+
+        // Player input
+        float ax = 0, ay = 0;
+        boolean dashPressed = Gdx.input.isKeyJustPressed(Input.Keys.SPACE);
+        if (Gdx.input.isKeyPressed(Input.Keys.A) || Gdx.input.isKeyPressed(Input.Keys.LEFT)) ax = -1;
+        if (Gdx.input.isKeyPressed(Input.Keys.D) || Gdx.input.isKeyPressed(Input.Keys.RIGHT)) ax = 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.W) || Gdx.input.isKeyPressed(Input.Keys.UP)) ay = 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.S) || Gdx.input.isKeyPressed(Input.Keys.DOWN)) ay = -1;
+
+        // Dash logic
+        if (dashCooldownTimer > 0) dashCooldownTimer -= dt;
+        if (dashing) {
+            dashTimer -= dt;
+            if (dashTimer <= 0) {
+                dashing = false;
+                dashCooldownTimer = dashCooldown;
+            }
+        }
+        if (dashPressed && dashCooldownTimer <= 0 && !dashing && (ax != 0 || ay != 0)) {
+            dashing = true;
+            dashTimer = dashTime;
+            playerVX = ax * dashSpeed;
+            playerVY = ay * dashSpeed;
+        }
+        if (!dashing) {
+            playerVX = ax * hustleSpeed * momentum;
+            playerVY = ay * hustleSpeed * momentum;
+        }
+        player.x += playerVX * dt;
+        player.y += playerVY * dt;
+
+        // Clamp
+        if (player.x < 0) player.x = 0;
+        if (player.y < 0) player.y = 0;
+        if (player.x + player.width > 800) player.x = 800 - player.width;
+        if (player.y + player.height > 600) player.y = 600 - player.height;
+
+        // Red Tape: kills momentum
+        for (Rectangle tape : redTapes) {
+            if (player.overlaps(tape)) {
+                momentum = 0.3f;
+                if (dashing) momentum = 1f; // dash negates penalty
+            }
+        }
+        // Reset momentum if not on tape
+        boolean onTape = false;
+        for (Rectangle tape : redTapes) if (player.overlaps(tape)) onTape = true;
+        if (!onTape) momentum = 1f;
+
+        // Auditor Beams: time penalty
+        for (Rectangle beam : auditorBeams) {
+            if (player.overlaps(beam)) {
+                auditTimer -= timePenalty * dt;
+            }
+        }
+
+        // Collect documents
+        for (int i = documents.size - 1; i >= 0; i--) {
+            if (player.overlaps(documents.get(i))) {
+                documents.removeIndex(i);
+                docsCollected++;
+            }
+        }
+
+        // Win condition
+        if (player.overlaps(shredder) && docsCollected == docsTotal) {
+            gameOver = true;
+            win = true;
+        }
+    }
+
+    @Override
+    public void dispose() {
+        shapeRenderer.dispose();
+        // ...existing code...
+    }
+}
