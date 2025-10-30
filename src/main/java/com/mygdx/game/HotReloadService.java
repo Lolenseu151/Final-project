@@ -1,10 +1,17 @@
 package com.mygdx.game;
 
-import com.badlogic.gdx.Gdx;
-
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import com.badlogic.gdx.Gdx;
 
 /**
  * Simple file watcher for development-time hot reloading of UI assets.
