@@ -28,7 +28,7 @@ public class LevelManager {
     // Visual properties
     private static final float DOCUMENT_SIZE = 20f;
     private static final float OBSTACLE_WIDTH = 60f;
-    private static final float OBSTACLE_HEIGHT = 40f;
+    private static final float OBSTACLE_HEIGHT = 10f;
     private static final float BEAM_WIDTH = 5f;
     private static final float SHREDDER_SIZE = 50f;
     private static final float PLATFORM_HEIGHT = 15f;
@@ -91,13 +91,13 @@ public class LevelManager {
         platforms.add(new Rectangle(0, 0, screenWidth, PLATFORM_HEIGHT));
         
         // First level platforms (around 150 units high)
-        platforms.add(new Rectangle(100, 150, 200, PLATFORM_HEIGHT));
-        platforms.add(new Rectangle(screenWidth - 300, 150, 200, PLATFORM_HEIGHT));
+        platforms.add(new Rectangle(0, 125, 700, PLATFORM_HEIGHT));
+        //platforms.add(new Rectangle(screenWidth - 300, 150, 200, PLATFORM_HEIGHT));
         
         // Second level platforms (around 280 units high)
-        platforms.add(new Rectangle(50, 280, 150, PLATFORM_HEIGHT));
-        platforms.add(new Rectangle(250, 280, 180, PLATFORM_HEIGHT));
-        platforms.add(new Rectangle(screenWidth - 250, 280, 180, PLATFORM_HEIGHT));
+       platforms.add(new Rectangle(50, 280, 500, PLATFORM_HEIGHT));
+       //platforms.add(new Rectangle(250, 280, 180, PLATFORM_HEIGHT));
+       //platforms.add(new Rectangle(screenWidth - 250, 280, 180, PLATFORM_HEIGHT));
         
         // Third level platforms (around 410 units high) - harder to reach
         platforms.add(new Rectangle(screenWidth / 2 - 100, 410, 200, PLATFORM_HEIGHT));

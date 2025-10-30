@@ -4,7 +4,18 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
 public class GameScreen implements Screen {
     
@@ -19,6 +30,14 @@ public class GameScreen implements Screen {
     
     private final MyGdxGame game;
     private final ShapeRenderer shapeRenderer;
+    // Scene2D UI
+    private Stage uiStage;
+    private Skin uiSkin;
+    private Table uiRoot;
+    private Label docsLabel;
+    private Label timeLabel;
+    private boolean uiDebug = false;
+    private HotReloadService uiWatcher;
     
     // Entity Management - Role 5
     private final Fixer fixer;              // The player (Physics role)
@@ -42,6 +61,8 @@ public class GameScreen implements Screen {
         this.fixer = new Fixer(100, 100);
         this.levelManager = new LevelManager();
         
+        // Initialize UI (Scene2D) with optional hot-reload
+        initUi();
         Gdx.app.log("GameScreen", "Entity Management initialized: Fixer + LevelManager");
     }
 
@@ -92,6 +113,15 @@ public class GameScreen implements Screen {
         if (currentState == GameState.GAMEOVER && Gdx.input.isKeyJustPressed(Input.Keys.R)) {
             restartGame();
         }
+
+        // UI debug and hot-reload shortcuts
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F6)) {
+            uiDebug = !uiDebug;
+            if (uiStage != null) uiStage.setDebugAll(uiDebug);
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F5)) {
+            reloadUi();
+        }
     }
     
     /**
@@ -107,6 +137,24 @@ public class GameScreen implements Screen {
         fixer.update(deltaTime);                              // Update player (Physics role)
         float timePenalty = levelManager.update(deltaTime, fixer); // Update level (Role 3)
         updateTime(deltaTime, timePenalty);                   // Update game timer
+        // Update UI stage and labels
+        if (uiStage != null) {
+            // Auto-reload when assets change (desktop only)
+            if (uiWatcher != null && uiWatcher.pollReload()) {
+                Gdx.app.log("UI", "Detected UI asset change. Reloading...");
+                reloadUi();
+            }
+            // Keep labels in sync
+            if (docsLabel != null) {
+                docsLabel.setText("Documents: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments());
+            }
+            if (timeLabel != null) {
+                int minutes = (int) (remainingTime / 60);
+                int seconds = (int) (remainingTime % 60);
+                timeLabel.setText(String.format("Time: %d:%02d", minutes, seconds));
+            }
+            uiStage.act(deltaTime);
+        }
         
         // Check win condition
         if (levelManager.isLevelComplete()) {
@@ -133,7 +181,8 @@ public class GameScreen implements Screen {
         // Render entities in correct order (Role 5 - Entity Management)
         levelManager.render(shapeRenderer, game.batch, game.font);  // Render level elements first (Role 3)
         fixer.render(shapeRenderer);         // Render player on top (Physics role)
-        drawText();                          // Render UI last
+    drawText();                          // Render debug text last (kept for now)
+    if (uiStage != null) uiStage.draw();
         
         // Draw state-specific overlays
         if (currentState == GameState.PAUSED) {
@@ -214,6 +263,89 @@ public class GameScreen implements Screen {
         Gdx.app.log("GameScreen", "Game RESTARTED");
     }
 
+    // --- UI (Scene2D) and Hot Reload ---
+    private void initUi() {
+        uiStage = new Stage(new ScreenViewport(), game.batch);
+        // Prefer loading a skin from local files during development for hot-reload
+        loadSkinOrFallback();
+        rebuildUi();
+
+        // Only enable watcher on desktop to avoid platform issues
+        if (Gdx.app.getType().name().equals("Desktop")) {
+            // Watch the default dev folder for skin and layout assets
+            uiWatcher = new HotReloadService("assets/ui");
+        }
+    }
+
+    private void loadSkinOrFallback() {
+        try {
+            // Try local disk first for dev-time hot reload
+            if (Gdx.files.local("assets/ui/uiskin.json").exists()) {
+                if (uiSkin != null) uiSkin.dispose();
+                uiSkin = new Skin(Gdx.files.local("assets/ui/uiskin.json"));
+                Gdx.app.log("UI", "Loaded skin from assets/ui/uiskin.json");
+                return;
+            }
+            // Fallback to classpath internal skin if provided
+            if (Gdx.files.internal("ui/uiskin.json").exists()) {
+                if (uiSkin != null) uiSkin.dispose();
+                uiSkin = new Skin(Gdx.files.internal("ui/uiskin.json"));
+                Gdx.app.log("UI", "Loaded skin from classpath ui/uiskin.json");
+                return;
+            }
+        } catch (Exception e) {
+            Gdx.app.error("UI", "Error loading skin JSON, falling back to minimal skin", e);
+        }
+        // Last resort: build a minimal programmatic skin so UI still works
+        buildFallbackSkin();
+        Gdx.app.log("UI", "Using minimal programmatic skin (no external files found)");
+    }
+
+    private void buildFallbackSkin() {
+        if (uiSkin != null) uiSkin.dispose();
+        uiSkin = new Skin();
+        // Default font from game
+        uiSkin.add("default-font", new BitmapFont());
+        // 1x1 white texture for simple backgrounds
+        Pixmap pm = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        pm.setColor(1, 1, 1, 1);
+        pm.fill();
+        Texture tex = new Texture(pm);
+        pm.dispose();
+        uiSkin.add("white", tex);
+        Drawable bg = new TextureRegionDrawable(new TextureRegion(tex));
+        // Basic LabelStyle
+        Label.LabelStyle ls = new Label.LabelStyle();
+        ls.font = uiSkin.getFont("default-font");
+        uiSkin.add("default", ls);
+    }
+
+    private void rebuildUi() {
+        if (uiRoot == null) {
+            uiRoot = new Table();
+            uiRoot.setFillParent(true);
+            uiStage.addActor(uiRoot);
+        } else {
+            uiRoot.clear();
+        }
+        // Top HUD row: documents and time
+        docsLabel = new Label("Documents: 0/0", uiSkin);
+        timeLabel = new Label("Time: 0:00", uiSkin);
+        Table top = new Table(uiSkin);
+        top.add(docsLabel).left().pad(10);
+        top.add().expandX();
+        top.add(timeLabel).right().pad(10);
+
+        uiRoot.top();
+        uiRoot.add(top).expandX().fillX().row();
+        uiStage.setDebugAll(uiDebug);
+    }
+
+    private void reloadUi() {
+        loadSkinOrFallback();
+        rebuildUi();
+    }
+
     private void updateTime(float delta, float timePenalty) {
         remainingTime -= delta;
         remainingTime -= timePenalty; // Apply penalties from Auditor Beams
@@ -266,5 +398,8 @@ public class GameScreen implements Screen {
     @Override
     public void dispose() {
         shapeRenderer.dispose();
+        if (uiWatcher != null) uiWatcher.dispose();
+        if (uiStage != null) uiStage.dispose();
+        if (uiSkin != null) uiSkin.dispose();
     }
 }
