@@ -113,6 +113,12 @@ public class GameScreen implements Screen {
         if (currentState == GameState.GAMEOVER && Gdx.input.isKeyJustPressed(Input.Keys.R)) {
             restartGame();
         }
+        
+        // Press ESC or Q to return to main menu when game over
+        if (currentState == GameState.GAMEOVER && 
+            (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.Q))) {
+            game.setScreen(new MainMenuScreen(game));
+        }
 
         // UI debug and hot-reload shortcuts
         if (Gdx.input.isKeyJustPressed(Input.Keys.F6)) {
@@ -236,7 +242,7 @@ public class GameScreen implements Screen {
         game.batch.begin();
         String gameOverText = isWin ? "MISSION COMPLETE!" : "GAME OVER";
         String scoreText = "Documents Shredded: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments();
-        String restartText = "Press R to Restart";
+        String restartText = "Press R to Restart | ESC/Q for Main Menu";
         
         // Center the text
         game.font.draw(game.batch, gameOverText, 
@@ -246,7 +252,7 @@ public class GameScreen implements Screen {
             Gdx.graphics.getWidth() / 2 - 80, 
             Gdx.graphics.getHeight() / 2);
         game.font.draw(game.batch, restartText, 
-            Gdx.graphics.getWidth() / 2 - 80, 
+            Gdx.graphics.getWidth() / 2 - 140, 
             Gdx.graphics.getHeight() / 2 - 40);
         game.batch.end();
     }

@@ -18,7 +18,9 @@ public class MyGdxGame extends Game {
         
         batch = new SpriteBatch();
         font = new BitmapFont(); // default Arial-like font
-        setScreen(new GameScreen(this));
+        
+        // Start with loading screen instead of directly going to game
+        setScreen(new LoadingScreen(this));
     }
 
     @Override
