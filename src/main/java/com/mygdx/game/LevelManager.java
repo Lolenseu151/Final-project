@@ -95,7 +95,7 @@ public class LevelManager {
         //platforms.add(new Rectangle(screenWidth - 300, 150, 200, PLATFORM_HEIGHT));
         
         // Second level platforms (around 280 units high)
-       platforms.add(new Rectangle(50, 280, 500, PLATFORM_HEIGHT));
+       platforms.add(new Rectangle(50, 200, 500, PLATFORM_HEIGHT));
        //platforms.add(new Rectangle(250, 280, 180, PLATFORM_HEIGHT));
        //platforms.add(new Rectangle(screenWidth - 250, 280, 180, PLATFORM_HEIGHT));
         
