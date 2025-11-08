@@ -202,6 +202,9 @@ public class LevelManager {
         
         // Check platform collisions (player standing on platforms)
         checkPlatformCollisions(player, deltaTime);
+
+        // Reset slowed state; will be set if overlapping any obstacle below
+        player.setSlowed(false);
         
         // Check document collection
         for (int i = documents.size - 1; i >= 0; i--) {
@@ -215,13 +218,16 @@ public class LevelManager {
         }
         
         // Check obstacle collision (Red Tape - slows player)
+        boolean slowed = false;
         for (Rectangle obstacle : obstacles) {
             if (player.getBounds().overlaps(obstacle)) {
-                // Slow down the player significantly
-                player.setVelocityX(player.getVelocity().x * 0.5f);
-                Gdx.app.log("LevelManager", "Hit Red Tape! Momentum lost!");
+                slowed = true;
+                // Do not directly mutate velocity here; inform the player that they are slowed
+                Gdx.app.log("LevelManager", "Hit Red Tape! Player slowed.");
+                break; // one obstacle is enough to slow the player
             }
         }
+        player.setSlowed(slowed);
         
         // Check Auditor Beam collision (time penalty)
         for (Rectangle beam : auditorBeams) {
