@@ -17,20 +17,24 @@ public class Fixer {
     private final Vector2 velocity;      // Current velocity (pixels/second)
     
     // Physics constants
-    private static final float MOVE_SPEED = 300f;      // Base movement speed
+    private static final float MOVE_SPEED = 200f;      // Reduced from 300f
     private static final float JUMP_VELOCITY = 500f;    // Initial jump velocity
     private static final float MAX_JUMP_HEIGHT = 200f;  // Maximum jump height
     private static final float GRAVITY = 800f;          // Gravity (pixels/second²)
-    private static final float FRICTION = 0.98f;        // Horizontal friction
+    private static final float FRICTION = 0.80f;        // Increased friction
     private static final float DASH_SPEED = 800f;       // Denial Dash speed
     private static final float DASH_DURATION = 0.15f;   // Dash duration in seconds
+    private static final float WALL_SLIDE_SPEED = -50f; // Wall slide speed
+    private static final float DASH_COOLDOWN_TIME = 1f; // Dash cooldown time
     
     // State flags
     private boolean isOnGround;
     private boolean canJump;
     private boolean isDashing;
+    private boolean isWallSliding;
     private float initialJumpY;
     private float dashTimer;
+    private float dashCooldown;
     
     // Visual properties
     private static final float WIDTH = 40f;
@@ -48,6 +52,8 @@ public class Fixer {
         this.canJump = true;
         this.isDashing = false;
         this.dashTimer = 0f;
+        this.isWallSliding = false;
+        this.dashCooldown = 0f;
     }
     
     /**
@@ -55,6 +61,10 @@ public class Fixer {
      * @param deltaTime Time since last update (in seconds)
      */
     public void update(float deltaTime) {
+        if (dashCooldown > 0) {
+            dashCooldown -= deltaTime;
+        }
+        
         handleInput(deltaTime);
         applyPhysics(deltaTime);
         updatePosition(deltaTime);
@@ -81,12 +91,20 @@ public class Fixer {
         
         // Normal movement (only if not dashing)
         if (!isDashing) {
-            // Left/Right movement
-            if (Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A)) {
-                velocity.x -= MOVE_SPEED * deltaTime;
-            }
-            if (Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.D)) {
-                velocity.x += MOVE_SPEED * deltaTime;
+            // Reset horizontal velocity when no keys are pressed
+            if (!Gdx.input.isKeyPressed(Input.Keys.LEFT) && 
+                !Gdx.input.isKeyPressed(Input.Keys.RIGHT) && 
+                !Gdx.input.isKeyPressed(Input.Keys.A) && 
+                !Gdx.input.isKeyPressed(Input.Keys.D)) {
+                velocity.x = 0;
+            } else {
+                // Left/Right movement with direct speed setting
+                if (Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A)) {
+                    velocity.x = -MOVE_SPEED;
+                }
+                if (Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.D)) {
+                    velocity.x = MOVE_SPEED;
+                }
             }
             
             // Jump - Up arrow or W (only if on ground)
@@ -105,14 +123,17 @@ public class Fixer {
      * Performs the Denial Dash - a quick burst of speed
      */
     private void performDash() {
-        isDashing = true;
-        dashTimer = DASH_DURATION;
-        
-        // Dash in the direction of movement, or right if stationary
-        float dashDirection = (velocity.x != 0) ? Math.signum(velocity.x) : 1f;
-        velocity.x = dashDirection * DASH_SPEED;
-        
-        Gdx.app.log("Fixer", "Denial Dash!");
+        if (dashCooldown <= 0) {
+            isDashing = true;
+            dashTimer = DASH_DURATION;
+            dashCooldown = DASH_COOLDOWN_TIME;
+            
+            // Dash in the direction of movement, or right if stationary
+            float dashDirection = (velocity.x != 0) ? Math.signum(velocity.x) : 1f;
+            velocity.x = dashDirection * DASH_SPEED;
+            
+            Gdx.app.log("Fixer", "Denial Dash!");
+        }
     }
     
     /**
@@ -127,9 +148,14 @@ public class Fixer {
         // Apply gravity
         velocity.y -= GRAVITY * deltaTime;
         
-        // Apply friction (only horizontal, not during dash)
-        if (!isDashing) {
+        // Apply friction only in the air or during dash
+        if (!isOnGround || isDashing) {
             velocity.x *= FRICTION;
+        }
+        
+        // Apply wall slide
+        if (isWallSliding) {
+            velocity.y = Math.max(velocity.y, WALL_SLIDE_SPEED);
         }
     }
     
@@ -167,6 +193,10 @@ public class Fixer {
             bounds.y = Gdx.graphics.getHeight() - bounds.height;
             velocity.y = 0;
         }
+        
+        // Check for wall sliding
+        isWallSliding = (bounds.x <= 0 || bounds.x >= Gdx.graphics.getWidth() - bounds.width) 
+            && !isOnGround && velocity.y < 0;
     }
     
     /**
@@ -176,14 +206,24 @@ public class Fixer {
     public void render(ShapeRenderer shapeRenderer) {
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         
-        // Change color based on state (dashing = yellow, normal = cyan)
+        // Change color based on state
         if (isDashing) {
             shapeRenderer.setColor(1, 1, 0, 1); // Yellow when dashing
+        } else if (isWallSliding) {
+            shapeRenderer.setColor(0, 0.8f, 1, 1); // Light blue when wall sliding
         } else {
             shapeRenderer.setColor(0, 1, 1, 1); // Cyan normally
         }
         
         shapeRenderer.rect(bounds.x, bounds.y, bounds.width, bounds.height);
+        
+        // Draw dash cooldown indicator
+        if (dashCooldown > 0) {
+            shapeRenderer.setColor(1, 0, 0, 0.5f);
+            float cooldownHeight = (bounds.height * dashCooldown) / DASH_COOLDOWN_TIME;
+            shapeRenderer.rect(bounds.x - 5, bounds.y, 3, cooldownHeight);
+        }
+        
         shapeRenderer.end();
     }
     
@@ -199,6 +239,8 @@ public class Fixer {
         canJump = true;
         isDashing = false;
         dashTimer = 0f;
+        isWallSliding = false;
+        dashCooldown = 0f;
     }
     
     // Getters
@@ -208,6 +250,7 @@ public class Fixer {
     public float getY() { return bounds.y; }
     public boolean isOnGround() { return isOnGround; }
     public boolean isDashing() { return isDashing; }
+    public boolean isWallSliding() { return isWallSliding; }
     
     // Setters (for external physics/collision)
     public void setOnGround(boolean onGround) { 
