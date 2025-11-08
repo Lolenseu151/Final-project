@@ -35,4 +35,4 @@ local.properties
 *.zip
 
 # Backup files
-*.bak
+*.bak.gradle/
