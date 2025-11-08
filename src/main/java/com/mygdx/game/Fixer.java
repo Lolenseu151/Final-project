@@ -32,6 +32,7 @@ public class Fixer {
     private boolean canJump;
     private boolean isDashing;
     private boolean isWallSliding;
+    private boolean isSlowed; // set by obstacles (red tape)
     private float initialJumpY;
     private float dashTimer;
     private float dashCooldown;
@@ -51,6 +52,7 @@ public class Fixer {
         this.isOnGround = false;
         this.canJump = true;
         this.isDashing = false;
+        this.isSlowed = false;
         this.dashTimer = 0f;
         this.isWallSliding = false;
         this.dashCooldown = 0f;
@@ -90,7 +92,7 @@ public class Fixer {
         }
         
         // Normal movement (only if not dashing)
-        if (!isDashing) {
+            if (!isDashing) {
             // Reset horizontal velocity when no keys are pressed
             if (!Gdx.input.isKeyPressed(Input.Keys.LEFT) && 
                 !Gdx.input.isKeyPressed(Input.Keys.RIGHT) && 
@@ -99,11 +101,12 @@ public class Fixer {
                 velocity.x = 0;
             } else {
                 // Left/Right movement with direct speed setting
+                float speedFactor = isSlowed ? 0.5f : 1f;
                 if (Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A)) {
-                    velocity.x = -MOVE_SPEED;
+                    velocity.x = -MOVE_SPEED * speedFactor;
                 }
                 if (Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.D)) {
-                    velocity.x = MOVE_SPEED;
+                    velocity.x = MOVE_SPEED * speedFactor;
                 }
             }
             
@@ -241,6 +244,11 @@ public class Fixer {
         dashTimer = 0f;
         isWallSliding = false;
         dashCooldown = 0f;
+    }
+
+    // Allow external systems (like LevelManager) to slow the player
+    public void setSlowed(boolean slowed) {
+        this.isSlowed = slowed;
     }
     
     // Getters

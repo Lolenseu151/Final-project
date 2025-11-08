@@ -5,6 +5,7 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Matrix4;
 
 /**
  * Main Menu Screen - Shows title and menu options
@@ -179,7 +180,12 @@ public class MainMenuScreen implements Screen {
     }
     
     @Override
-    public void resize(int width, int height) {}
+    public void resize(int width, int height) {
+        // Update SpriteBatch and ShapeRenderer projection so UI scales with window
+        Matrix4 proj = new Matrix4().setToOrtho2D(0, 0, width, height);
+        game.batch.setProjectionMatrix(proj);
+        shapeRenderer.setProjectionMatrix(proj);
+    }
     
     @Override
     public void pause() {}

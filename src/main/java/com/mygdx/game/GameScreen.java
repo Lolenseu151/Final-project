@@ -9,6 +9,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -387,6 +388,14 @@ public class GameScreen implements Screen {
 
     @Override
     public void resize(int width, int height) {
+        // Update UI stage viewport so Scene2D UI reflows to new window size
+        if (uiStage != null) uiStage.getViewport().update(width, height, true);
+
+        // Update projection matrices for batch and shape renderer so world coordinates
+        // map to the new window size (prevents zooming when resizing)
+        Matrix4 proj = new Matrix4().setToOrtho2D(0, 0, width, height);
+        game.batch.setProjectionMatrix(proj);
+        shapeRenderer.setProjectionMatrix(proj);
     }
 
     @Override
