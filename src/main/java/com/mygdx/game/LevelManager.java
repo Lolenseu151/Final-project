@@ -95,12 +95,12 @@ public class LevelManager {
         //platforms.add(new Rectangle(screenWidth - 300, 150, 200, PLATFORM_HEIGHT));
         
         // Second level platforms (around 280 units high)
-       platforms.add(new Rectangle(50, 200, 500, PLATFORM_HEIGHT));
+       platforms.add(new Rectangle(50, 250, 500, PLATFORM_HEIGHT));
        //platforms.add(new Rectangle(250, 280, 180, PLATFORM_HEIGHT));
        //platforms.add(new Rectangle(screenWidth - 250, 280, 180, PLATFORM_HEIGHT));
         
         // Third level platforms (around 410 units high) - harder to reach
-        platforms.add(new Rectangle(screenWidth / 2 - 100, 410, 200, PLATFORM_HEIGHT));
+        platforms.add(new Rectangle(screenWidth / 2 - 50, 350, 200, PLATFORM_HEIGHT));
         platforms.add(new Rectangle(screenWidth - 180, 410, 150, PLATFORM_HEIGHT));
         
         // Top platform (near ceiling) - requires precise jumps
@@ -370,10 +370,7 @@ public class LevelManager {
         
         shapeRenderer.end();
         
-        // Draw document count
-        batch.begin();
-        font.draw(batch, "Documents: " + (7 - documents.size) + "/7", 10, Gdx.graphics.getHeight() - 10);
-        batch.end();
+    // Document count is displayed by the UI (Scene2D) in GameScreen to avoid duplicate HUD renders
         
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         

@@ -366,17 +366,8 @@ public class GameScreen implements Screen {
 
     private void drawText() {
         game.batch.begin();
-        game.font.draw(game.batch, "Documents: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments(), 
-            50, Gdx.graphics.getHeight() - 20);
-        
-        // Format time as MM:SS
-        int minutes = (int) (remainingTime / 60);
-        int seconds = (int) (remainingTime % 60);
-        String timeText = String.format("Time: %d:%02d", minutes, seconds);
-        game.font.draw(game.batch, timeText, 
-            Gdx.graphics.getWidth() - 150, Gdx.graphics.getHeight() - 20);
-        
-        // Show instructions
+        // HUD (documents/time) is handled by the Scene2D UI (docsLabel/timeLabel).
+        // Keep only debug/instructional text here to avoid duplicating the HUD.
         game.font.draw(game.batch, "WASD/Arrows: Move | SPACE: Dash | P: Pause", 
             50, Gdx.graphics.getHeight() - 40);
         game.batch.end();
