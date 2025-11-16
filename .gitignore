@@ -1,4 +1,25 @@
-# Gradle files
+/# Gradle build and IDE artifacts
+/build/
+/.gradle/
+
+# Compiled class files
+*.class
+
+# JARs and distributions
+*.jar
+build/libs/
+build/distributions/
+
+# IntelliJ / IDEA
+/.idea/
+*.iml
+
+# OS files
+.DS_Store
+
+# Misc
+/out/
+bin/# Gradle files
 .gradle/
 .gradle-wrapper/
 build/
