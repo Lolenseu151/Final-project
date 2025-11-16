@@ -1,17 +1,19 @@
 package com.mygdx.game;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
@@ -20,18 +22,13 @@ import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
 public class GameScreen implements Screen {
     
-    /**
-     * Game State Enum - Controls the flow of the game
-     */
     public enum GameState {
-        RUNNING,    // Game is actively running
-        PAUSED,     // Game is paused (no updates)
-        GAMEOVER    // Game has ended (time ran out or player died)
+        RUNNING,
+        PAUSED,
+        GAMEOVER
     }
     
     private final MyGdxGame game;
-    private final ShapeRenderer shapeRenderer;
-    // Scene2D UI
     private Stage uiStage;
     private Skin uiSkin;
     private Table uiRoot;
@@ -40,46 +37,45 @@ public class GameScreen implements Screen {
     private boolean uiDebug = false;
     private HotReloadService uiWatcher;
     
-    // Entity Management - Role 5
-    private final Fixer fixer;              // The player (Physics role)
-    private final LevelManager levelManager; // Level management (Role 3)
+    private final LevelManager levelManager;
     
-    private float remainingTime = 180; // 180 seconds (3 minutes) game time
+    private float remainingTime = 180;
     
-    // Fixed time-step constants for consistent physics
-    private static final float FIXED_TIME_STEP = 1/60f; // 60 FPS physics update
+    private static final float FIXED_TIME_STEP = 1/60f;
     private float accumulator = 0f;
     
-    // State management
     private GameState currentState = GameState.RUNNING;
-    private boolean pKeyWasPressed = false; // For toggle detection
+    private boolean pKeyWasPressed = false;
+
+    private OrthographicCamera camera;
+    private ShapeRenderer shapeRenderer;
+    private Fixer fixer;
 
     public GameScreen(MyGdxGame game) {
         this.game = game;
-        this.shapeRenderer = new ShapeRenderer();
-        
-        // Initialize entities - Entity Management (Role 5)
-        this.fixer = new Fixer(100, 100);
         this.levelManager = new LevelManager();
-        
-        // Initialize UI (Scene2D) with optional hot-reload
         initUi();
         Gdx.app.log("GameScreen", "Entity Management initialized: Fixer + LevelManager");
     }
 
     @Override
+    public void show() {
+        camera = new OrthographicCamera();
+        camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        shapeRenderer = new ShapeRenderer();
+        shapeRenderer.setAutoShapeType(true);
+        fixer = new Fixer(100f, 100f);
+    }
+
+    @Override
     public void render(float delta) {
-        // Handle input for state changes (always check, even when paused)
         handleInput();
         
-        // Only update game logic if RUNNING
         if (currentState == GameState.RUNNING) {
-            // Cap delta to prevent "spiral of death" on very slow frames
             if (delta > 0.25f) {
                 delta = 0.25f;
             }
             
-            // Fixed time-step update loop
             accumulator += delta;
             while (accumulator >= FIXED_TIME_STEP) {
                 update(FIXED_TIME_STEP);
@@ -87,15 +83,16 @@ public class GameScreen implements Screen {
             }
         }
         
-        // Always render (so we can see paused/game over screens)
+        if (camera != null) {
+            camera.update();
+            if (shapeRenderer != null) shapeRenderer.setProjectionMatrix(camera.combined);
+            if (game != null && game.batch != null) game.batch.setProjectionMatrix(camera.combined);
+        }
+
         renderGame();
     }
     
-    /**
-     * Handles input for state management (pause, resume, restart)
-     */
     private void handleInput() {
-        // Toggle pause with P key (only when not game over)
         boolean pKeyIsPressed = Gdx.input.isKeyPressed(Input.Keys.P);
         
         if (pKeyIsPressed && !pKeyWasPressed && currentState != GameState.GAMEOVER) {
@@ -110,18 +107,15 @@ public class GameScreen implements Screen {
         
         pKeyWasPressed = pKeyIsPressed;
         
-        // Press R to restart when game over
         if (currentState == GameState.GAMEOVER && Gdx.input.isKeyJustPressed(Input.Keys.R)) {
             restartGame();
         }
         
-        // Press ESC or Q to return to main menu when game over
         if (currentState == GameState.GAMEOVER && 
             (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.Q))) {
             game.setScreen(new MainMenuScreen(game));
         }
 
-        // UI debug and hot-reload shortcuts
         if (Gdx.input.isKeyJustPressed(Input.Keys.F6)) {
             uiDebug = !uiDebug;
             if (uiStage != null) uiStage.setDebugAll(uiDebug);
@@ -131,27 +125,16 @@ public class GameScreen implements Screen {
         }
     }
     
-    /**
-     * Main game update method - called at fixed intervals for consistent physics.
-     * This ensures the game runs the same on all machines regardless of frame rate.
-     * 
-     * Entity Management (Role 5): Manages the update flow for all entities
-     * 
-     * @param deltaTime Fixed time step (1/60th of a second = ~0.0167 seconds)
-     */
     private void update(float deltaTime) {
-        // Update entities in correct order (Role 5 - Entity Management)
-        fixer.update(deltaTime);                              // Update player (Physics role)
-        float timePenalty = levelManager.update(deltaTime, fixer); // Update level (Role 3)
-        updateTime(deltaTime, timePenalty);                   // Update game timer
-        // Update UI stage and labels
+        fixer.update(deltaTime);
+        float timePenalty = levelManager.update(deltaTime, fixer);
+        updateTime(deltaTime, timePenalty);
+        
         if (uiStage != null) {
-            // Auto-reload when assets change (desktop only)
             if (uiWatcher != null && uiWatcher.pollReload()) {
                 Gdx.app.log("UI", "Detected UI asset change. Reloading...");
                 reloadUi();
             }
-            // Keep labels in sync
             if (docsLabel != null) {
                 docsLabel.setText("Documents: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments());
             }
@@ -163,79 +146,92 @@ public class GameScreen implements Screen {
             uiStage.act(deltaTime);
         }
         
-        // Check win condition
         if (levelManager.isLevelComplete()) {
-            currentState = GameState.GAMEOVER; // Reuse game over for win (can add WIN state later)
+            currentState = GameState.GAMEOVER;
             Gdx.app.log("GameScreen", "YOU WIN! All documents shredded!");
         }
     }
     
-    /**
-     * Handles all rendering - called at variable frame rate.
-     * Separating update and render ensures smooth visuals on high refresh rate monitors.
-     * 
-     * Entity Management (Role 5): Manages the render flow for all entities
-     */
-    private void renderGame() {
-        // Clear screen
+    public void renderGame() {
         Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // Enable blending for alpha
+        // Set up blending once for the whole render cycle
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
-        // Render entities in correct order (Role 5 - Entity Management)
-        levelManager.render(shapeRenderer, game.batch, game.font);  // Render level elements first (Role 3)
-        fixer.render(shapeRenderer);         // Render player on top (Physics role)
-    drawText();                          // Render debug text last (kept for now)
-    if (uiStage != null) uiStage.draw();
+        // --- PHASE 1: SPRITE DRAWING (SpriteBatch) ---
+        game.batch.begin();
+
+        // 1. Draw Level Sprites 
+        // NOTE: The original `levelManager.render` is likely an anti-pattern if it calls 
+        // shapeRenderer.begin/end internally. If you see rendering issues with the level, 
+        // you should split `levelManager.render` into `drawSprites` and `drawDebug`.
+        levelManager.render(shapeRenderer, game.batch, game.font); 
+
+        // 2. Draw Fixer Sprite (DRAW FIRST)
+        if (fixer != null) {
+            // Replaced problematic fixer.render() with the correct fixer.draw()
+            fixer.draw(game.batch); 
+        }
+
+        // 3. Draw Game Info Text (No batch.begin/end inside this method now)
+        drawGameInfoTextContent(); 
         
-        // Draw state-specific overlays
+        game.batch.end();
+        // --- END SPRITE DRAWING ---
+
+        // --- PHASE 2: DEBUG SHAPE DRAWING (ShapeRenderer) ---
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+
+        // 4. Draw Fixer Debug Box (DRAW LAST to appear over the sprite)
+        if (fixer != null) {
+            fixer.renderDebug(shapeRenderer); // <--- Use the new renderDebug method
+        }
+
+        // You may need to draw level debug shapes here if levelManager.render() was only drawing sprites.
+
+        shapeRenderer.end();
+        // --- END DEBUG SHAPE DRAWING ---
+
+        // --- PHASE 3: UI Stage and Overlays ---
+        if (uiStage != null) uiStage.draw();
+
         if (currentState == GameState.PAUSED) {
             drawPausedOverlay();
         } else if (currentState == GameState.GAMEOVER) {
             drawGameOverOverlay();
         }
 
-        // Disable blending
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
     
-    /**
-     * Draws semi-transparent overlay for paused state
-     */
     private void drawPausedOverlay() {
+        // This method correctly handles its own ShapeRenderer and SpriteBatch calls.
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0, 0, 0, 0.5f); // Semi-transparent black
+        shapeRenderer.setColor(0, 0, 0, 0.5f);
         shapeRenderer.rect(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         shapeRenderer.end();
         
         game.batch.begin();
-        String pausedText = "PAUSED";
-        String instructionText = "Press P to Resume";
-        
-        // Center the text
-        game.font.draw(game.batch, pausedText, 
+        game.font.draw(game.batch, "PAUSED", 
             Gdx.graphics.getWidth() / 2 - 40, 
             Gdx.graphics.getHeight() / 2 + 20);
-        game.font.draw(game.batch, instructionText, 
+        game.font.draw(game.batch, "Press P to Resume", 
             Gdx.graphics.getWidth() / 2 - 80, 
             Gdx.graphics.getHeight() / 2 - 20);
         game.batch.end();
     }
     
-    /**
-     * Draws game over overlay
-     */
     private void drawGameOverOverlay() {
+        // This method correctly handles its own ShapeRenderer and SpriteBatch calls.
         boolean isWin = levelManager.isLevelComplete();
         
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         if (isWin) {
-            shapeRenderer.setColor(0, 0.5f, 0, 0.6f); // Semi-transparent green for win
+            shapeRenderer.setColor(0, 0.5f, 0, 0.6f);
         } else {
-            shapeRenderer.setColor(0.5f, 0, 0, 0.6f); // Semi-transparent red for loss
+            shapeRenderer.setColor(0.5f, 0, 0, 0.6f);
         }
         shapeRenderer.rect(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         shapeRenderer.end();
@@ -245,7 +241,6 @@ public class GameScreen implements Screen {
         String scoreText = "Documents Shredded: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments();
         String restartText = "Press R to Restart | ESC/Q for Main Menu";
         
-        // Center the text
         game.font.draw(game.batch, gameOverText, 
             Gdx.graphics.getWidth() / 2 - (isWin ? 80 : 50), 
             Gdx.graphics.getHeight() / 2 + 40);
@@ -258,9 +253,6 @@ public class GameScreen implements Screen {
         game.batch.end();
     }
     
-    /**
-     * Restarts the game to initial state
-     */
     private void restartGame() {
         currentState = GameState.RUNNING;
         remainingTime = 180;
@@ -270,30 +262,24 @@ public class GameScreen implements Screen {
         Gdx.app.log("GameScreen", "Game RESTARTED");
     }
 
-    // --- UI (Scene2D) and Hot Reload ---
     private void initUi() {
         uiStage = new Stage(new ScreenViewport(), game.batch);
-        // Prefer loading a skin from local files during development for hot-reload
         loadSkinOrFallback();
         rebuildUi();
 
-        // Only enable watcher on desktop to avoid platform issues
         if (Gdx.app.getType().name().equals("Desktop")) {
-            // Watch the default dev folder for skin and layout assets
             uiWatcher = new HotReloadService("assets/ui");
         }
     }
 
     private void loadSkinOrFallback() {
         try {
-            // Try local disk first for dev-time hot reload
             if (Gdx.files.local("assets/ui/uiskin.json").exists()) {
                 if (uiSkin != null) uiSkin.dispose();
                 uiSkin = new Skin(Gdx.files.local("assets/ui/uiskin.json"));
                 Gdx.app.log("UI", "Loaded skin from assets/ui/uiskin.json");
                 return;
             }
-            // Fallback to classpath internal skin if provided
             if (Gdx.files.internal("ui/uiskin.json").exists()) {
                 if (uiSkin != null) uiSkin.dispose();
                 uiSkin = new Skin(Gdx.files.internal("ui/uiskin.json"));
@@ -303,7 +289,6 @@ public class GameScreen implements Screen {
         } catch (Exception e) {
             Gdx.app.error("UI", "Error loading skin JSON, falling back to minimal skin", e);
         }
-        // Last resort: build a minimal programmatic skin so UI still works
         buildFallbackSkin();
         Gdx.app.log("UI", "Using minimal programmatic skin (no external files found)");
     }
@@ -311,9 +296,7 @@ public class GameScreen implements Screen {
     private void buildFallbackSkin() {
         if (uiSkin != null) uiSkin.dispose();
         uiSkin = new Skin();
-        // Default font from game
         uiSkin.add("default-font", new BitmapFont());
-        // 1x1 white texture for simple backgrounds
         Pixmap pm = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pm.setColor(1, 1, 1, 1);
         pm.fill();
@@ -321,7 +304,6 @@ public class GameScreen implements Screen {
         pm.dispose();
         uiSkin.add("white", tex);
         Drawable bg = new TextureRegionDrawable(new TextureRegion(tex));
-        // Basic LabelStyle
         Label.LabelStyle ls = new Label.LabelStyle();
         ls.font = uiSkin.getFont("default-font");
         uiSkin.add("default", ls);
@@ -335,7 +317,6 @@ public class GameScreen implements Screen {
         } else {
             uiRoot.clear();
         }
-        // Top HUD row: documents and time
         docsLabel = new Label("Documents: 0/0", uiSkin);
         timeLabel = new Label("Time: 0:00", uiSkin);
         Table top = new Table(uiSkin);
@@ -355,7 +336,7 @@ public class GameScreen implements Screen {
 
     private void updateTime(float delta, float timePenalty) {
         remainingTime -= delta;
-        remainingTime -= timePenalty; // Apply penalties from Auditor Beams
+        remainingTime -= timePenalty;
         
         if (remainingTime <= 0) {
             remainingTime = 0;
@@ -364,56 +345,49 @@ public class GameScreen implements Screen {
         }
     }
 
-    private void drawText() {
-        game.batch.begin();
+    // RENAMED and MODIFIED: Removed batch.begin/end to allow calling within the main batch block
+    private void drawGameInfoTextContent() {
+        // game.batch.begin(); // <-- REMOVED
         game.font.draw(game.batch, "Documents: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments(), 
             50, Gdx.graphics.getHeight() - 20);
         
-        // Format time as MM:SS
         int minutes = (int) (remainingTime / 60);
         int seconds = (int) (remainingTime % 60);
         String timeText = String.format("Time: %d:%02d", minutes, seconds);
         game.font.draw(game.batch, timeText, 
             Gdx.graphics.getWidth() - 150, Gdx.graphics.getHeight() - 20);
         
-        // Show instructions
         game.font.draw(game.batch, "WASD/Arrows: Move | SPACE: Dash | P: Pause", 
             50, Gdx.graphics.getHeight() - 40);
-        game.batch.end();
-    }
-
-    @Override
-    public void show() {
+        // game.batch.end(); // <-- REMOVED
     }
 
     @Override
     public void resize(int width, int height) {
-        // Update UI stage viewport so Scene2D UI reflows to new window size
         if (uiStage != null) uiStage.getViewport().update(width, height, true);
-
-        // Update projection matrices for batch and shape renderer so world coordinates
-        // map to the new window size (prevents zooming when resizing)
-        Matrix4 proj = new Matrix4().setToOrtho2D(0, 0, width, height);
-        game.batch.setProjectionMatrix(proj);
-        shapeRenderer.setProjectionMatrix(proj);
+        if (camera != null) {
+            camera.viewportWidth = width;
+            camera.viewportHeight = height;
+            camera.update();
+        }
     }
 
     @Override
-    public void pause() {
-    }
+    public void hide() { }
 
     @Override
-    public void resume() {
-    }
+    public void pause() { }
 
     @Override
-    public void hide() {
-    }
+    public void resume() { }
 
     @Override
     public void dispose() {
-        shapeRenderer.dispose();
-        if (uiWatcher != null) uiWatcher.dispose();
+        if (shapeRenderer != null) shapeRenderer.dispose();
+        if (fixer != null) {
+            // Fixer.dispose() exists now
+            fixer.dispose();
+        }
         if (uiStage != null) uiStage.dispose();
         if (uiSkin != null) uiSkin.dispose();
     }
