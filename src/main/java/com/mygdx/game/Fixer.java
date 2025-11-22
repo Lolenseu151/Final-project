@@ -1,427 +1,228 @@
 package com.mygdx.game;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Animation;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
-import java.io.File;
-
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 /**
- * The Fixer - The player character working for "Loloy the Crocodile"
- * Responsible for collecting incriminating documents and avoiding obstacles.
+ * Fixer: simple character controller + animation state machine.
  */
-
 public class Fixer {
+    private enum State { IDLE, RUN, JUMP, FALL, DASH }
 
-    // Physics constants
-    private static final float MOVE_SPEED = 200f;
-    private static final float JUMP_VELOCITY = 500f;
-    private static final float MAX_JUMP_HEIGHT = 200f;
-    private static final float GRAVITY = 800f;
-    private static final float FRICTION = 0.80f;
-    private static final float DASH_SPEED = 800f;
-    private static final float DASH_DURATION = 0.15f;
-    private static final float WALL_SLIDE_SPEED = -50f;
-    private static final float DASH_COOLDOWN_TIME = 1f;
+    // physics tunables
+    private static final float MOVE_ACCEL = 1500f;   // px/s^2
+    private static final float MAX_MOVE_SPEED = 220f; // px/s
+    private static final float GROUND_FRICTION = 12f; // per second
+    private static final float AIR_DRAG = 1.5f;
+    private static final float JUMP_VY = 520f;
+    private static final float GRAVITY = 1400f;
+    private static final float DASH_SPEED = 700f;
+    private static final float DASH_TIME = 0.12f;
+    private static final float WIDTH = 48f;
+    private static final float HEIGHT = 64f;
 
-    // Visual properties
-    private static final float WIDTH = 40f;
-    private static final float HEIGHT = 40f;
-    private static final float FRAME_DURATION = 0.1f;
-    private static final int FRAME_W = 48;
-    private static final int FRAME_H = 64;
-
-    // Physics and position
     private final Rectangle bounds;
-    private final Vector2 velocity;
-    private boolean isOnGround;
-    private boolean canJump;
-    private boolean isDashing;
-    private boolean isWallSliding;
-    private boolean isSlowed;
-    private float initialJumpY;
-    private float dashTimer;
-    private float dashCooldown;
+    private Vector2 velocity = new Vector2();
+    private boolean isOnGround = false;
+    private boolean canJump = true;
 
-    // Sprite and animation
-    private Texture playerSheet;
-    private Animation<TextureRegion> runAnimation;
-    private Animation<TextureRegion> idleAnimation;
-    private TextureRegion jumpFrame;
+    // animation / visuals
+    private Texture standingTex, jumpTex, runTex1, runTex2;
+    private TextureRegion standingFrame, jumpFrame, runFrame1, runFrame2;
+    private Animation<TextureRegion> runAnim;
     private TextureRegion currentFrame;
-    private float stateTimer;
+    private float stateTime = 0f;
     private boolean facingRight = true;
 
-    /**
-     * Creates a new Fixer at the specified position
-     * @param x Starting X position
-     * @param y Starting Y position
-     */
-    public Fixer(float x, float y) {
-        this.bounds = new Rectangle(x, y, WIDTH, HEIGHT);
-        this.velocity = new Vector2();
-        this.isOnGround = false;
-        this.canJump = true;
-        this.isDashing = false;
-        this.isSlowed = false;
-        this.dashTimer = 0f;
-        this.isWallSliding = false;
-        this.dashCooldown = 0f;
-        this.stateTimer = 0f;
+    // state machine
+    private State state = State.IDLE;
+    private float dashTimer = 0f;
 
-        // --- robust texture loading ---
-        Texture sheet = null;
-        try {
-            // candidate internal paths
-            String[] candidates = new String[] {
-                "MainChar.png",
-                "assets/MainChar.png",
-                "desktop/assets/MainChar.png",
-                "android/assets/MainChar.png"
-            };
+    public Fixer(float x, float y, Texture fixerTexture) {
+        bounds = new Rectangle(x, y, WIDTH, HEIGHT);
 
-            FileHandle fh = null;
-            for (String c : candidates) {
-                FileHandle trial = Gdx.files.internal(c);
-                Gdx.app.log("Fixer", "trying internal candidate: " + c + " exists=" + trial.exists());
-                if (trial.exists()) {
-                    fh = trial;
-                    break;
-                }
-            }
+        // try load assets (several candidate names)
+        standingTex = safeLoad("Standing.png", "standing.png", "assets/Standing.png");
+        jumpTex = safeLoad("Jump.png", "jumping.png", "assets/jumping.png");
+        runTex1 = safeLoad("Run1.png", "running1.png", "assets/running1.png");
+        runTex2 = safeLoad("Run2.png", "running2.png", "running 2.png", "assets/running 2.png");
 
-            // try absolute fallback (useful when running from IDE where working dir differs)
-            if (fh == null) {
-                File abs = new File("assets/MainChar.png");
-                if (abs.exists()) {
-                    Gdx.app.log("Fixer", "found absolute candidate: " + abs.getAbsolutePath());
-                    fh = Gdx.files.absolute(abs.getAbsolutePath());
-                } else {
-                    // explicit project-root fallback
-                    File rootAbs = new File("C:\\GameDev\\Final-project\\assets\\MainChar.png");
-                    if (rootAbs.exists()) {
-                        fh = Gdx.files.absolute(rootAbs.getAbsolutePath());
-                        Gdx.app.log("Fixer", "found explicit fallback: " + rootAbs.getAbsolutePath());
-                    }
-                }
-            }
+        if (standingTex != null) standingFrame = new TextureRegion(standingTex);
+        if (jumpTex != null) jumpFrame = new TextureRegion(jumpTex);
+        if (runTex1 != null) runFrame1 = new TextureRegion(runTex1);
+        if (runTex2 != null) runFrame2 = new TextureRegion(runTex2);
 
-            if (fh == null) {
-                throw new RuntimeException("MainChar.png not found in candidate locations");
-            }
+        // fallback to shared texture if provided
+        if (standingFrame == null && fixerTexture != null) standingFrame = new TextureRegion(fixerTexture);
 
-            sheet = new Texture(fh);
-            Gdx.app.log("Fixer", "Loaded sprite sheet: " + sheet.getWidth() + "x" + sheet.getHeight());
-        } catch (Exception e) {
-            Gdx.app.error("Fixer", "Failed to load animations", e);
-            sheet = null;
+        if (runFrame1 != null && runFrame2 != null) runAnim = new Animation<>(0.11f, runFrame1, runFrame2);
+
+        // set initial frame
+        currentFrame = (standingFrame != null) ? standingFrame : (runFrame1 != null ? runFrame1 : jumpFrame);
+        Gdx.app.log("Fixer", "Init frames: standing=" + (standingFrame!=null) + " run=" + (runAnim!=null) + " jump=" + (jumpFrame!=null));
+    }
+
+    private Texture safeLoad(String... candidates) {
+        for (String c : candidates) {
+            try {
+                FileHandle fh = Gdx.files.internal(c);
+                if (fh.exists()) return new Texture(fh);
+                fh = Gdx.files.absolute(c);
+                if (fh.exists()) return new Texture(fh);
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    public void update(float delta) {
+        stateTime += delta;
+
+        // input + state transitions (dash has priority)
+        boolean left = Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A);
+        boolean right = Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.D);
+        boolean jumpPressed = Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W);
+        boolean dashPressed = Gdx.input.isKeyJustPressed(Input.Keys.SPACE);
+
+        // dash handling
+        if (dashPressed && dashTimer <= 0f) {
+            dashTimer = DASH_TIME;
+            state = State.DASH;
+            // dash in facing direction; if standing, prefer right
+            float dir = (velocity.x != 0) ? Math.signum(velocity.x) : (facingRight ? 1f : -1f);
+            velocity.x = dir * DASH_SPEED;
+            velocity.y = 0;
+            canJump = false;
         }
 
-        // --- safe split & animation creation (guard indexes) ---
-        if (sheet != null) {
-            try {
-                TextureRegion[][] tmp = TextureRegion.split(sheet, FRAME_W, FRAME_H);
-                if (tmp != null && tmp.length > 0 && tmp[0].length > 0) {
-                    // safe guards: check rows/cols exist before accessing
-                    if (tmp[0].length > 0) idleAnimation = new Animation<>(FRAME_DURATION, tmp[0][0]);
-                    if (tmp[0].length > 2) {
-                        // example: run uses frames 1..2 if available
-                        runAnimation = new Animation<>(FRAME_DURATION, tmp[0][1], tmp[0][2]);
-                    }
-                    if (tmp[0].length > 3) jumpFrame = tmp[0][3];
-                    // set a sensible currentFrame fallback
-                    if (idleAnimation != null) currentFrame = idleAnimation.getKeyFrame(0f);
-                    else if (tmp[0].length > 0) currentFrame = tmp[0][0];
-                    else currentFrame = new TextureRegion(sheet);
-                } else {
-                    Gdx.app.error("Fixer", "Sprite split produced no frames; using full texture");
-                    currentFrame = new TextureRegion(sheet);
-                }
-                playerSheet = sheet;
-            } catch (Exception e) {
-                Gdx.app.error("Fixer", "Error while splitting/creating animations", e);
-                playerSheet = sheet;
-                currentFrame = new TextureRegion(sheet);
+        if (dashTimer > 0f) {
+            dashTimer -= delta;
+            if (dashTimer <= 0f) {
+                // end dash, resume to fall/run or idle
+                if (!isOnGround) state = State.FALL;
+                else state = (Math.abs(velocity.x) > 1f) ? State.RUN : State.IDLE;
             }
         } else {
-            // no sheet loaded -> keep currentFrame null and rely on debug rect fallback
-            playerSheet = null;
-            currentFrame = null;
-        }
-        // --- end robust loading ---
+            // normal movement
+            float accel = 0f;
+            if (left) accel -= MOVE_ACCEL;
+            if (right) accel += MOVE_ACCEL;
 
-        // other initialization as needed...
-    }
+            // apply horizontal accel
+            velocity.x += accel * delta;
 
-    /**
-     * Updates the Fixer's physics and state, and selects the current animation frame.
-     * @param deltaTime Time since last update (in seconds)
-     */
-    public void update(float deltaTime) {
-        stateTimer += deltaTime;
-
-        if (dashCooldown > 0) {
-            dashCooldown -= deltaTime;
-        }
-
-        handleInput(deltaTime);
-        applyPhysics(deltaTime);
-        updatePosition(deltaTime);
-        checkBounds();
-
-        // Select animation frame based on state
-        TextureRegion regionToUse;
-        if (velocity.y != 0) { // Airborne (Jumping or Falling)
-            regionToUse = jumpFrame;
-        } else if (Math.abs(velocity.x) > 0) { // Moving Horizontally (Running)
-            regionToUse = runAnimation.getKeyFrame(stateTimer, true);
-        } else { // Static (Idle)
-            regionToUse = idleAnimation.getKeyFrame(stateTimer, true);
-        }
-
-        // Handle sprite flipping (MUST clone the region to flip correctly without affecting the original in the array)
-        TextureRegion currentRegion = new TextureRegion(regionToUse);
-
-        if (velocity.x < 0 && facingRight) {
-            facingRight = false;
-            if (!currentRegion.isFlipX()) {
-                 currentRegion.flip(true, false);
-            }
-        } else if (velocity.x > 0 && !facingRight) {
-            facingRight = true;
-            if (currentRegion.isFlipX()) {
-                 currentRegion.flip(true, false);
-            }
-        } 
-        // Ensure that if the player is idle but facing left, they still look left.
-        else if (!facingRight && !currentRegion.isFlipX()) {
-             currentRegion.flip(true, false);
-        }
-
-        currentFrame = currentRegion;
-    }
-
-    /**
-     * Handles player input for movement and actions
-     */
-    private void handleInput(float deltaTime) {
-        if (isDashing) {
-            dashTimer -= deltaTime;
-            if (dashTimer <= 0) {
-                isDashing = false;
-            }
-        }
-
-        // Denial Dash - Space bar (only if not already dashing)
-        if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE) && !isDashing && dashCooldown <= 0) {
-            performDash();
-            return; // Skip normal movement during dash
-        }
-
-        // Normal movement (only if not dashing)
-        if (!isDashing) {
-            // Reset horizontal velocity when no keys are pressed
-            if (!Gdx.input.isKeyPressed(Input.Keys.LEFT) &&
-                !Gdx.input.isKeyPressed(Input.Keys.RIGHT) &&
-                !Gdx.input.isKeyPressed(Input.Keys.A) &&
-                !Gdx.input.isKeyPressed(Input.Keys.D)) {
-                
-                // Only reset velocity if the player isn't moving due to friction/physics
-                if(Math.abs(velocity.x) < 50f) velocity.x = 0; 
-
-            } else {
-                // Left/Right movement with direct speed setting
-                float speedFactor = isSlowed ? 0.5f : 1f;
-                if (Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A)) {
-                    velocity.x = -MOVE_SPEED * speedFactor;
-                }
-                if (Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.D)) {
-                    velocity.x = MOVE_SPEED * speedFactor;
-                }
+            // clamp speed when not dashing
+            if (Math.abs(velocity.x) > MAX_MOVE_SPEED && state != State.DASH) {
+                velocity.x = Math.signum(velocity.x) * MAX_MOVE_SPEED;
             }
 
-            // Jump - Up arrow or W (only if on ground)
-            if ((Gdx.input.isKeyPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.W))
-                && isOnGround && canJump) {
-                velocity.y = JUMP_VELOCITY;
+            // friction / drag
+            if (accel == 0f) {
+                float drag = isOnGround ? GROUND_FRICTION : AIR_DRAG;
+                // approximate exponential friction
+                velocity.x -= velocity.x * Math.min(1f, drag * delta);
+                if (Math.abs(velocity.x) < 4f) velocity.x = 0f;
+            }
+
+            // jumping
+            if (jumpPressed && isOnGround && canJump) {
+                velocity.y = JUMP_VY;
                 isOnGround = false;
                 canJump = false;
-                initialJumpY = bounds.y;
-                Gdx.app.log("Fixer", "Jump initiated");
+                state = State.JUMP;
             }
         }
-    }
 
-    /**
-     * Performs the Denial Dash - a quick burst of speed
-     */
-    private void performDash() {
-        if (dashCooldown <= 0) {
-            isDashing = true;
-            dashTimer = DASH_DURATION;
-            dashCooldown = DASH_COOLDOWN_TIME;
-            
-            // Dash direction based on last movement or default right
-            float dashDirection = (velocity.x != 0) ? Math.signum(velocity.x) : (facingRight ? 1f : -1f);
-            velocity.x = dashDirection * DASH_SPEED;
-            velocity.y = 0; // Prevent vertical movement while dashing
-            Gdx.app.log("Fixer", "Denial Dash!");
+        // gravity
+        if (state != State.DASH) velocity.y -= GRAVITY * delta;
+
+        // update position
+        bounds.x += velocity.x * delta;
+        bounds.y += velocity.y * delta;
+
+        // simple ground check fallback (LevelManager should call setOnGround(true) when colliding)
+        if (bounds.y <= 0f) {
+            bounds.y = 0f;
+            velocity.y = 0f;
+            isOnGround = true;
+            canJump = true;
+        }
+
+        // compute state from velocities (if not dashing)
+        if (dashTimer <= 0f) {
+            if (!isOnGround) {
+                state = (velocity.y > 0) ? State.JUMP : State.FALL;
+            } else {
+                state = (Math.abs(velocity.x) > 6f) ? State.RUN : State.IDLE;
+            }
+        }
+
+        // facing
+        if (velocity.x < -1f) facingRight = false;
+        else if (velocity.x > 1f) facingRight = true;
+
+        // animation selection
+        TextureRegion next = currentFrame;
+        switch (state) {
+            case JUMP:
+            case FALL:
+                if (jumpFrame != null) next = jumpFrame;
+                break;
+            case RUN:
+                if (runAnim != null) next = runAnim.getKeyFrame(stateTime, true);
+                break;
+            case DASH:
+            case IDLE:
+            default:
+                if (standingFrame != null) next = standingFrame;
+                break;
+        }
+
+        if (next != null) {
+            // ensure flip matches facing
+            boolean wantFlip = !facingRight;
+            if (next.isFlipX() != wantFlip) next.flip(true, false);
+            currentFrame = next;
         }
     }
 
-    /**
-     * Applies physics (gravity, friction)
-     */
-    private void applyPhysics(float deltaTime) {
-        // Limit jump height
-        if (!isOnGround && !canJump && bounds.y - initialJumpY >= MAX_JUMP_HEIGHT) {
-            velocity.y = Math.min(velocity.y, 0);
-        }
-        // Apply gravity
-        velocity.y -= GRAVITY * deltaTime;
-
-        // Apply friction only in the air or during dash
-        if (!isOnGround || isDashing) {
-            velocity.x *= FRICTION;
-        }
-
-        // Apply wall slide
-        if (isWallSliding) {
-            velocity.y = Math.max(velocity.y, WALL_SLIDE_SPEED);
-        }
-    }
-
-    /**
-     * Updates position based on velocity
-     */
-    private void updatePosition(float deltaTime) {
-        bounds.x += velocity.x * deltaTime;
-        bounds.y += velocity.y * deltaTime;
-    }
-
-    /**
-     * Checks and enforces screen boundaries
-     */
-    private void checkBounds() {
-        // Left/Right boundaries
-        if (bounds.x < 0) {
-            bounds.x = 0;
-            velocity.x = 0;
-        }
-        if (bounds.x > Gdx.graphics.getWidth() - bounds.width) {
-            bounds.x = Gdx.graphics.getWidth() - bounds.width;
-            velocity.x = 0;
-        }
-
-        // Bottom boundary (fall off the level - reset position)
-        if (bounds.y < -100) {
-            bounds.y = 100; // Respawn at safe height
-            velocity.y = 0;
-            Gdx.app.log("Fixer", "Fell off level! Respawning...");
-        }
-
-        // Ceiling collision
-        if (bounds.y > Gdx.graphics.getHeight() - bounds.height) {
-            bounds.y = Gdx.graphics.getHeight() - bounds.height;
-            velocity.y = 0;
-        }
-
-        // Check for wall sliding
-        isWallSliding = (bounds.x <= 0 || bounds.x >= Gdx.graphics.getWidth() - bounds.width)
-            && !isOnGround && velocity.y < 0;
-    }
-
-    // --- Rendering Methods ---
-
-    /**
-     * Draws the Fixer's current animation frame using the game's SpriteBatch.
-     * @param batch The game's central SpriteBatch.
-     */
     public void draw(SpriteBatch batch) {
-        if (batch != null && currentFrame != null) {
+        if (batch == null) return;
+        if (currentFrame != null) {
             batch.draw(currentFrame, bounds.x, bounds.y, bounds.width, bounds.height);
         }
     }
 
-    /**
-     * Renders the Fixer's collision box for debugging.
-     * @param shapeRenderer The ShapeRenderer object (should be used inside a begin/end block in GameScreen)
-     */
-    public void renderDebug(ShapeRenderer shapeRenderer) {
-        if (shapeRenderer == null) return;
-        shapeRenderer.setColor(1, 0, 1, 0.5f);
-        shapeRenderer.rect(bounds.x, bounds.y, bounds.width, bounds.height);
-    }
-
-    // --- Utility Methods ---
-
-    /**
-     * Disposes of the texture to free up memory. Called from GameScreen.dispose().
-     */
-    public void dispose() {
-        if (playerSheet != null) {
-            playerSheet.dispose();
+    public void renderDebug(ShapeRenderer sr) {
+        if (sr == null) return;
+        if (currentFrame == null) {
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            sr.setColor(1, 0, 1, 1);
+            sr.rect(bounds.x, bounds.y, bounds.width, bounds.height);
+            sr.end();
         }
     }
 
-    /**
-     * Resets the Fixer to initial state
-     * @param x Starting X position
-     * @param y Starting Y position
-     */
-    public void reset(float x, float y) {
-        bounds.setPosition(x, y);
-        velocity.set(0, 0);
-        isOnGround = false;
-        canJump = true;
-        isDashing = false;
-        dashTimer = 0f;
-        isWallSliding = false;
-        dashCooldown = 0f;
+    public void dispose() {
+        if (standingTex != null) { standingTex.dispose(); standingTex = null; }
+        if (jumpTex != null) { jumpTex.dispose(); jumpTex = null; }
+        if (runTex1 != null) { runTex1.dispose(); runTex1 = null; }
+        if (runTex2 != null) { runTex2.dispose(); runTex2 = null; }
     }
 
-    // Getters
+    // LevelManager interaction helpers
     public Rectangle getBounds() { return bounds; }
     public Vector2 getVelocity() { return velocity; }
-    public float getX() { return bounds.x; }
-    public float getY() { return bounds.y; }
-    public boolean isOnGround() { return isOnGround; }
-    public boolean isDashing() { return isDashing; }
-    public boolean isWallSliding() { return isWallSliding; }
-    public TextureRegion getCurrentFrame() {
-        return currentFrame;
-    }
-
-    // public render method used by GameScreen (uses provided SpriteBatch)
-    public void render(ShapeRenderer shapeRenderer, SpriteBatch batch) {
-        if (batch != null && currentFrame != null) {
-            batch.begin();
-            batch.draw(currentFrame, bounds.x, bounds.y, bounds.width, bounds.height);
-            batch.end();
-            return;
-        }
-        // fallback debug rect
-        if (shapeRenderer != null) {
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-            shapeRenderer.setColor(1, 0, 1, 0.5f);
-            shapeRenderer.rect(bounds.x, bounds.y, bounds.width, bounds.height);
-            shapeRenderer.end();
-        }
-    }
-
-    // Setters (for external physics/collision)
-    public void setOnGround(boolean onGround) {
-        this.isOnGround = onGround;
-        if (onGround) this.canJump = true;
-    }
-    public void setVelocityY(float vy) { velocity.y = vy; }
-    public void setVelocityX(float vx) { velocity.x = vx; }
-    public void setSlowed(boolean slowed) { this.isSlowed = slowed; }
+    public void setOnGround(boolean onGround) { this.isOnGround = onGround; if (onGround) { canJump = true; } }
+    public void setSlowed(boolean slowed) { /* keep for compatibility */ }
+    public void setVelocityY(float vy) { this.velocity.y = vy; }
+    public void setVelocityX(float vx) { this.velocity.x = vx; }
+    public void reset(float x, float y) { bounds.setPosition(x, y); velocity.set(0,0); stateTime = 0f; isOnGround = false; canJump = true; }
 }

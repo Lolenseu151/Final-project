@@ -6,6 +6,8 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
+import java.util.List;
+import java.util.ArrayList;
 
 /**
  * LevelManager - Manages all level elements including obstacles, documents, and shredders
@@ -420,4 +422,14 @@ public class LevelManager {
     public int getTotalDocuments() { return totalDocuments; }
     public boolean isLevelComplete() { return levelComplete; }
     public int getDocumentsRemaining() { return totalDocuments - documentsCollected; }
+    
+    // Return copies or an unmodifiable list of collision/doc rectangles for debugging
+    public List<Rectangle> getAllDebugRects() {
+        List<Rectangle> out = new ArrayList<>();
+        // example: add platform rects, doc rects, obstacle rects, beam rects
+        // for (Platform p : platforms) out.add(new Rectangle(p.x, p.y, p.width, p.height));
+        // for (Document d : documents) out.add(new Rectangle(d.x, d.y, d.width, d.height));
+        // ...
+        return out;
+    }
 }

@@ -5,21 +5,17 @@ plugins {
 
 repositories {
     mavenCentral()
-    // LibGDX Releases Repository
-    maven { url "https://oss.sonatype.org/content/repositories/releases/" } 
-    // FIX: Added LibGDX Snapshots Repository - sometimes dependencies end up here
-    maven { url "https://oss.sonatype.org/content/repositories/snapshots/" } 
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-    }
-}
 
-project.ext.gdxVersion = "1.11.0"
+
+
+ext {
+    gdxVersion = '1.12.0' 
+}
 
 dependencies {
+<<<<<<< HEAD
     implementation "com.badlogicgames.gdx:gdx:$gdxVersion"
     implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
 <<<<<<< HEAD
@@ -37,26 +33,22 @@ dependencies {
     // For debugging
     implementation 'org.slf4j:slf4j-api:2.0.9'
     implementation 'ch.qos.logback:logback-classic:1.4.11'
+=======
+    implementation "com.badlogicgames.gdx:gdx:1.12.0"
+    implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:1.12.0"
+    implementation "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-desktop"
+    implementation "com.badlogicgames.gdx:gdx-freetype:1.12.0"
+    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.12.0:natives-desktop"
+>>>>>>> 3963cf6 (PLayer Sprite added)
 }
+
+
+
 
 application {
     mainClass = 'com.mygdx.game.desktop.DesktopLauncher'
 }
 
-run {
-    // Enable debug logging
-    jvmArgs = ['-Dorg.slf4j.simpleLogger.defaultLogLevel=debug']
-    
-    // For debugging
-    standardInput = System.in
-    standardOutput = System.out
-}
-
-sourceCompatibility = 17
-targetCompatibility = 17
-
-// Add debugging configuration
 tasks.withType(JavaCompile) {
-    options.debug = true
-    options.debugOptions.debugLevel = "source,lines,vars"
+    options.encoding = 'UTF-8'
 }

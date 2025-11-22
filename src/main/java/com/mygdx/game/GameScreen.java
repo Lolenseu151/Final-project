@@ -2,52 +2,51 @@ package com.mygdx.game;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.utils.viewport.ScreenViewport;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 
+/**
+ * Cleaned GameScreen: null-safe, owns fixerTexture only when loaded here,
+ * draws world sprites and UI in the correct order.
+ */
 public class GameScreen implements Screen {
-    
+
     public enum GameState {
-        RUNNING,
-        PAUSED,
-        GAMEOVER
+        RUNNING, PAUSED, GAMEOVER
     }
-    
+
     private final MyGdxGame game;
     private Stage uiStage;
     private Skin uiSkin;
     private Table uiRoot;
     private Label docsLabel;
     private Label timeLabel;
-    private boolean uiDebug = false;
-    private HotReloadService uiWatcher;
-    
+
     private final LevelManager levelManager;
-    
     private float remainingTime = 180;
-    
-    private static final float FIXED_TIME_STEP = 1/60f;
+    private static final float FIXED_TIME_STEP = 1 / 60f;
     private float accumulator = 0f;
-    
+
     private GameState currentState = GameState.RUNNING;
     private boolean pKeyWasPressed = false;
 
     private OrthographicCamera camera;
+    private Texture fixerTexture;
+    private boolean fixerTextureOwned = false; // only dispose if we loaded it
     private ShapeRenderer shapeRenderer;
     private Fixer fixer;
 
@@ -55,7 +54,6 @@ public class GameScreen implements Screen {
         this.game = game;
         this.levelManager = new LevelManager();
         initUi();
-        Gdx.app.log("GameScreen", "Entity Management initialized: Fixer + LevelManager");
     }
 
     @Override
@@ -64,25 +62,35 @@ public class GameScreen implements Screen {
         camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         shapeRenderer = new ShapeRenderer();
         shapeRenderer.setAutoShapeType(true);
-        fixer = new Fixer(100f, 100f);
+
+        // SAFE texture load (try common candidates)
+        Texture standingTexture = safeLoadTexture("Standing.png", "standing.PNG", "standing.png", "Stand.png");
+        if (standingTexture == null) {
+            Gdx.app.error("GameScreen", "Standing.png not found in assets; player will use debug fallback.");
+            fixerTextureOwned = false;
+        } else {
+            fixerTextureOwned = true;
+        }
+        fixerTexture = standingTexture;
+
+        // pass shared texture to Fixer (Fixer should NOT dispose sharedTexture if provided)
+        fixer = new Fixer(100f, 100f, fixerTexture);
     }
 
     @Override
     public void render(float delta) {
         handleInput();
-        
+
         if (currentState == GameState.RUNNING) {
-            if (delta > 0.25f) {
-                delta = 0.25f;
-            }
-            
+            if (delta > 0.25f) delta = 0.25f;
             accumulator += delta;
             while (accumulator >= FIXED_TIME_STEP) {
                 update(FIXED_TIME_STEP);
                 accumulator -= FIXED_TIME_STEP;
             }
         }
-        
+
+        // update camera and projection matrices
         if (camera != null) {
             camera.update();
             if (shapeRenderer != null) shapeRenderer.setProjectionMatrix(camera.combined);
@@ -91,234 +99,182 @@ public class GameScreen implements Screen {
 
         renderGame();
     }
-    
+
     private void handleInput() {
         boolean pKeyIsPressed = Gdx.input.isKeyPressed(Input.Keys.P);
-        
+
         if (pKeyIsPressed && !pKeyWasPressed && currentState != GameState.GAMEOVER) {
-            if (currentState == GameState.RUNNING) {
-                currentState = GameState.PAUSED;
-                Gdx.app.log("GameScreen", "Game PAUSED");
-            } else if (currentState == GameState.PAUSED) {
-                currentState = GameState.RUNNING;
-                Gdx.app.log("GameScreen", "Game RESUMED");
-            }
+            currentState = (currentState == GameState.RUNNING) ? GameState.PAUSED : GameState.RUNNING;
         }
-        
+
         pKeyWasPressed = pKeyIsPressed;
-        
+
         if (currentState == GameState.GAMEOVER && Gdx.input.isKeyJustPressed(Input.Keys.R)) {
             restartGame();
         }
-        
-        if (currentState == GameState.GAMEOVER && 
-            (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.Q))) {
-            game.setScreen(new MainMenuScreen(game));
+
+        if (currentState == GameState.GAMEOVER &&
+                (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.Q))) {
+            // If you have a main menu screen: game.setScreen(new MainMenuScreen(game));
+        }
+    }
+
+    private void update(float deltaTime) {
+        if (fixer != null) fixer.update(deltaTime);
+        float timePenalty = 0f;
+        if (levelManager != null) timePenalty = levelManager.update(deltaTime, fixer);
+        remainingTime -= (deltaTime + timePenalty);
+
+        if (remainingTime <= 0) {
+            remainingTime = 0;
+            currentState = GameState.GAMEOVER;
         }
 
-        if (Gdx.input.isKeyJustPressed(Input.Keys.F6)) {
-            uiDebug = !uiDebug;
-            if (uiStage != null) uiStage.setDebugAll(uiDebug);
+        if (docsLabel != null) docsLabel.setText("Documents: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments());
+        if (timeLabel != null) {
+            int minutes = (int) (remainingTime / 60);
+            int seconds = (int) (remainingTime % 60);
+            timeLabel.setText(String.format("Time: %d:%02d", minutes, seconds));
         }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.F5)) {
-            reloadUi();
-        }
+
+        if (levelManager.isLevelComplete()) currentState = GameState.GAMEOVER;
     }
-    
-    private void update(float deltaTime) {
-        fixer.update(deltaTime);
-        float timePenalty = levelManager.update(deltaTime, fixer);
-        updateTime(deltaTime, timePenalty);
-        
-        if (uiStage != null) {
-            if (uiWatcher != null && uiWatcher.pollReload()) {
-                Gdx.app.log("UI", "Detected UI asset change. Reloading...");
-                reloadUi();
-            }
-            if (docsLabel != null) {
-                docsLabel.setText("Documents: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments());
-            }
-            if (timeLabel != null) {
-                int minutes = (int) (remainingTime / 60);
-                int seconds = (int) (remainingTime % 60);
-                timeLabel.setText(String.format("Time: %d:%02d", minutes, seconds));
-            }
-            uiStage.act(deltaTime);
-        }
-        
-        if (levelManager.isLevelComplete()) {
-            currentState = GameState.GAMEOVER;
-            Gdx.app.log("GameScreen", "YOU WIN! All documents shredded!");
-        }
-    }
-    
-    public void renderGame() {
+
+    private void renderGame() {
         Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // Set up blending once for the whole render cycle
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        // Let LevelManager render shapes/background first
+        if (levelManager != null) levelManager.render(shapeRenderer, game.batch, game.font);
 
-        // --- PHASE 1: SPRITE DRAWING (SpriteBatch) ---
+        // Draw world sprites with a single SpriteBatch begin/end
+        if (game != null && game.batch != null) {
+            game.batch.begin();
+            // If LevelManager requires sprite drawing via batch, call its draw method here:
+            // levelManager.drawSprites(game.batch);
+            if (fixer != null) fixer.draw(game.batch);
+            game.batch.end();
+        }
+
+        // Draw HUD text (world-space) using the same projection as the camera
+        drawText();
+
+        // Draw UI stage (screen-space)
+        if (uiStage != null) {
+            uiStage.act(Math.min(Gdx.graphics.getDeltaTime(), 1/30f));
+            uiStage.draw();
+        }
+
+        if (currentState == GameState.PAUSED) drawPausedOverlay();
+        else if (currentState == GameState.GAMEOVER) drawGameOverOverlay();
+    }
+
+    private void drawText() {
+        if (game == null || game.batch == null || game.font == null) return;
+
         game.batch.begin();
-
-        // 1. Draw Level Sprites 
-        // NOTE: The original `levelManager.render` is likely an anti-pattern if it calls 
-        // shapeRenderer.begin/end internally. If you see rendering issues with the level, 
-        // you should split `levelManager.render` into `drawSprites` and `drawDebug`.
-        levelManager.render(shapeRenderer, game.batch, game.font); 
-
-        // 2. Draw Fixer Sprite (DRAW FIRST)
-        if (fixer != null) {
-            // Replaced problematic fixer.render() with the correct fixer.draw()
-            fixer.draw(game.batch); 
-        }
-
-        // 3. Draw Game Info Text (No batch.begin/end inside this method now)
-        drawGameInfoTextContent(); 
-        
+        // world-space HUD (top-left / top-right)
+        game.font.draw(game.batch, "Documents: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments(),
+                10, Gdx.graphics.getHeight() - 10);
+        int minutes = (int) (remainingTime / 60);
+        int seconds = (int) (remainingTime % 60);
+        String timeText = String.format("Time: %d:%02d", minutes, seconds);
+        game.font.draw(game.batch, timeText, Gdx.graphics.getWidth() - 120, Gdx.graphics.getHeight() - 10);
+        game.font.draw(game.batch, "WASD/Arrows: Move | SPACE: Dash | P: Pause",
+                10, Gdx.graphics.getHeight() - 30);
         game.batch.end();
-        // --- END SPRITE DRAWING ---
+    }
 
-        // --- PHASE 2: DEBUG SHAPE DRAWING (ShapeRenderer) ---
+    private void drawPausedOverlay() {
+        if (shapeRenderer == null || game == null || game.batch == null) return;
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-
-        // 4. Draw Fixer Debug Box (DRAW LAST to appear over the sprite)
-        if (fixer != null) {
-            fixer.renderDebug(shapeRenderer); // <--- Use the new renderDebug method
-        }
-
-        // You may need to draw level debug shapes here if levelManager.render() was only drawing sprites.
-
+        shapeRenderer.setColor(0f, 0f, 0f, 0.5f);
+        shapeRenderer.rect(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         shapeRenderer.end();
-        // --- END DEBUG SHAPE DRAWING ---
 
-        // --- PHASE 3: UI Stage and Overlays ---
-        if (uiStage != null) uiStage.draw();
+        if (game.font != null) {
+            String text = "PAUSED";
+            com.badlogic.gdx.graphics.g2d.GlyphLayout layout = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, text);
+            float x = (Gdx.graphics.getWidth() - layout.width) * 0.5f;
+            float y = (Gdx.graphics.getHeight() + layout.height) * 0.5f;
 
-        if (currentState == GameState.PAUSED) {
-            drawPausedOverlay();
-        } else if (currentState == GameState.GAMEOVER) {
-            drawGameOverOverlay();
+            game.batch.begin();
+            game.font.draw(game.batch, layout, x, y);
+            game.batch.end();
         }
 
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
-    
-    private void drawPausedOverlay() {
-        // This method correctly handles its own ShapeRenderer and SpriteBatch calls.
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0, 0, 0, 0.5f);
-        shapeRenderer.rect(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        shapeRenderer.end();
-        
-        game.batch.begin();
-        game.font.draw(game.batch, "PAUSED", 
-            Gdx.graphics.getWidth() / 2 - 40, 
-            Gdx.graphics.getHeight() / 2 + 20);
-        game.font.draw(game.batch, "Press P to Resume", 
-            Gdx.graphics.getWidth() / 2 - 80, 
-            Gdx.graphics.getHeight() / 2 - 20);
-        game.batch.end();
-    }
-    
+
     private void drawGameOverOverlay() {
-        // This method correctly handles its own ShapeRenderer and SpriteBatch calls.
-        boolean isWin = levelManager.isLevelComplete();
-        
+        if (shapeRenderer == null || game == null || game.batch == null) return;
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        if (isWin) {
-            shapeRenderer.setColor(0, 0.5f, 0, 0.6f);
-        } else {
-            shapeRenderer.setColor(0.5f, 0, 0, 0.6f);
-        }
+        shapeRenderer.setColor(0f, 0f, 0f, 0.6f);
         shapeRenderer.rect(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         shapeRenderer.end();
-        
-        game.batch.begin();
-        String gameOverText = isWin ? "MISSION COMPLETE!" : "GAME OVER";
-        String scoreText = "Documents Shredded: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments();
-        String restartText = "Press R to Restart | ESC/Q for Main Menu";
-        
-        game.font.draw(game.batch, gameOverText, 
-            Gdx.graphics.getWidth() / 2 - (isWin ? 80 : 50), 
-            Gdx.graphics.getHeight() / 2 + 40);
-        game.font.draw(game.batch, scoreText, 
-            Gdx.graphics.getWidth() / 2 - 80, 
-            Gdx.graphics.getHeight() / 2);
-        game.font.draw(game.batch, restartText, 
-            Gdx.graphics.getWidth() / 2 - 140, 
-            Gdx.graphics.getHeight() / 2 - 40);
-        game.batch.end();
+
+        if (game.font != null) {
+            String title = "GAME OVER";
+            String hint = "Press R to Restart";
+            com.badlogic.gdx.graphics.g2d.GlyphLayout titleLayout = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, title);
+            com.badlogic.gdx.graphics.g2d.GlyphLayout hintLayout = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, hint);
+
+            float centerX = Gdx.graphics.getWidth() * 0.5f;
+            float centerY = Gdx.graphics.getHeight() * 0.5f;
+
+            float titleX = centerX - (titleLayout.width * 0.5f);
+            float titleY = centerY + (titleLayout.height * 0.5f) + 10f;
+
+            float hintX = centerX - (hintLayout.width * 0.5f);
+            float hintY = centerY - (hintLayout.height * 0.5f) - 10f;
+
+            game.batch.begin();
+            game.font.draw(game.batch, titleLayout, titleX, titleY);
+            game.font.draw(game.batch, hintLayout, hintX, hintY);
+            game.batch.end();
+        }
+
+        Gdx.gl.glDisable(GL20.GL_BLEND);
     }
-    
+
     private void restartGame() {
         currentState = GameState.RUNNING;
         remainingTime = 180;
-        fixer.reset(100, 100);
-        levelManager.reset();
+        if (fixer != null) fixer.reset(100, 100);
+        if (levelManager != null) levelManager.reset();
         accumulator = 0f;
-        Gdx.app.log("GameScreen", "Game RESTARTED");
     }
 
     private void initUi() {
         uiStage = new Stage(new ScreenViewport(), game.batch);
-        loadSkinOrFallback();
-        rebuildUi();
 
-        if (Gdx.app.getType().name().equals("Desktop")) {
-            uiWatcher = new HotReloadService("assets/ui");
-        }
-    }
-
-    private void loadSkinOrFallback() {
-        try {
-            if (Gdx.files.local("assets/ui/uiskin.json").exists()) {
-                if (uiSkin != null) uiSkin.dispose();
-                uiSkin = new Skin(Gdx.files.local("assets/ui/uiskin.json"));
-                Gdx.app.log("UI", "Loaded skin from assets/ui/uiskin.json");
-                return;
-            }
-            if (Gdx.files.internal("ui/uiskin.json").exists()) {
-                if (uiSkin != null) uiSkin.dispose();
-                uiSkin = new Skin(Gdx.files.internal("ui/uiskin.json"));
-                Gdx.app.log("UI", "Loaded skin from classpath ui/uiskin.json");
-                return;
-            }
-        } catch (Exception e) {
-            Gdx.app.error("UI", "Error loading skin JSON, falling back to minimal skin", e);
-        }
-        buildFallbackSkin();
-        Gdx.app.log("UI", "Using minimal programmatic skin (no external files found)");
-    }
-
-    private void buildFallbackSkin() {
-        if (uiSkin != null) uiSkin.dispose();
         uiSkin = new Skin();
-        uiSkin.add("default-font", new BitmapFont());
+        BitmapFont font = new BitmapFont();
+        uiSkin.add("default-font", font);
+
+        // Minimal background texture for labels
         Pixmap pm = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pm.setColor(1, 1, 1, 1);
         pm.fill();
         Texture tex = new Texture(pm);
         pm.dispose();
         uiSkin.add("white", tex);
-        Drawable bg = new TextureRegionDrawable(new TextureRegion(tex));
         Label.LabelStyle ls = new Label.LabelStyle();
-        ls.font = uiSkin.getFont("default-font");
+        ls.font = font;
+        ls.fontColor = Color.WHITE;
         uiSkin.add("default", ls);
-    }
 
-    private void rebuildUi() {
-        if (uiRoot == null) {
-            uiRoot = new Table();
-            uiRoot.setFillParent(true);
-            uiStage.addActor(uiRoot);
-        } else {
-            uiRoot.clear();
-        }
+        uiRoot = new Table();
+        uiRoot.setFillParent(true);
+        uiStage.addActor(uiRoot);
+
         docsLabel = new Label("Documents: 0/0", uiSkin);
         timeLabel = new Label("Time: 0:00", uiSkin);
+
         Table top = new Table(uiSkin);
         top.add(docsLabel).left().pad(10);
         top.add().expandX();
@@ -326,23 +282,27 @@ public class GameScreen implements Screen {
 
         uiRoot.top();
         uiRoot.add(top).expandX().fillX().row();
-        uiStage.setDebugAll(uiDebug);
     }
 
-    private void reloadUi() {
-        loadSkinOrFallback();
-        rebuildUi();
-    }
-
-    private void updateTime(float delta, float timePenalty) {
-        remainingTime -= delta;
-        remainingTime -= timePenalty;
-        
-        if (remainingTime <= 0) {
-            remainingTime = 0;
-            currentState = GameState.GAMEOVER;
-            Gdx.app.log("GameScreen", "TIME'S UP - Game Over!");
+    // try several candidate locations; prefer internal assets
+    private Texture safeLoadTexture(String... candidates) {
+        for (String c : candidates) {
+            try {
+                com.badlogic.gdx.files.FileHandle fh = Gdx.files.internal(c);
+                if (fh.exists()) {
+                    Gdx.app.log("GameScreen", "Loaded texture from internal: " + c);
+                    return new Texture(fh);
+                }
+                fh = Gdx.files.absolute(c);
+                if (fh.exists()) {
+                    Gdx.app.log("GameScreen", "Loaded texture from absolute: " + fh.path());
+                    return new Texture(fh);
+                }
+            } catch (Exception e) {
+                Gdx.app.error("GameScreen", "Error trying candidate " + c, e);
+            }
         }
+<<<<<<< HEAD
     }
 
     // Draw only non-HUD on-screen text inside the main batch block.
@@ -351,6 +311,9 @@ public class GameScreen implements Screen {
         // Draw instructions only; caller manages batch begin/end.
         game.font.draw(game.batch, "WASD/Arrows: Move | SPACE: Dash | P: Pause", 
             50, Gdx.graphics.getHeight() - 20);
+=======
+        return null;
+>>>>>>> 3963cf6 (PLayer Sprite added)
     }
 
     @Override
@@ -364,22 +327,54 @@ public class GameScreen implements Screen {
     }
 
     @Override
-    public void hide() { }
-
-    @Override
     public void pause() { }
 
     @Override
     public void resume() { }
 
     @Override
+    public void hide() { }
+
+    @Override
     public void dispose() {
         if (shapeRenderer != null) shapeRenderer.dispose();
-        if (fixer != null) {
-            // Fixer.dispose() exists now
-            fixer.dispose();
-        }
+        // Only dispose the fixerTexture if this class loaded it
+        if (fixerTextureOwned && fixerTexture != null) fixerTexture.dispose();
         if (uiStage != null) uiStage.dispose();
         if (uiSkin != null) uiSkin.dispose();
     }
+<<<<<<< HEAD
+=======
+
+    // Getters / setters unchanged...
+    public MyGdxGame getGame() { return game; }
+    public Stage getUiStage() { return uiStage; }
+    public void setUiStage(Stage uiStage) { this.uiStage = uiStage; }
+    public Skin getUiSkin() { return uiSkin; }
+    public void setUiSkin(Skin uiSkin) { this.uiSkin = uiSkin; }
+    public Table getUiRoot() { return uiRoot; }
+    public void setUiRoot(Table uiRoot) { this.uiRoot = uiRoot; }
+    public Label getDocsLabel() { return docsLabel; }
+    public void setDocsLabel(Label docsLabel) { this.docsLabel = docsLabel; }
+    public Label getTimeLabel() { return timeLabel; }
+    public void setTimeLabel(Label timeLabel) { this.timeLabel = timeLabel; }
+    public LevelManager getLevelManager() { return levelManager; }
+    public float getRemainingTime() { return remainingTime; }
+    public void setRemainingTime(float remainingTime) { this.remainingTime = remainingTime; }
+    public static float getFixedTimeStep() { return FIXED_TIME_STEP; }
+    public float getAccumulator() { return accumulator; }
+    public void setAccumulator(float accumulator) { this.accumulator = accumulator; }
+    public GameState getCurrentState() { return currentState; }
+    public void setCurrentState(GameState currentState) { this.currentState = currentState; }
+    public boolean ispKeyWasPressed() { return pKeyWasPressed; }
+    public void setpKeyWasPressed(boolean pKeyWasPressed) { this.pKeyWasPressed = pKeyWasPressed; }
+    public OrthographicCamera getCamera() { return camera; }
+    public void setCamera(OrthographicCamera camera) { this.camera = camera; }
+    public Texture getFixerTexture() { return fixerTexture; }
+    public void setFixerTexture(Texture fixerTexture) { this.fixerTexture = fixerTexture; }
+    public ShapeRenderer getShapeRenderer() { return shapeRenderer; }
+    public void setShapeRenderer(ShapeRenderer shapeRenderer) { this.shapeRenderer = shapeRenderer; }
+    public Fixer getFixer() { return fixer; }
+    public void setFixer(Fixer fixer) { this.fixer = fixer; }
+>>>>>>> 3963cf6 (PLayer Sprite added)
 }

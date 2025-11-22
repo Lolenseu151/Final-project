@@ -13,20 +13,20 @@ public class MyGdxGame extends Game {
 
     @Override
     public void create() {
-        // Set log level
-        Gdx.app.setLogLevel(Application.LOG_DEBUG); 
-        
+        Gdx.app.setLogLevel(Application.LOG_DEBUG);
+
+        // ensure rendering resources exist for all screens
         batch = new SpriteBatch();
-        font = new BitmapFont(); // default Arial-like font
-        
-        // Start with loading screen instead of directly going to game
+        font = new BitmapFont();
+
+        // show the loading screen first (it will switch to the main menu when ready)
         setScreen(new LoadingScreen(this));
     }
 
     @Override
     public void dispose() {
-        batch.dispose();
-        font.dispose();
+        if (batch != null) batch.dispose();
+        if (font != null) font.dispose();
         super.dispose();
     }
 }
