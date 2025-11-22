@@ -5,6 +5,10 @@ plugins {
 
 repositories {
     mavenCentral()
+    // LibGDX Releases Repository
+    maven { url "https://oss.sonatype.org/content/repositories/releases/" } 
+    // FIX: Added LibGDX Snapshots Repository - sometimes dependencies end up here
+    maven { url "https://oss.sonatype.org/content/repositories/snapshots/" } 
 }
 
 java {
@@ -18,11 +22,16 @@ project.ext.gdxVersion = "1.11.0"
 dependencies {
     implementation "com.badlogicgames.gdx:gdx:$gdxVersion"
     implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
+<<<<<<< HEAD
     // FreeType for runtime TTF -> BitmapFont generation (pixel fonts)
     implementation "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
     implementation "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop"
     // Scene2D UI (Label, Skin, Table) is included in the core `gdx` artifact;
     // there is no separate `gdx-ui` artifact on Maven Central. Do not add it.
+=======
+    // Dependency for LibGDX Scene2D UI components (Label, Table, Skin)
+    implementation "com.badlogicgames.gdx:gdx-ui:$gdxVersion" 
+>>>>>>> 9d6b0b5 (Player Sprite Added)
     implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
     
     // For debugging
