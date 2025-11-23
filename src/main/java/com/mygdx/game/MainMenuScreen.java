@@ -9,7 +9,10 @@ import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
@@ -28,6 +31,39 @@ public class MainMenuScreen implements Screen {
         // Fixed title font size for pixel look
         private String foundTtfPath = null;
         private final int titleFontSize = 64;
+    // Layout constants (change these to edit spacing / sizes)
+    private final float MENU_TOP_OFFSET = -30f; // centerY offset for the top entry
+    private final float MENU_SPACING = 85f;    // center-to-center vertical spacing
+    private final float BOX_W = 200f;
+    private final float BOX_H = 65f;
+    private final float BOX_RADIUS = 20f;
+    // Button text colors (change these to set button text colors)
+    private final Color BUTTON_TEXT_COLOR = new Color(0f, 0f, 0f, 1f); // unselected (black)
+    private final Color BUTTON_TEXT_COLOR_SELECTED = new Color(1f, 1f, 1f, 1f); // selected (white)
+    // Running character animation (assets/Run.png) — 8 columns
+    private Texture runTexture;
+    private Animation<TextureRegion> runAnimation;
+    private float runAnimTime = 0f;
+    private final int RUN_COLUMNS = 8;
+    // Running sprite scale and vertical placement/bounce
+    private final float RUN_SCALE = 0.9f;            // scale factor for the running sprite
+    private final float RUN_Y_OFFSET = 30f;         // base offset from centerY for sprite center (moved up)
+    private final float RUN_BOUNCE_AMPLITUDE = 6f;   // bounce amplitude in pixels
+    private final float RUN_BOUNCE_SPEED = 6f;       // bounce speed multiplier
+    // Run sizing modes
+    private final int RUN_SIZE_MODE_UNIFORM = 0;     // use RUN_SCALE
+    private final int RUN_SIZE_MODE_EXPLICIT = 1;    // use explicit pixel dimensions
+    private final int RUN_SIZE_MODE_DESIRED_H = 2;   // use desired height, preserve aspect
+    private final int RUN_SIZE_MODE_SCREEN_REL = 3;  // size relative to screen height
+    // Choose default sizing mode here
+    private final int RUN_SIZE_MODE = RUN_SIZE_MODE_SCREEN_REL;
+    // explicit pixel size (used when RUN_SIZE_MODE_EXPLICIT)
+    private final float RUN_DRAW_WIDTH = 220f;
+    private final float RUN_DRAW_HEIGHT = 220f;
+    // desired height in pixels (used when RUN_SIZE_MODE_DESIRED_H)
+    private final float RUN_DESIRED_HEIGHT = 96f;
+    // screen-relative height (fraction of screen height) used when RUN_SIZE_MODE_SCREEN_REL
+    private final float RUN_SCREEN_HEIGHT_RATIO = 0.35f; // 25% of screen height (increased)
     
     private enum MenuOption {
         START_GAME,
@@ -182,6 +218,29 @@ public class MainMenuScreen implements Screen {
             game.font.getRegion().getTexture().setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
         }
         Gdx.app.log("MainMenuScreen", "Main menu displayed");
+
+        // Load running character sprite sheet (8 columns). Try a couple of likely internal paths.
+        try {
+            FileHandle runHandle = null;
+            if (Gdx.files.internal("Run.png").exists()) runHandle = Gdx.files.internal("Run.png");
+            else if (Gdx.files.internal("assets/Run.png").exists()) runHandle = Gdx.files.internal("assets/Run.png");
+            if (runHandle != null) {
+                runTexture = new Texture(runHandle);
+                runTexture.setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
+                int frameW = runTexture.getWidth() / RUN_COLUMNS;
+                int frameH = runTexture.getHeight();
+                TextureRegion[][] tmp = TextureRegion.split(runTexture, frameW, frameH);
+                TextureRegion[] frames = new TextureRegion[RUN_COLUMNS];
+                for (int i = 0; i < RUN_COLUMNS; i++) frames[i] = tmp[0][i];
+                runAnimation = new Animation<TextureRegion>(0.08f, frames);
+            } else {
+                Gdx.app.log("MainMenuScreen", "Run.png not found in assets (tried Run.png and assets/Run.png)");
+            }
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Failed to load Run.png animation", e);
+            runAnimation = null;
+            runTexture = null;
+        }
     }
 
     private void generateTitleFontWithSize(int size) {
@@ -225,6 +284,8 @@ public class MainMenuScreen implements Screen {
     @Override
     public void render(float delta) {
         handleInput();
+        // advance running animation timer
+        runAnimTime += delta;
         
         // Clear screen
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1);
@@ -279,6 +340,48 @@ public class MainMenuScreen implements Screen {
             selectCurrentOption();
         }
         // Font size is fixed; size-cycling removed
+
+        // Pointer / touch input: hover highlight + clicks/taps detection
+        {
+            float mx = Gdx.input.getX();
+            float my = Gdx.graphics.getHeight() - Gdx.input.getY();
+            float centerX = Gdx.graphics.getWidth() / 2f;
+            float centerY = Gdx.graphics.getHeight() / 2f;
+            float left = centerX - (BOX_W / 2f);
+
+            // Precompute box vertical positions so both hover and click use the same values
+            float yTop = centerY + MENU_TOP_OFFSET;
+            float bottomTop = yTop - (BOX_H / 2f);
+            float yMid = centerY + MENU_TOP_OFFSET - MENU_SPACING;
+            float bottomMid = yMid - (BOX_H / 2f);
+            float yBot = centerY + MENU_TOP_OFFSET - (2f * MENU_SPACING);
+            float bottomBot = yBot - (BOX_H / 2f);
+
+            // Hover: update selectedOption when pointer is over a box (no activation)
+            if (mx >= left && mx <= left + BOX_W && my >= bottomTop && my <= bottomTop + BOX_H) {
+                selectedOption = MenuOption.START_GAME;
+            } else if (mx >= left && mx <= left + BOX_W && my >= bottomMid && my <= bottomMid + BOX_H) {
+                selectedOption = MenuOption.TUTORIAL;
+            } else if (mx >= left && mx <= left + BOX_W && my >= bottomBot && my <= bottomBot + BOX_H) {
+                selectedOption = MenuOption.SETTINGS;
+            }
+
+            // Click / tap activation
+            if (Gdx.input.justTouched()) {
+                if (mx >= left && mx <= left + BOX_W && my >= bottomTop && my <= bottomTop + BOX_H) {
+                    selectCurrentOption();
+                    return;
+                }
+                if (mx >= left && mx <= left + BOX_W && my >= bottomMid && my <= bottomMid + BOX_H) {
+                    selectCurrentOption();
+                    return;
+                }
+                if (mx >= left && mx <= left + BOX_W && my >= bottomBot && my <= bottomBot + BOX_H) {
+                    selectCurrentOption();
+                    return;
+                }
+            }
+        }
     }
     
     private void selectCurrentOption() {
@@ -308,9 +411,9 @@ public class MainMenuScreen implements Screen {
         // Title background removed — text will be drawn without a panel
         
         // Menu options backgrounds
-        drawMenuOptionBox(centerX, centerY + 20, MenuOption.START_GAME);
-        drawMenuOptionBox(centerX, centerY - 40, MenuOption.TUTORIAL);
-        drawMenuOptionBox(centerX, centerY - 100, MenuOption.SETTINGS);
+        drawMenuOptionBox(centerX, centerY + MENU_TOP_OFFSET, MenuOption.START_GAME);
+        drawMenuOptionBox(centerX, centerY + MENU_TOP_OFFSET - MENU_SPACING, MenuOption.TUTORIAL);
+        drawMenuOptionBox(centerX, centerY + MENU_TOP_OFFSET - (2f * MENU_SPACING), MenuOption.SETTINGS);
         
         shapeRenderer.end();
         
@@ -327,7 +430,7 @@ public class MainMenuScreen implements Screen {
             titleFont.getData().setScale(2.0f);
             GlyphLayout layout = new GlyphLayout(titleFont, titleText);
             float titleX = centerX - (layout.width / 2f);
-            float titleY = centerY + 150;
+            float titleY = centerY + 220;
             titleFont.draw(game.batch, titleText, titleX, titleY);
             titleFont.getData().setScale(prevScaleX, prevScaleY);
         } else {
@@ -340,12 +443,47 @@ public class MainMenuScreen implements Screen {
             game.font.draw(game.batch, titleText, titleX, titleY);
             game.font.getData().setScale(prevX, prevY);
         }
+        // Draw running character animation between the title and the buttons, scaled with a small bounce
+        if (runAnimation != null) {
+            TextureRegion frame = runAnimation.getKeyFrame(runAnimTime, true);
+            float fw = frame.getRegionWidth();
+            float fh = frame.getRegionHeight();
+            // fixed base Y (centerY + RUN_Y_OFFSET) and small sinusoidal bounce
+            float bounce = (float)Math.sin(runAnimTime * RUN_BOUNCE_SPEED) * RUN_BOUNCE_AMPLITUDE;
+
+            float drawW;
+            float drawH;
+            switch (RUN_SIZE_MODE) {
+                case RUN_SIZE_MODE_EXPLICIT:
+                    drawW = RUN_DRAW_WIDTH;
+                    drawH = RUN_DRAW_HEIGHT;
+                    break;
+                case RUN_SIZE_MODE_DESIRED_H:
+                    drawH = RUN_DESIRED_HEIGHT;
+                    drawW = (fw * drawH) / fh;
+                    break;
+                case RUN_SIZE_MODE_SCREEN_REL:
+                    drawH = Gdx.graphics.getHeight() * RUN_SCREEN_HEIGHT_RATIO;
+                    drawW = (fw * drawH) / fh;
+                    break;
+                case RUN_SIZE_MODE_UNIFORM:
+                default:
+                    drawW = fw * RUN_SCALE;
+                    drawH = fh * RUN_SCALE;
+                    break;
+            }
+            // Center horizontally, but position vertically using a fixed offset (bottom aligned)
+            float drawX = centerX - (drawW / 2f);
+            // place sprite bottom at centerY + RUN_Y_OFFSET plus bounce
+            float drawY = centerY + RUN_Y_OFFSET + bounce;
+            game.batch.draw(frame, drawX, drawY, drawW, drawH);
+        }
         
         
-        // Menu options
-        drawMenuOptionText("START GAME", centerX - 50, centerY + 30, MenuOption.START_GAME);
-        drawMenuOptionText("TUTORIAL", centerX - 40, centerY - 30, MenuOption.TUTORIAL);
-        drawMenuOptionText("SETTINGS", centerX - 40, centerY - 90, MenuOption.SETTINGS);
+        // Menu options (center text inside each rounded box)
+        drawMenuOptionText("START GAME", centerX, centerY + MENU_TOP_OFFSET, MenuOption.START_GAME);
+        drawMenuOptionText("TUTORIAL", centerX, centerY + MENU_TOP_OFFSET - MENU_SPACING, MenuOption.TUTORIAL);
+        drawMenuOptionText("SETTINGS", centerX, centerY + MENU_TOP_OFFSET - (2f * MENU_SPACING), MenuOption.SETTINGS);
         
         // Instructions
         game.font.draw(game.batch, "UP/DOWN or W/S: Navigate | ENTER/SPACE: Select", 
@@ -360,28 +498,58 @@ public class MainMenuScreen implements Screen {
     
     private void drawMenuOptionBox(float centerX, float y, MenuOption option) {
         boolean isSelected = (selectedOption == option);
-        
-        if (isSelected) {
-            shapeRenderer.setColor(0, 0.6f, 0.6f, 0.9f); // Highlighted cyan
-        } else {
-            shapeRenderer.setColor(0.25f, 0.25f, 0.35f, 0.7f); // Dark grey
-        }
-        
-        shapeRenderer.rect(centerX - 150, y - 20, 300, 40);
+        float boxW = BOX_W;
+        float boxH = BOX_H;
+        float left = centerX - (boxW / 2f);
+        float bottom = y - (boxH / 2f);
+        float radius = BOX_RADIUS; // corner radius, adjustable via `BOX_RADIUS`
+
+        // Fill rounded rectangle by composing center rects and corner circles
+        shapeRenderer.setColor(isSelected ? new Color(0f, 0.6f, 0.6f, 0.95f) : new Color(217/255f, 217/255f, 217/255f, 1f));
+        // center large rect
+        shapeRenderer.rect(left + radius, bottom, boxW - 2f * radius, boxH);
+        // left and right vertical strips
+        shapeRenderer.rect(left, bottom + radius, radius, boxH - 2f * radius);
+        shapeRenderer.rect(left + boxW - radius, bottom + radius, radius, boxH - 2f * radius);
+        // top and bottom horizontal strips to smooth corners
+        shapeRenderer.rect(left + radius, bottom + boxH - radius, boxW - 2f * radius, radius);
+        shapeRenderer.rect(left + radius, bottom, boxW - 2f * radius, radius);
+
+        // horizontal lines (inset by radius so corners appear rounded)
+        shapeRenderer.line(left + radius, bottom + boxH, left + boxW - radius, bottom + boxH);
+        shapeRenderer.line(left + radius, bottom, left + boxW - radius, bottom);
+        // vertical lines
+        shapeRenderer.line(left, bottom + radius, left, bottom + boxH - radius);
+        shapeRenderer.line(left + boxW, bottom + radius, left + boxW, bottom + boxH - radius);
+        // corner arcs (drawn as circle outlines centered at corner-circle centers)
+        int segments = 16;
+        shapeRenderer.circle(left + radius, bottom + radius, radius, segments);
+        shapeRenderer.circle(left + boxW - radius, bottom + radius, radius, segments);
+        shapeRenderer.circle(left + radius, bottom + boxH - radius, radius, segments);
+        shapeRenderer.circle(left + boxW - radius, bottom + boxH - radius, radius, segments);
+        shapeRenderer.end();
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
     }
     
     private void drawMenuOptionText(String text, float x, float y, MenuOption option) {
         boolean isSelected = (selectedOption == option);
-        
-        // Indicate selection by color only (no arrow)
-        Color prev = game.font.getColor().cpy();
+        // Center text horizontally and vertically inside the rounded box
+        BitmapFont font = game.font;
+        GlyphLayout layout = new GlyphLayout(font, text);
+        float textX = x - (layout.width / 2f);
+        // BitmapFont.draw uses the y parameter as the baseline; to vertically center
+        // inside a box whose center is at `y`, shift baseline up by half the layout height.
+        float textY = y + (layout.height / 2f);
+
+        // Indicate selection by configurable color (no arrow)
+        Color prev = font.getColor().cpy();
         if (isSelected) {
-            game.font.setColor(Color.BLACK);
+            font.setColor(BUTTON_TEXT_COLOR_SELECTED);
         } else {
-            game.font.setColor(Color.WHITE);
+            font.setColor(BUTTON_TEXT_COLOR);
         }
-        game.font.draw(game.batch, text, x, y);
-        game.font.setColor(prev);
+        font.draw(game.batch, layout, textX, textY);
+        font.setColor(prev);
     }
     
     
@@ -407,5 +575,6 @@ public class MainMenuScreen implements Screen {
     public void dispose() {
         shapeRenderer.dispose();
         if (titleFont != null) titleFont.dispose();
+        if (runTexture != null) runTexture.dispose();
     }
 }
