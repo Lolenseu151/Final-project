@@ -18,8 +18,11 @@ project.ext.gdxVersion = "1.11.0"
 dependencies {
     implementation "com.badlogicgames.gdx:gdx:$gdxVersion"
     implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
-    // The UI package is necessary for Label, Skin, and Table
-    implementation "com.badlogicgames.gdx:gdx-ui:$gdxVersion" 
+    // FreeType for runtime TTF -> BitmapFont generation (pixel fonts)
+    implementation "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
+    implementation "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop"
+    // Scene2D UI (Label, Skin, Table) is included in the core `gdx` artifact;
+    // there is no separate `gdx-ui` artifact on Maven Central. Do not add it.
     implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
     
     // For debugging
