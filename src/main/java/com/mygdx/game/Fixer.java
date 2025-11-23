@@ -13,6 +13,7 @@ import com.badlogic.gdx.math.Vector2;
 
 /**
  * Fixer: simple character controller + animation state machine.
+ * Adjusted to use 64x64 pixel frames.
  */
 public class Fixer {
     private enum State { IDLE, RUN, JUMP, FALL, DASH }
@@ -22,12 +23,15 @@ public class Fixer {
     private static final float MAX_MOVE_SPEED = 220f; // px/s
     private static final float GROUND_FRICTION = 12f; // per second
     private static final float AIR_DRAG = 1.5f;
-    private static final float JUMP_VY = 520f;
+    private static final float JUMP_VY = 800f;
     private static final float GRAVITY = 1400f;
     private static final float DASH_SPEED = 700f;
     private static final float DASH_TIME = 0.12f;
-    private static final float WIDTH = 48f;
-    private static final float HEIGHT = 64f;
+
+    // Sprite / collision sizes (frames are 64x64 in assets)
+    private static final float SPRITE_SIZE = 64f;
+    private static final float WIDTH = SPRITE_SIZE;
+    private static final float HEIGHT = SPRITE_SIZE;
 
     private final Rectangle bounds;
     private Vector2 velocity = new Vector2();
@@ -196,6 +200,7 @@ public class Fixer {
     public void draw(SpriteBatch batch) {
         if (batch == null) return;
         if (currentFrame != null) {
+            // draw at the 64x64 sprite size (bounds set to SPRITE_SIZE)
             batch.draw(currentFrame, bounds.x, bounds.y, bounds.width, bounds.height);
         }
     }
