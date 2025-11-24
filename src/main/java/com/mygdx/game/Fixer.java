@@ -13,7 +13,7 @@ import com.badlogic.gdx.math.Vector2;
 
 /**
  * Fixer: simple character controller + animation state machine.
- * Adjusted to use 64x64 pixel frames.
+ * Uses 64x64 frames and running1/2/3 for run animation.
  */
 public class Fixer {
     private enum State { IDLE, RUN, JUMP, FALL, DASH }
@@ -39,8 +39,8 @@ public class Fixer {
     private boolean canJump = true;
 
     // animation / visuals
-    private Texture standingTex, jumpTex, runTex1, runTex2;
-    private TextureRegion standingFrame, jumpFrame, runFrame1, runFrame2;
+    private Texture standingTex, jumpTex, runTex1, runTex2, runTex3;
+    private TextureRegion standingFrame, jumpFrame, runFrame1, runFrame2, runFrame3;
     private Animation<TextureRegion> runAnim;
     private TextureRegion currentFrame;
     private float stateTime = 0f;
@@ -56,18 +56,27 @@ public class Fixer {
         // try load assets (several candidate names)
         standingTex = safeLoad("Standing.png", "standing.png", "assets/Standing.png");
         jumpTex = safeLoad("Jump.png", "jumping.png", "assets/jumping.png");
-        runTex1 = safeLoad("Run1.png", "running1.png", "assets/running1.png");
-        runTex2 = safeLoad("Run2.png", "running2.png", "running 2.png", "assets/running 2.png");
+
+        // load three running frames: running1.png, running2.png, running3.png
+        runTex1 = safeLoad("running1.png", "running1.PNG", "assets/running1.png");
+        runTex2 = safeLoad("running2.png", "running2.PNG", "assets/running2.png");
+        runTex3 = safeLoad("running3.png", "running3.PNG", "assets/running3.png");
 
         if (standingTex != null) standingFrame = new TextureRegion(standingTex);
         if (jumpTex != null) jumpFrame = new TextureRegion(jumpTex);
         if (runTex1 != null) runFrame1 = new TextureRegion(runTex1);
         if (runTex2 != null) runFrame2 = new TextureRegion(runTex2);
+        if (runTex3 != null) runFrame3 = new TextureRegion(runTex3);
 
         // fallback to shared texture if provided
         if (standingFrame == null && fixerTexture != null) standingFrame = new TextureRegion(fixerTexture);
 
-        if (runFrame1 != null && runFrame2 != null) runAnim = new Animation<>(0.11f, runFrame1, runFrame2);
+        // build run animation if frames present (in order)
+        if (runFrame1 != null && runFrame2 != null && runFrame3 != null) {
+            runAnim = new Animation<>(0.10f, runFrame1, runFrame2, runFrame3);
+        } else if (runFrame1 != null && runFrame2 != null) {
+            runAnim = new Animation<>(0.11f, runFrame1, runFrame2);
+        }
 
         // set initial frame
         currentFrame = (standingFrame != null) ? standingFrame : (runFrame1 != null ? runFrame1 : jumpFrame);
@@ -77,6 +86,7 @@ public class Fixer {
     private Texture safeLoad(String... candidates) {
         for (String c : candidates) {
             try {
+                if (c == null) continue;
                 FileHandle fh = Gdx.files.internal(c);
                 if (fh.exists()) return new Texture(fh);
                 fh = Gdx.files.absolute(c);
@@ -181,6 +191,7 @@ public class Fixer {
                 break;
             case RUN:
                 if (runAnim != null) next = runAnim.getKeyFrame(stateTime, true);
+                else if (runFrame1 != null) next = runFrame1;
                 break;
             case DASH:
             case IDLE:
@@ -220,6 +231,7 @@ public class Fixer {
         if (jumpTex != null) { jumpTex.dispose(); jumpTex = null; }
         if (runTex1 != null) { runTex1.dispose(); runTex1 = null; }
         if (runTex2 != null) { runTex2.dispose(); runTex2 = null; }
+        if (runTex3 != null) { runTex3.dispose(); runTex3 = null; }
     }
 
     // LevelManager interaction helpers

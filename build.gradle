@@ -3,50 +3,35 @@ plugins {
     id 'application'
 }
 
-repositories {
-    mavenCentral()
-}
-
-
-
+group = 'com.mygdx.game'
+version = '1.0'
 
 ext {
-    gdxVersion = '1.12.0' 
+    gdxVersion = '1.12.0'
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://oss.sonatype.org/content/groups/public/' }
 }
 
 dependencies {
-<<<<<<< HEAD
     implementation "com.badlogicgames.gdx:gdx:$gdxVersion"
     implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
-<<<<<<< HEAD
-    // FreeType for runtime TTF -> BitmapFont generation (pixel fonts)
     implementation "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
-    implementation "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop"
-    // Scene2D UI (Label, Skin, Table) is included in the core `gdx` artifact;
-    // there is no separate `gdx-ui` artifact on Maven Central. Do not add it.
-=======
-    // Dependency for LibGDX Scene2D UI components (Label, Table, Skin)
-    implementation "com.badlogicgames.gdx:gdx-ui:$gdxVersion" 
->>>>>>> 9d6b0b5 (Player Sprite Added)
-    implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
-    
-    // For debugging
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
     implementation 'org.slf4j:slf4j-api:2.0.9'
     implementation 'ch.qos.logback:logback-classic:1.4.11'
-=======
-    implementation "com.badlogicgames.gdx:gdx:1.12.0"
-    implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:1.12.0"
-    implementation "com.badlogicgames.gdx:gdx-platform:1.12.0:natives-desktop"
-    implementation "com.badlogicgames.gdx:gdx-freetype:1.12.0"
-    implementation "com.badlogicgames.gdx:gdx-freetype-platform:1.12.0:natives-desktop"
->>>>>>> 3963cf6 (PLayer Sprite added)
 }
 
-
-
-
 application {
+    // If Gradle complains, change to mainClassName = 'com.mygdx.game.desktop.DesktopLauncher'
     mainClass = 'com.mygdx.game.desktop.DesktopLauncher'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 tasks.withType(JavaCompile) {
