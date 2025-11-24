@@ -32,7 +32,7 @@ public class MainMenuScreen implements Screen {
         private String foundTtfPath = null;
         private final int titleFontSize = 64;
     // Layout constants (change these to edit spacing / sizes)
-    private final float MENU_TOP_OFFSET = -30f; // centerY offset for the top entry
+    private final float MENU_TOP_OFFSET = -100f; // centerY offset for the top entry
     private final float MENU_SPACING = 85f;    // center-to-center vertical spacing
     private final float BOX_W = 200f;
     private final float BOX_H = 65f;
@@ -40,16 +40,20 @@ public class MainMenuScreen implements Screen {
     // Button text colors (change these to set button text colors)
     private final Color BUTTON_TEXT_COLOR = new Color(0f, 0f, 0f, 1f); // unselected (black)
     private final Color BUTTON_TEXT_COLOR_SELECTED = new Color(1f, 1f, 1f, 1f); // selected (white)
-    // Running character animation (assets/Run.png) — 8 columns
+    // Running character animation (assets/Run.png or user-provided sheet)
     private Texture runTexture;
     private Animation<TextureRegion> runAnimation;
     private float runAnimTime = 0f;
-    private final int RUN_COLUMNS = 8;
+    // number of columns in the loaded run sprite sheet (detected at runtime)
+    private int runColumns = 8;
+    // Menu animation tuning (slower motion for main menu)
+    private final float MENU_RUN_FRAME_DURATION = 0.16f; // longer frame -> slower animation
+    private final float MENU_RUN_SPEED_FACTOR = 0.6f;    // scale applied to delta when advancing time
     // Running sprite scale and vertical placement/bounce
     private final float RUN_SCALE = 0.9f;            // scale factor for the running sprite
-    private final float RUN_Y_OFFSET = 30f;         // base offset from centerY for sprite center (moved up)
-    private final float RUN_BOUNCE_AMPLITUDE = 6f;   // bounce amplitude in pixels
-    private final float RUN_BOUNCE_SPEED = 6f;       // bounce speed multiplier
+    private final float RUN_Y_OFFSET = -10f;         // base offset from centerY for sprite center (moved up)
+    private final float RUN_BOUNCE_AMPLITUDE = 3f;   // bounce amplitude in pixels (reduced)
+    private final float RUN_BOUNCE_SPEED = 3f;       // bounce speed multiplier (reduced)
     // Run sizing modes
     private final int RUN_SIZE_MODE_UNIFORM = 0;     // use RUN_SCALE
     private final int RUN_SIZE_MODE_EXPLICIT = 1;    // use explicit pixel dimensions
@@ -63,7 +67,7 @@ public class MainMenuScreen implements Screen {
     // desired height in pixels (used when RUN_SIZE_MODE_DESIRED_H)
     private final float RUN_DESIRED_HEIGHT = 96f;
     // screen-relative height (fraction of screen height) used when RUN_SIZE_MODE_SCREEN_REL
-    private final float RUN_SCREEN_HEIGHT_RATIO = 0.35f; // 25% of screen height (increased)
+    private final float RUN_SCREEN_HEIGHT_RATIO = 0.30f; // 25% of screen height (increased)
     
     private enum MenuOption {
         START_GAME,
@@ -219,25 +223,36 @@ public class MainMenuScreen implements Screen {
         }
         Gdx.app.log("MainMenuScreen", "Main menu displayed");
 
-        // Load running character sprite sheet (8 columns). Try a couple of likely internal paths.
+        // Load running character sprite sheet: force `fixer run.png` only (internal or absolute).
         try {
             FileHandle runHandle = null;
-            if (Gdx.files.internal("Run.png").exists()) runHandle = Gdx.files.internal("Run.png");
-            else if (Gdx.files.internal("assets/Run.png").exists()) runHandle = Gdx.files.internal("assets/Run.png");
+            String internalName = "fixer run.png";
+            // prefer internal asset path
+            if (Gdx.files.internal(internalName).exists()) {
+                runHandle = Gdx.files.internal(internalName);
+            } else {
+                // fallback to absolute path under project assets
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/" + internalName;
+                if (Gdx.files.absolute(abs).exists()) runHandle = Gdx.files.absolute(abs);
+            }
+
             if (runHandle != null) {
                 runTexture = new Texture(runHandle);
                 runTexture.setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
-                int frameW = runTexture.getWidth() / RUN_COLUMNS;
+                // This specific sheet is expected to have 3 columns
+                runColumns = 3;
+                int frameW = Math.max(1, runTexture.getWidth() / runColumns);
                 int frameH = runTexture.getHeight();
                 TextureRegion[][] tmp = TextureRegion.split(runTexture, frameW, frameH);
-                TextureRegion[] frames = new TextureRegion[RUN_COLUMNS];
-                for (int i = 0; i < RUN_COLUMNS; i++) frames[i] = tmp[0][i];
-                runAnimation = new Animation<TextureRegion>(0.08f, frames);
+                TextureRegion[] frames = new TextureRegion[runColumns];
+                for (int i = 0; i < runColumns; i++) frames[i] = tmp[0][i];
+                runAnimation = new Animation<TextureRegion>(MENU_RUN_FRAME_DURATION, frames);
             } else {
-                Gdx.app.log("MainMenuScreen", "Run.png not found in assets (tried Run.png and assets/Run.png)");
+                Gdx.app.log("MainMenuScreen", "fixer run.png not found in assets (tried internal and absolute path)");
             }
         } catch (Exception e) {
-            Gdx.app.error("MainMenuScreen", "Failed to load Run.png animation", e);
+            Gdx.app.error("MainMenuScreen", "Failed to load fixer run.png animation", e);
             runAnimation = null;
             runTexture = null;
         }
@@ -430,7 +445,7 @@ public class MainMenuScreen implements Screen {
             titleFont.getData().setScale(2.0f);
             GlyphLayout layout = new GlyphLayout(titleFont, titleText);
             float titleX = centerX - (layout.width / 2f);
-            float titleY = centerY + 220;
+            float titleY = centerY + 290;
             titleFont.draw(game.batch, titleText, titleX, titleY);
             titleFont.getData().setScale(prevScaleX, prevScaleY);
         } else {
@@ -445,11 +460,13 @@ public class MainMenuScreen implements Screen {
         }
         // Draw running character animation between the title and the buttons, scaled with a small bounce
         if (runAnimation != null) {
-            TextureRegion frame = runAnimation.getKeyFrame(runAnimTime, true);
+            // apply a slowed menu time so the animation appears slower in the menu
+            float menuTime = runAnimTime * MENU_RUN_SPEED_FACTOR;
+            TextureRegion frame = runAnimation.getKeyFrame(menuTime, true);
             float fw = frame.getRegionWidth();
             float fh = frame.getRegionHeight();
             // fixed base Y (centerY + RUN_Y_OFFSET) and small sinusoidal bounce
-            float bounce = (float)Math.sin(runAnimTime * RUN_BOUNCE_SPEED) * RUN_BOUNCE_AMPLITUDE;
+            float bounce = (float)Math.sin(menuTime * RUN_BOUNCE_SPEED) * RUN_BOUNCE_AMPLITUDE;
 
             float drawW;
             float drawH;
