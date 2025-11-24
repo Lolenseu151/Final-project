@@ -348,44 +348,55 @@ public class LevelManager {
      * @param font Font for text rendering
      */
     public void render(ShapeRenderer shapeRenderer, SpriteBatch batch, BitmapFont font) {
+        // Draw platforms and documents with the ShapeRenderer first
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        
+
         // Draw platforms (brown/wood color)
         shapeRenderer.setColor(0.6f, 0.4f, 0.2f, 1);
         for (Rectangle platform : platforms) {
             shapeRenderer.rect(platform.x, platform.y, platform.width, platform.height);
         }
-        
+
         // Draw documents (white/paper color)
         shapeRenderer.setColor(1, 1, 1, 1);
-        int docNum = 1;
         for (Rectangle doc : documents) {
             shapeRenderer.rect(doc.x, doc.y, doc.width, doc.height);
-            // Draw document number for debugging
-            batch.begin();
-            font.draw(batch, "D" + docNum, doc.x + 5, doc.y + doc.height + 15);
-            batch.end();
-            docNum++;
         }
-        
+
+        // Finish shape rendering before using the SpriteBatch for text
         shapeRenderer.end();
-        
-    // Document count is displayed by the UI (Scene2D) in GameScreen to avoid duplicate HUD renders
-        
+
+        // Draw document numbers (and any other text) with the SpriteBatch
+        // (avoid calling batch.begin() while ShapeRenderer is active)
+        if (documents.size > 0) {
+            boolean beganBatch = false;
+            if (!batch.isDrawing()) {
+                batch.begin();
+                beganBatch = true;
+            }
+            int docNum = 1;
+            for (Rectangle doc : documents) {
+                font.draw(batch, "D" + docNum, doc.x + 5, doc.y + doc.height + 15);
+                docNum++;
+            }
+            if (beganBatch) batch.end();
+        }
+
+        // Draw obstacles, beams and shredder with ShapeRenderer again
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        
+
         // Draw obstacles (red tape - red color)
         shapeRenderer.setColor(0.8f, 0.1f, 0.1f, 1);
         for (Rectangle obstacle : obstacles) {
             shapeRenderer.rect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
         }
-        
+
         // Draw Auditor Beams (yellow/warning color with transparency)
         shapeRenderer.setColor(1, 1, 0, 0.5f);
         for (Rectangle beam : auditorBeams) {
             shapeRenderer.rect(beam.x, beam.y, beam.width, beam.height);
         }
-        
+
         // Draw shredder (green when all docs collected, gray otherwise)
         if (documentsCollected >= totalDocuments) {
             shapeRenderer.setColor(0, 1, 0, 1); // Green - ready to win
@@ -393,7 +404,7 @@ public class LevelManager {
             shapeRenderer.setColor(0.5f, 0.5f, 0.5f, 1); // Gray - not ready yet
         }
         shapeRenderer.rect(shredder.x, shredder.y, shredder.width, shredder.height);
-        
+
         shapeRenderer.end();
     }
     
