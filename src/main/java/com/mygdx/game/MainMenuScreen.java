@@ -1,9 +1,22 @@
 package com.mygdx.game;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.Texture.TextureFilter;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.graphics.g2d.Animation;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFontParameter;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 
@@ -14,6 +27,43 @@ public class MainMenuScreen implements Screen {
     
     private final MyGdxGame game;
     private final ShapeRenderer shapeRenderer;
+        private BitmapFont titleFont;
+        // Fixed title font size for pixel look
+        private String foundTtfPath = null;
+        private final int titleFontSize = 64;
+    // Layout constants (change these to edit spacing / sizes)
+    private final float MENU_TOP_OFFSET = -30f; // centerY offset for the top entry
+    private final float MENU_SPACING = 85f;    // center-to-center vertical spacing
+    private final float BOX_W = 200f;
+    private final float BOX_H = 65f;
+    private final float BOX_RADIUS = 20f;
+    // Button text colors (change these to set button text colors)
+    private final Color BUTTON_TEXT_COLOR = new Color(0f, 0f, 0f, 1f); // unselected (black)
+    private final Color BUTTON_TEXT_COLOR_SELECTED = new Color(1f, 1f, 1f, 1f); // selected (white)
+    // Running character animation (assets/Run.png) — 8 columns
+    private Texture runTexture;
+    private Animation<TextureRegion> runAnimation;
+    private float runAnimTime = 0f;
+    private final int RUN_COLUMNS = 8;
+    // Running sprite scale and vertical placement/bounce
+    private final float RUN_SCALE = 0.9f;            // scale factor for the running sprite
+    private final float RUN_Y_OFFSET = 30f;         // base offset from centerY for sprite center (moved up)
+    private final float RUN_BOUNCE_AMPLITUDE = 6f;   // bounce amplitude in pixels
+    private final float RUN_BOUNCE_SPEED = 6f;       // bounce speed multiplier
+    // Run sizing modes
+    private final int RUN_SIZE_MODE_UNIFORM = 0;     // use RUN_SCALE
+    private final int RUN_SIZE_MODE_EXPLICIT = 1;    // use explicit pixel dimensions
+    private final int RUN_SIZE_MODE_DESIRED_H = 2;   // use desired height, preserve aspect
+    private final int RUN_SIZE_MODE_SCREEN_REL = 3;  // size relative to screen height
+    // Choose default sizing mode here
+    private final int RUN_SIZE_MODE = RUN_SIZE_MODE_SCREEN_REL;
+    // explicit pixel size (used when RUN_SIZE_MODE_EXPLICIT)
+    private final float RUN_DRAW_WIDTH = 220f;
+    private final float RUN_DRAW_HEIGHT = 220f;
+    // desired height in pixels (used when RUN_SIZE_MODE_DESIRED_H)
+    private final float RUN_DESIRED_HEIGHT = 96f;
+    // screen-relative height (fraction of screen height) used when RUN_SIZE_MODE_SCREEN_REL
+    private final float RUN_SCREEN_HEIGHT_RATIO = 0.35f; // 25% of screen height (increased)
     
     private enum MenuOption {
         START_GAME,
@@ -29,10 +79,213 @@ public class MainMenuScreen implements Screen {
         this.game = game;
         this.shapeRenderer = new ShapeRenderer();
     }
+
+    @Override
+    public void show() {
+        // Prefer a provided TTF (pixel font) and generate a BitmapFont at runtime using FreeType
+        // Build a list of candidate TTF paths to try (variable font, explicit regular, and any in static/)
+        List<String> candidates = new ArrayList<>();
+        candidates.add("fonts/Pixelify_Sans/PixelifySans-VariableFont_wght.ttf");
+        candidates.add("fonts/Pixelify_Sans/static/PixelifySans-Regular.ttf");
+
+        // Add any .ttf files found under fonts/Pixelify_Sans/stati c
+        FileHandle staticDir = Gdx.files.internal("fonts/Pixelify_Sans/static");
+        if (staticDir.exists() && staticDir.isDirectory()) {
+            for (FileHandle fh : staticDir.list()) {
+                if (fh.extension() != null && fh.extension().equalsIgnoreCase("ttf")) {
+                    String p = fh.path();
+                    if (!candidates.contains(p)) candidates.add(p);
+                }
+            }
+        }
+
+        boolean generated = false;
+        for (String ttfPath : candidates) {
+            Gdx.app.log("MainMenuScreen", "Checking for TTF at: " + ttfPath);
+            if (Gdx.files.internal(ttfPath).exists()) {
+                Gdx.app.log("MainMenuScreen", "Found TTF, attempting FreeType generation: " + ttfPath);
+                try {
+                    // record the found path and generate using current size
+                    foundTtfPath = ttfPath;
+                    generateTitleFontWithSize(titleFontSize);
+                    generated = true;
+                    break;
+                } catch (Exception e) {
+                    Gdx.app.log("MainMenuScreen", "Failed to generate Pixelify font from TTF (" + ttfPath + "), falling back: " + e.getMessage());
+                    titleFont = null;
+                    foundTtfPath = null;
+                }
+            }
+        }
+
+        if (!generated && Gdx.files.internal("fonts/PixelifySans.fnt").exists()) {
+            Gdx.app.log("MainMenuScreen", "Found .fnt font, loading BitmapFont");
+            try {
+                titleFont = new BitmapFont(Gdx.files.internal("fonts/PixelifySans.fnt"));
+                // Ensure the font texture uses nearest filtering for a pixelated look
+                if (titleFont.getRegion() != null && titleFont.getRegion().getTexture() != null) {
+                    titleFont.getRegion().getTexture().setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
+                }
+                Gdx.app.log("MainMenuScreen", "Loaded Pixelify .fnt successfully");
+                generated = true;
+            } catch (Exception e) {
+                Gdx.app.log("MainMenuScreen", "Failed to load PixelifySans font, falling back: " + e.getMessage());
+                titleFont = null;
+            }
+        }
+
+        if (!generated) {
+            Gdx.app.log("MainMenuScreen", "No Pixelify font assets found via internal paths; trying absolute asset paths...");
+
+            // Try absolute paths (useful when running from Gradle where internal lookup may not find assets)
+            String userDir = System.getProperty("user.dir");
+            for (String ttfPath : candidates) {
+                String absPath = userDir + "/assets/" + ttfPath;
+                Gdx.app.log("MainMenuScreen", "Checking absolute path: " + absPath);
+                if (Gdx.files.absolute(absPath).exists()) {
+                    Gdx.app.log("MainMenuScreen", "Found TTF at absolute path, generating: " + absPath);
+                    try {
+                        foundTtfPath = absPath;
+                        generateTitleFontWithSize(titleFontSize);
+                        generated = true;
+                        break;
+                    } catch (Exception e) {
+                        Gdx.app.log("MainMenuScreen", "Failed to generate font from absolute path " + absPath + ": " + e.getMessage());
+                        titleFont = null;
+                        foundTtfPath = null;
+                    }
+                }
+            }
+
+            if (!generated) {
+                Gdx.app.log("MainMenuScreen", "No Pixelify font assets found; using default font with nearest filtering");
+                titleFont = null;
+            }
+        }
+
+        // If still not generated, try loading any .fnt present in assets/fonts (handles unexpected filenames)
+        if (!generated) {
+            FileHandle fontsRoot = Gdx.files.internal("fonts");
+            if (fontsRoot.exists() && fontsRoot.isDirectory()) {
+                for (FileHandle fh : fontsRoot.list()) {
+                    if (fh.extension() != null && fh.extension().equalsIgnoreCase("fnt")) {
+                        try {
+                            titleFont = new BitmapFont(fh);
+                            if (titleFont.getRegion() != null && titleFont.getRegion().getTexture() != null) {
+                                titleFont.getRegion().getTexture().setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
+                            }
+                            Gdx.app.log("MainMenuScreen", "Loaded .fnt font: " + fh.path());
+                            generated = true;
+                            break;
+                        } catch (Exception e) {
+                            Gdx.app.log("MainMenuScreen", "Failed to load .fnt at " + fh.path() + ": " + e.getMessage());
+                        }
+                    }
+                }
+            }
+        }
+        // Final explicit attempt: try loading the specific Pexelify_Sans.fnt via internal and absolute paths
+        if (!generated) {
+            String explicitInternal = "fonts/Pexelify_Sans.fnt";
+            String userDir = System.getProperty("user.dir");
+            String explicitAbsolute = userDir + "/assets/fonts/Pexelify_Sans.fnt";
+            Gdx.app.log("MainMenuScreen", "Attempting explicit loads: internal(" + explicitInternal + ") and absolute(" + explicitAbsolute + ")");
+            try {
+                if (Gdx.files.internal(explicitInternal).exists()) {
+                    titleFont = new BitmapFont(Gdx.files.internal(explicitInternal));
+                    if (titleFont.getRegion() != null && titleFont.getRegion().getTexture() != null) {
+                        titleFont.getRegion().getTexture().setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
+                    }
+                    Gdx.app.log("MainMenuScreen", "Loaded internal .fnt: " + explicitInternal);
+                    generated = true;
+                } else if (Gdx.files.absolute(explicitAbsolute).exists()) {
+                    titleFont = new BitmapFont(Gdx.files.absolute(explicitAbsolute));
+                    if (titleFont.getRegion() != null && titleFont.getRegion().getTexture() != null) {
+                        titleFont.getRegion().getTexture().setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
+                    }
+                    Gdx.app.log("MainMenuScreen", "Loaded absolute .fnt: " + explicitAbsolute);
+                    generated = true;
+                } else {
+                    Gdx.app.log("MainMenuScreen", "Explicit .fnt not found in internal or absolute paths");
+                }
+            } catch (Exception e) {
+                Gdx.app.error("MainMenuScreen", "Exception loading explicit .fnt", e);
+                titleFont = null;
+            }
+        }
+        // If no pixel font was created, force the default font to nearest filtering so scaled text appears pixelated
+        if (titleFont == null && game.font != null && game.font.getRegion() != null && game.font.getRegion().getTexture() != null) {
+            game.font.getRegion().getTexture().setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
+        }
+        Gdx.app.log("MainMenuScreen", "Main menu displayed");
+
+        // Load running character sprite sheet (8 columns). Try a couple of likely internal paths.
+        try {
+            FileHandle runHandle = null;
+            if (Gdx.files.internal("Run.png").exists()) runHandle = Gdx.files.internal("Run.png");
+            else if (Gdx.files.internal("assets/Run.png").exists()) runHandle = Gdx.files.internal("assets/Run.png");
+            if (runHandle != null) {
+                runTexture = new Texture(runHandle);
+                runTexture.setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
+                int frameW = runTexture.getWidth() / RUN_COLUMNS;
+                int frameH = runTexture.getHeight();
+                TextureRegion[][] tmp = TextureRegion.split(runTexture, frameW, frameH);
+                TextureRegion[] frames = new TextureRegion[RUN_COLUMNS];
+                for (int i = 0; i < RUN_COLUMNS; i++) frames[i] = tmp[0][i];
+                runAnimation = new Animation<TextureRegion>(0.08f, frames);
+            } else {
+                Gdx.app.log("MainMenuScreen", "Run.png not found in assets (tried Run.png and assets/Run.png)");
+            }
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Failed to load Run.png animation", e);
+            runAnimation = null;
+            runTexture = null;
+        }
+    }
+
+    private void generateTitleFontWithSize(int size) {
+        // Dispose previous if present
+        if (titleFont != null) {
+            try { titleFont.dispose(); } catch (Exception ignored) {}
+            titleFont = null;
+        }
+        if (foundTtfPath == null) return;
+        FileHandle ttfHandle = null;
+        try {
+            // Prefer internal lookup, but if it's an absolute path use absolute file handle
+            if (Gdx.files.internal(foundTtfPath).exists()) {
+                ttfHandle = Gdx.files.internal(foundTtfPath);
+            } else if (Gdx.files.absolute(foundTtfPath).exists()) {
+                ttfHandle = Gdx.files.absolute(foundTtfPath);
+            } else {
+                // last-ditch: try user.dir + /assets/
+                String userDir = System.getProperty("user.dir");
+                String alt = userDir + "/assets/" + foundTtfPath;
+                if (Gdx.files.absolute(alt).exists()) ttfHandle = Gdx.files.absolute(alt);
+            }
+            if (ttfHandle == null) {
+                Gdx.app.error("MainMenuScreen", "TTF handle not found for path: " + foundTtfPath);
+                return;
+            }
+            FreeTypeFontGenerator generator = new FreeTypeFontGenerator(ttfHandle);
+            FreeTypeFontParameter parameter = new FreeTypeFontParameter();
+            parameter.size = size;
+            parameter.magFilter = TextureFilter.Nearest;
+            parameter.minFilter = TextureFilter.Nearest;
+            titleFont = generator.generateFont(parameter);
+            generator.dispose();
+            Gdx.app.log("MainMenuScreen", "Generated BitmapFont from TTF (size=" + parameter.size + ") using " + foundTtfPath);
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Exception while generating font from TTF: " + foundTtfPath, e);
+            titleFont = null;
+        }
+    }
     
     @Override
     public void render(float delta) {
         handleInput();
+        // advance running animation timer
+        runAnimTime += delta;
         
         // Clear screen
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1);
@@ -86,6 +339,49 @@ public class MainMenuScreen implements Screen {
             Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
             selectCurrentOption();
         }
+        // Font size is fixed; size-cycling removed
+
+        // Pointer / touch input: hover highlight + clicks/taps detection
+        {
+            float mx = Gdx.input.getX();
+            float my = Gdx.graphics.getHeight() - Gdx.input.getY();
+            float centerX = Gdx.graphics.getWidth() / 2f;
+            float centerY = Gdx.graphics.getHeight() / 2f;
+            float left = centerX - (BOX_W / 2f);
+
+            // Precompute box vertical positions so both hover and click use the same values
+            float yTop = centerY + MENU_TOP_OFFSET;
+            float bottomTop = yTop - (BOX_H / 2f);
+            float yMid = centerY + MENU_TOP_OFFSET - MENU_SPACING;
+            float bottomMid = yMid - (BOX_H / 2f);
+            float yBot = centerY + MENU_TOP_OFFSET - (2f * MENU_SPACING);
+            float bottomBot = yBot - (BOX_H / 2f);
+
+            // Hover: update selectedOption when pointer is over a box (no activation)
+            if (mx >= left && mx <= left + BOX_W && my >= bottomTop && my <= bottomTop + BOX_H) {
+                selectedOption = MenuOption.START_GAME;
+            } else if (mx >= left && mx <= left + BOX_W && my >= bottomMid && my <= bottomMid + BOX_H) {
+                selectedOption = MenuOption.TUTORIAL;
+            } else if (mx >= left && mx <= left + BOX_W && my >= bottomBot && my <= bottomBot + BOX_H) {
+                selectedOption = MenuOption.SETTINGS;
+            }
+
+            // Click / tap activation
+            if (Gdx.input.justTouched()) {
+                if (mx >= left && mx <= left + BOX_W && my >= bottomTop && my <= bottomTop + BOX_H) {
+                    selectCurrentOption();
+                    return;
+                }
+                if (mx >= left && mx <= left + BOX_W && my >= bottomMid && my <= bottomMid + BOX_H) {
+                    selectCurrentOption();
+                    return;
+                }
+                if (mx >= left && mx <= left + BOX_W && my >= bottomBot && my <= bottomBot + BOX_H) {
+                    selectCurrentOption();
+                    return;
+                }
+            }
+        }
     }
     
     private void selectCurrentOption() {
@@ -112,72 +408,151 @@ public class MainMenuScreen implements Screen {
         // Draw menu background panels
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         
-        // Title background
-        shapeRenderer.setColor(0.2f, 0.2f, 0.3f, 0.8f);
-        shapeRenderer.rect(centerX - 200, centerY + 100, 400, 80);
+        // Title background removed — text will be drawn without a panel
         
         // Menu options backgrounds
-        drawMenuOptionBox(centerX, centerY + 20, MenuOption.START_GAME);
-        drawMenuOptionBox(centerX, centerY - 40, MenuOption.TUTORIAL);
-        drawMenuOptionBox(centerX, centerY - 100, MenuOption.SETTINGS);
+        drawMenuOptionBox(centerX, centerY + MENU_TOP_OFFSET, MenuOption.START_GAME);
+        drawMenuOptionBox(centerX, centerY + MENU_TOP_OFFSET - MENU_SPACING, MenuOption.TUTORIAL);
+        drawMenuOptionBox(centerX, centerY + MENU_TOP_OFFSET - (2f * MENU_SPACING), MenuOption.SETTINGS);
         
         shapeRenderer.end();
         
-        // Draw borders
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        shapeRenderer.setColor(0, 0.8f, 0.8f, 1); // Cyan border
-        shapeRenderer.rect(centerX - 200, centerY + 100, 400, 80);
-        shapeRenderer.end();
+        // NOTE: Title border removed as requested; only background panel remains.
         
         // Draw text
         game.batch.begin();
         
-        // Title
-        game.font.draw(game.batch, "PAPER TRAIL PANIC", 
-            centerX - 90, centerY + 150);
+        // Title (use Pixelify Sans if available, scale up for title size)
+        String titleText = "Paper Trail Panic";
+        if (titleFont != null) {
+            float prevScaleX = titleFont.getData().scaleX;
+            float prevScaleY = titleFont.getData().scaleY;
+            titleFont.getData().setScale(2.0f);
+            GlyphLayout layout = new GlyphLayout(titleFont, titleText);
+            float titleX = centerX - (layout.width / 2f);
+            float titleY = centerY + 220;
+            titleFont.draw(game.batch, titleText, titleX, titleY);
+            titleFont.getData().setScale(prevScaleX, prevScaleY);
+        } else {
+            float prevX = game.font.getData().scaleX;
+            float prevY = game.font.getData().scaleY;
+            game.font.getData().setScale(2.0f);
+            GlyphLayout layout = new GlyphLayout(game.font, titleText);
+            float titleX = centerX - (layout.width / 2f);
+            float titleY = centerY + 150;
+            game.font.draw(game.batch, titleText, titleX, titleY);
+            game.font.getData().setScale(prevX, prevY);
+        }
+        // Draw running character animation between the title and the buttons, scaled with a small bounce
+        if (runAnimation != null) {
+            TextureRegion frame = runAnimation.getKeyFrame(runAnimTime, true);
+            float fw = frame.getRegionWidth();
+            float fh = frame.getRegionHeight();
+            // fixed base Y (centerY + RUN_Y_OFFSET) and small sinusoidal bounce
+            float bounce = (float)Math.sin(runAnimTime * RUN_BOUNCE_SPEED) * RUN_BOUNCE_AMPLITUDE;
+
+            float drawW;
+            float drawH;
+            switch (RUN_SIZE_MODE) {
+                case RUN_SIZE_MODE_EXPLICIT:
+                    drawW = RUN_DRAW_WIDTH;
+                    drawH = RUN_DRAW_HEIGHT;
+                    break;
+                case RUN_SIZE_MODE_DESIRED_H:
+                    drawH = RUN_DESIRED_HEIGHT;
+                    drawW = (fw * drawH) / fh;
+                    break;
+                case RUN_SIZE_MODE_SCREEN_REL:
+                    drawH = Gdx.graphics.getHeight() * RUN_SCREEN_HEIGHT_RATIO;
+                    drawW = (fw * drawH) / fh;
+                    break;
+                case RUN_SIZE_MODE_UNIFORM:
+                default:
+                    drawW = fw * RUN_SCALE;
+                    drawH = fh * RUN_SCALE;
+                    break;
+            }
+            // Center horizontally, but position vertically using a fixed offset (bottom aligned)
+            float drawX = centerX - (drawW / 2f);
+            // place sprite bottom at centerY + RUN_Y_OFFSET plus bounce
+            float drawY = centerY + RUN_Y_OFFSET + bounce;
+            game.batch.draw(frame, drawX, drawY, drawW, drawH);
+        }
         
-        game.font.draw(game.batch, "A Mission for Loloy the Crocodile", 
-            centerX - 120, centerY + 120);
         
-        // Menu options
-        drawMenuOptionText("START GAME", centerX - 50, centerY + 30, MenuOption.START_GAME);
-        drawMenuOptionText("TUTORIAL", centerX - 40, centerY - 30, MenuOption.TUTORIAL);
-        drawMenuOptionText("SETTINGS", centerX - 40, centerY - 90, MenuOption.SETTINGS);
+        // Menu options (center text inside each rounded box)
+        drawMenuOptionText("START GAME", centerX, centerY + MENU_TOP_OFFSET, MenuOption.START_GAME);
+        drawMenuOptionText("TUTORIAL", centerX, centerY + MENU_TOP_OFFSET - MENU_SPACING, MenuOption.TUTORIAL);
+        drawMenuOptionText("SETTINGS", centerX, centerY + MENU_TOP_OFFSET - (2f * MENU_SPACING), MenuOption.SETTINGS);
         
         // Instructions
         game.font.draw(game.batch, "UP/DOWN or W/S: Navigate | ENTER/SPACE: Select", 
             centerX - 180, 40);
+
+        // On-screen debug: show which font source is active
+        // Extra debug: whether titleFont was created and its texture filter
+        // debug removed
         
         game.batch.end();
     }
     
     private void drawMenuOptionBox(float centerX, float y, MenuOption option) {
         boolean isSelected = (selectedOption == option);
-        
-        if (isSelected) {
-            shapeRenderer.setColor(0, 0.6f, 0.6f, 0.9f); // Highlighted cyan
-        } else {
-            shapeRenderer.setColor(0.25f, 0.25f, 0.35f, 0.7f); // Dark grey
-        }
-        
-        shapeRenderer.rect(centerX - 150, y - 20, 300, 40);
+        float boxW = BOX_W;
+        float boxH = BOX_H;
+        float left = centerX - (boxW / 2f);
+        float bottom = y - (boxH / 2f);
+        float radius = BOX_RADIUS; // corner radius, adjustable via `BOX_RADIUS`
+
+        // Fill rounded rectangle by composing center rects and corner circles
+        shapeRenderer.setColor(isSelected ? new Color(0f, 0.6f, 0.6f, 0.95f) : new Color(217/255f, 217/255f, 217/255f, 1f));
+        // center large rect
+        shapeRenderer.rect(left + radius, bottom, boxW - 2f * radius, boxH);
+        // left and right vertical strips
+        shapeRenderer.rect(left, bottom + radius, radius, boxH - 2f * radius);
+        shapeRenderer.rect(left + boxW - radius, bottom + radius, radius, boxH - 2f * radius);
+        // top and bottom horizontal strips to smooth corners
+        shapeRenderer.rect(left + radius, bottom + boxH - radius, boxW - 2f * radius, radius);
+        shapeRenderer.rect(left + radius, bottom, boxW - 2f * radius, radius);
+
+        // horizontal lines (inset by radius so corners appear rounded)
+        shapeRenderer.line(left + radius, bottom + boxH, left + boxW - radius, bottom + boxH);
+        shapeRenderer.line(left + radius, bottom, left + boxW - radius, bottom);
+        // vertical lines
+        shapeRenderer.line(left, bottom + radius, left, bottom + boxH - radius);
+        shapeRenderer.line(left + boxW, bottom + radius, left + boxW, bottom + boxH - radius);
+        // corner arcs (drawn as circle outlines centered at corner-circle centers)
+        int segments = 16;
+        shapeRenderer.circle(left + radius, bottom + radius, radius, segments);
+        shapeRenderer.circle(left + boxW - radius, bottom + radius, radius, segments);
+        shapeRenderer.circle(left + radius, bottom + boxH - radius, radius, segments);
+        shapeRenderer.circle(left + boxW - radius, bottom + boxH - radius, radius, segments);
+        shapeRenderer.end();
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
     }
     
     private void drawMenuOptionText(String text, float x, float y, MenuOption option) {
         boolean isSelected = (selectedOption == option);
-        
+        // Center text horizontally and vertically inside the rounded box
+        BitmapFont font = game.font;
+        GlyphLayout layout = new GlyphLayout(font, text);
+        float textX = x - (layout.width / 2f);
+        // BitmapFont.draw uses the y parameter as the baseline; to vertically center
+        // inside a box whose center is at `y`, shift baseline up by half the layout height.
+        float textY = y + (layout.height / 2f);
+
+        // Indicate selection by configurable color (no arrow)
+        Color prev = font.getColor().cpy();
         if (isSelected) {
-            // Draw selection indicator
-            game.font.draw(game.batch, "> " + text + " <", x - 20, y);
+            font.setColor(BUTTON_TEXT_COLOR_SELECTED);
         } else {
-            game.font.draw(game.batch, text, x, y);
+            font.setColor(BUTTON_TEXT_COLOR);
         }
+        font.draw(game.batch, layout, textX, textY);
+        font.setColor(prev);
     }
     
-    @Override
-    public void show() {
-        Gdx.app.log("MainMenuScreen", "Main menu displayed");
-    }
+    
     
     @Override
     public void resize(int width, int height) {
@@ -199,5 +574,7 @@ public class MainMenuScreen implements Screen {
     @Override
     public void dispose() {
         shapeRenderer.dispose();
+        if (titleFont != null) titleFont.dispose();
+        if (runTexture != null) runTexture.dispose();
     }
 }
