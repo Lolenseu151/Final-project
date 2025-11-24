@@ -81,6 +81,8 @@ public class MainMenuScreen implements Screen {
     private MenuOption selectedOption = MenuOption.START_GAME;
     private boolean upKeyWasPressed = false;
     private boolean downKeyWasPressed = false;
+    // Track which option the mouse is currently hovering over (visual only)
+    private MenuOption hoveredOption = null;
     
     public MainMenuScreen(MyGdxGame game) {
         this.game = game;
@@ -417,26 +419,32 @@ public class MainMenuScreen implements Screen {
             float yBot = centerY + MENU_TOP_OFFSET - (2f * MENU_SPACING);
             float bottomBot = yBot - (BOX_H / 2f);
 
-            // Hover: update selectedOption when pointer is over a box (no activation)
+            // Hover: update hoveredOption (visual only) when pointer is over a box
             if (mx >= left && mx <= left + BOX_W && my >= bottomTop && my <= bottomTop + BOX_H) {
-                selectedOption = MenuOption.START_GAME;
+                hoveredOption = MenuOption.START_GAME;
             } else if (mx >= left && mx <= left + BOX_W && my >= bottomMid && my <= bottomMid + BOX_H) {
-                selectedOption = MenuOption.TUTORIAL;
+                hoveredOption = MenuOption.TUTORIAL;
             } else if (mx >= left && mx <= left + BOX_W && my >= bottomBot && my <= bottomBot + BOX_H) {
-                selectedOption = MenuOption.SETTINGS;
+                hoveredOption = MenuOption.SETTINGS;
+            } else {
+                hoveredOption = null;
             }
 
             // Click / tap activation
             if (Gdx.input.justTouched()) {
                 if (mx >= left && mx <= left + BOX_W && my >= bottomTop && my <= bottomTop + BOX_H) {
+                    // activate the clicked option immediately
+                    selectedOption = MenuOption.START_GAME;
                     selectCurrentOption();
                     return;
                 }
                 if (mx >= left && mx <= left + BOX_W && my >= bottomMid && my <= bottomMid + BOX_H) {
+                    selectedOption = MenuOption.TUTORIAL;
                     selectCurrentOption();
                     return;
                 }
                 if (mx >= left && mx <= left + BOX_W && my >= bottomBot && my <= bottomBot + BOX_H) {
+                    selectedOption = MenuOption.SETTINGS;
                     selectCurrentOption();
                     return;
                 }
@@ -559,7 +567,8 @@ public class MainMenuScreen implements Screen {
     }
     
     private void drawMenuOptionBox(float centerX, float y, MenuOption option) {
-        boolean isSelected = (selectedOption == option);
+        // Visual selection is controlled by hover only
+        boolean isSelected = (hoveredOption == option);
         float boxW = BOX_W;
         float boxH = BOX_H;
         float left = centerX - (boxW / 2f);
@@ -594,7 +603,8 @@ public class MainMenuScreen implements Screen {
     }
     
     private void drawMenuOptionText(String text, float x, float y, MenuOption option) {
-        boolean isSelected = (selectedOption == option);
+        // Visual selection for text is based on hover only
+        boolean isSelected = (hoveredOption == option);
         // Choose the button font if available, otherwise fall back to the game's default font
         BitmapFont font = (buttonFont != null) ? buttonFont : game.font;
         // apply requested scale while measuring and drawing, then restore previous scale
