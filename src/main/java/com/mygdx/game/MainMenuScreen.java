@@ -28,6 +28,7 @@ public class MainMenuScreen implements Screen {
     private final MyGdxGame game;
     private final ShapeRenderer shapeRenderer;
         private BitmapFont titleFont;
+        private BitmapFont buttonFont;
         // Fixed title font size for pixel look
         private String foundTtfPath = null;
         private final int titleFontSize = 64;
@@ -39,7 +40,7 @@ public class MainMenuScreen implements Screen {
     private final float BOX_RADIUS = 20f;
     // Button text colors (change these to set button text colors)
     private final Color BUTTON_TEXT_COLOR = new Color(0f, 0f, 0f, 1f); // unselected (black)
-    private final Color BUTTON_TEXT_COLOR_SELECTED = new Color(1f, 1f, 1f, 1f); // selected (white)
+    private final Color BUTTON_TEXT_COLOR_SELECTED = new Color(0f, 0f, 0f, 1f); // selected (white)
     // Running character animation (assets/Run.png or user-provided sheet)
     private Texture runTexture;
     private Animation<TextureRegion> runAnimation;
@@ -51,7 +52,7 @@ public class MainMenuScreen implements Screen {
     private final float MENU_RUN_SPEED_FACTOR = 0.6f;    // scale applied to delta when advancing time
     // Running sprite scale and vertical placement/bounce
     private final float RUN_SCALE = 0.9f;            // scale factor for the running sprite
-    private final float RUN_Y_OFFSET = -10f;         // base offset from centerY for sprite center (moved up)
+    private final float RUN_Y_OFFSET = -40f;         // base offset from centerY for sprite center (moved up)
     private final float RUN_BOUNCE_AMPLITUDE = 3f;   // bounce amplitude in pixels (reduced)
     private final float RUN_BOUNCE_SPEED = 3f;       // bounce speed multiplier (reduced)
     // Run sizing modes
@@ -68,6 +69,8 @@ public class MainMenuScreen implements Screen {
     private final float RUN_DESIRED_HEIGHT = 96f;
     // screen-relative height (fraction of screen height) used when RUN_SIZE_MODE_SCREEN_REL
     private final float RUN_SCREEN_HEIGHT_RATIO = 0.30f; // 25% of screen height (increased)
+    // Button font scale (1.0 = normal). Set to 0.9 as requested.
+    private final float BUTTON_FONT_SCALE = 0.7f;
     
     private enum MenuOption {
         START_GAME,
@@ -221,6 +224,48 @@ public class MainMenuScreen implements Screen {
         if (titleFont == null && game.font != null && game.font.getRegion() != null && game.font.getRegion().getTexture() != null) {
             game.font.getRegion().getTexture().setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
         }
+
+        // Load button font: prefer a black Pexelify font if provided, then fall back to Pexelify_Sans
+        try {
+            String[] preferred = new String[] {
+                "fonts/black pexelify/black.fnt",
+                "fonts/Pexelify_Sans.fnt"
+            };
+            FileHandle btnHandle = null;
+            String chosen = null;
+            for (String p : preferred) {
+                if (Gdx.files.internal(p).exists()) {
+                    btnHandle = Gdx.files.internal(p);
+                    chosen = p;
+                    break;
+                }
+            }
+            if (btnHandle == null) {
+                String userDir = System.getProperty("user.dir");
+                for (String p : preferred) {
+                    String abs = userDir + "/assets/" + p;
+                    if (Gdx.files.absolute(abs).exists()) {
+                        btnHandle = Gdx.files.absolute(abs);
+                        chosen = p;
+                        break;
+                    }
+                }
+            }
+            if (btnHandle != null) {
+                buttonFont = new BitmapFont(btnHandle);
+                if (buttonFont.getRegion() != null && buttonFont.getRegion().getTexture() != null) {
+                    buttonFont.getRegion().getTexture().setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
+                }
+                Gdx.app.log("MainMenuScreen", "Loaded button font: " + chosen);
+            } else {
+                buttonFont = null;
+                Gdx.app.log("MainMenuScreen", "Button font not found in preferred locations");
+            }
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Failed to load button font", e);
+            buttonFont = null;
+        }
+
         Gdx.app.log("MainMenuScreen", "Main menu displayed");
 
         // Load running character sprite sheet: force `fixer run.png` only (internal or absolute).
@@ -442,7 +487,7 @@ public class MainMenuScreen implements Screen {
         if (titleFont != null) {
             float prevScaleX = titleFont.getData().scaleX;
             float prevScaleY = titleFont.getData().scaleY;
-            titleFont.getData().setScale(2.0f);
+            titleFont.getData().setScale(3.0f);
             GlyphLayout layout = new GlyphLayout(titleFont, titleText);
             float titleX = centerX - (layout.width / 2f);
             float titleY = centerY + 290;
@@ -550,8 +595,12 @@ public class MainMenuScreen implements Screen {
     
     private void drawMenuOptionText(String text, float x, float y, MenuOption option) {
         boolean isSelected = (selectedOption == option);
-        // Center text horizontally and vertically inside the rounded box
-        BitmapFont font = game.font;
+        // Choose the button font if available, otherwise fall back to the game's default font
+        BitmapFont font = (buttonFont != null) ? buttonFont : game.font;
+        // apply requested scale while measuring and drawing, then restore previous scale
+        float prevScaleX = font.getData().scaleX;
+        float prevScaleY = font.getData().scaleY;
+        font.getData().setScale(BUTTON_FONT_SCALE);
         GlyphLayout layout = new GlyphLayout(font, text);
         float textX = x - (layout.width / 2f);
         // BitmapFont.draw uses the y parameter as the baseline; to vertically center
@@ -559,14 +608,17 @@ public class MainMenuScreen implements Screen {
         float textY = y + (layout.height / 2f);
 
         // Indicate selection by configurable color (no arrow)
-        Color prev = font.getColor().cpy();
-        if (isSelected) {
-            font.setColor(BUTTON_TEXT_COLOR_SELECTED);
-        } else {
-            font.setColor(BUTTON_TEXT_COLOR);
+        // Use the SpriteBatch color to force a consistent tint regardless of font internals
+        Color prevBatch = game.batch.getColor().cpy();
+        try {
+            if (isSelected) game.batch.setColor(BUTTON_TEXT_COLOR_SELECTED);
+            else game.batch.setColor(BUTTON_TEXT_COLOR);
+            font.draw(game.batch, layout, textX, textY);
+        } finally {
+            game.batch.setColor(prevBatch);
+            // restore font scale
+            font.getData().setScale(prevScaleX, prevScaleY);
         }
-        font.draw(game.batch, layout, textX, textY);
-        font.setColor(prev);
     }
     
     
@@ -592,6 +644,7 @@ public class MainMenuScreen implements Screen {
     public void dispose() {
         shapeRenderer.dispose();
         if (titleFont != null) titleFont.dispose();
+        if (buttonFont != null) buttonFont.dispose();
         if (runTexture != null) runTexture.dispose();
     }
 }
