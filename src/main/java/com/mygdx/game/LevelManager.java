@@ -4,6 +4,8 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import java.util.List;
@@ -14,27 +16,30 @@ import java.util.ArrayList;
  * Responsible for level layout, collision detection, and objective tracking
  */
 public class LevelManager {
-    
+
     // Level elements
     private final Array<Rectangle> documents;      // Incriminating documents to collect
     private final Array<Rectangle> obstacles;      // Red Tape obstacles (slow player)
     private final Array<Rectangle> auditorBeams;   // Auditor Beams (time penalties)
     private final Array<Rectangle> platforms;      // Platforms/floors for player to stand on
     private Rectangle shredder;                    // The shredder (win condition)
-    
+
     // Level state
     private int documentsCollected;
     private int totalDocuments;
     private boolean levelComplete;
-    
+
     // Visual properties
-    private static final float DOCUMENT_SIZE = 20f;
+    private static final float DOCUMENT_SIZE = 36f;
     private static final float OBSTACLE_WIDTH = 60f;
     private static final float OBSTACLE_HEIGHT = 10f;
     private static final float BEAM_WIDTH = 5f;
     private static final float SHREDDER_SIZE = 50f;
     private static final float PLATFORM_HEIGHT = 15f;
-    
+
+    // NEW: texture for document visuals
+    private Texture documentTex;
+
     /**
      * Creates a new Level Manager and initializes the level
      */
@@ -45,10 +50,51 @@ public class LevelManager {
         this.platforms = new Array<>();
         this.documentsCollected = 0;
         this.levelComplete = false;
-        
+
+        // load documents.png safely (try internal then absolute and common asset path), fallback placeholder
+        try {
+            String[] candidates = new String[] {
+                "documents.png",
+                "Documents.png",
+                "assets/documents.png",
+                "assets/Documents.png"
+            };
+            boolean loaded = false;
+            for (String c : candidates) {
+                if (c == null) continue;
+                if (Gdx.files.internal(c).exists()) {
+                    documentTex = new Texture(Gdx.files.internal(c));
+                    Gdx.app.log("LevelManager", "Loaded document texture (internal): " + c);
+                    loaded = true;
+                    break;
+                }
+                if (Gdx.files.absolute(c).exists()) {
+                    documentTex = new Texture(Gdx.files.absolute(c));
+                    Gdx.app.log("LevelManager", "Loaded document texture (absolute): " + c);
+                    loaded = true;
+                    break;
+                }
+            }
+            if (!loaded) {
+                Pixmap pm = new Pixmap((int)DOCUMENT_SIZE, (int)DOCUMENT_SIZE, Pixmap.Format.RGBA8888);
+                pm.setColor(1f, 1f, 1f, 1f);
+                pm.fill();
+                documentTex = new Texture(pm);
+                pm.dispose();
+                Gdx.app.log("LevelManager", "documents.png not found, using placeholder.");
+            }
+        } catch (Exception e) {
+            Gdx.app.error("LevelManager", "Error loading documents.png", e);
+            Pixmap pm = new Pixmap((int)DOCUMENT_SIZE, (int)DOCUMENT_SIZE, Pixmap.Format.RGBA8888);
+            pm.setColor(1f, 1f, 1f, 1f);
+            pm.fill();
+            documentTex = new Texture(pm);
+            pm.dispose();
+        }
+
         initializeLevel();
     }
-    
+
     /**
      * Initializes the level layout with documents, obstacles, and shredder
      */
@@ -58,133 +104,133 @@ public class LevelManager {
         obstacles.clear();
         auditorBeams.clear();
         platforms.clear();
-        
+
         // Place platforms first (so we can position documents on them)
         placePlatforms();
-        
+
         // Place documents throughout the level
         placeDocuments();
-        
+
         // Place obstacles (Red Tape)
         placeObstacles();
-        
+
         // Place Auditor Beams
         placeAuditorBeams();
-        
+
         // Place shredder at the end
         placeShredder();
-        
+
         totalDocuments = documents.size;
         documentsCollected = 0;
         levelComplete = false;
-        
+
         Gdx.app.log("LevelManager", String.format("Level initialized: %d documents, %d platforms, %d obstacles, %d beams",
             totalDocuments, platforms.size, obstacles.size, auditorBeams.size));
     }
-    
+
     /**
      * Places platforms at different heights
      */
     private void placePlatforms() {
         float screenWidth = Gdx.graphics.getWidth();
         float screenHeight = Gdx.graphics.getHeight();
-        
+
         // Ground floor (full width)
         platforms.add(new Rectangle(0, 0, screenWidth, PLATFORM_HEIGHT));
-        
+
         // First level platforms (around 150 units high)
         platforms.add(new Rectangle(0, 125, 700, PLATFORM_HEIGHT));
         //platforms.add(new Rectangle(screenWidth - 300, 150, 200, PLATFORM_HEIGHT));
-        
+
         // Second level platforms (around 280 units high)
        platforms.add(new Rectangle(50, 250, 500, PLATFORM_HEIGHT));
        //platforms.add(new Rectangle(250, 280, 180, PLATFORM_HEIGHT));
        //platforms.add(new Rectangle(screenWidth - 250, 280, 180, PLATFORM_HEIGHT));
-        
+
         // Third level platforms (around 410 units high) - harder to reach
         platforms.add(new Rectangle(screenWidth / 2 - 50, 350, 200, PLATFORM_HEIGHT));
         platforms.add(new Rectangle(screenWidth - 180, 410, 150, PLATFORM_HEIGHT));
-        
+
         // Top platform (near ceiling) - requires precise jumps
         if (screenHeight > 500) {
             platforms.add(new Rectangle(screenWidth / 2 - 80, screenHeight - 120, 160, PLATFORM_HEIGHT));
         }
     }
-    
+
     /**
      * Places documents throughout the level at different heights
      */
     private void placeDocuments() {
         float screenWidth = Gdx.graphics.getWidth();
         float screenHeight = Gdx.graphics.getHeight();
-        
+
         Gdx.app.log("LevelManager", "Screen size: " + screenWidth + "x" + screenHeight);
-        
+
         // Document 1: On ground level - easy to get
         Rectangle doc1 = new Rectangle(150, PLATFORM_HEIGHT + 5, DOCUMENT_SIZE, DOCUMENT_SIZE);
         documents.add(doc1);
         Gdx.app.log("LevelManager", "Doc 1 at: (" + doc1.x + ", " + doc1.y + ")");
-        
+
         // Document 2: On first level platform (left) - requires jumping
         Rectangle doc2 = new Rectangle(120, 150 + PLATFORM_HEIGHT + 5, DOCUMENT_SIZE, DOCUMENT_SIZE);
         documents.add(doc2);
         Gdx.app.log("LevelManager", "Doc 2 at: (" + doc2.x + ", " + doc2.y + ")");
-        
+
         // Document 3: On second level platform (right) - requires multiple jumps
         Rectangle doc3 = new Rectangle(screenWidth - 200, 280 + PLATFORM_HEIGHT + 5, DOCUMENT_SIZE, DOCUMENT_SIZE);
         documents.add(doc3);
         Gdx.app.log("LevelManager", "Doc 3 at: (" + doc3.x + ", " + doc3.y + ")");
-        
+
         // Document 4: On third level platform (center) - tricky to reach
         Rectangle doc4 = new Rectangle(screenWidth / 2 - 50, 410 + PLATFORM_HEIGHT + 5, DOCUMENT_SIZE, DOCUMENT_SIZE);
         documents.add(doc4);
         Gdx.app.log("LevelManager", "Doc 4 at: (" + doc4.x + ", " + doc4.y + ")");
-        
+
         // Document 5: On another second level platform (left) - strategic placement
         Rectangle doc5 = new Rectangle(80, 280 + PLATFORM_HEIGHT + 5, DOCUMENT_SIZE, DOCUMENT_SIZE);
         documents.add(doc5);
         Gdx.app.log("LevelManager", "Doc 5 at: (" + doc5.x + ", " + doc5.y + ")");
-        
+
         // Document 6: On another second level platform (middle) - adds challenge
         Rectangle doc6 = new Rectangle(280, 280 + PLATFORM_HEIGHT + 5, DOCUMENT_SIZE, DOCUMENT_SIZE);
         documents.add(doc6);
         Gdx.app.log("LevelManager", "Doc 6 at: (" + doc6.x + ", " + doc6.y + ")");
-        
+
         // Document 7: On right side first level - requires navigation
         Rectangle doc7 = new Rectangle(screenWidth - 250, 150 + PLATFORM_HEIGHT + 5, DOCUMENT_SIZE, DOCUMENT_SIZE);
         documents.add(doc7);
         Gdx.app.log("LevelManager", "Doc 7 at: (" + doc7.x + ", " + doc7.y + ")");
     }
-    
+
     /**
      * Places obstacles (Red Tape) that slow the player on various platforms
      */
     private void placeObstacles() {
         float screenWidth = Gdx.graphics.getWidth();
-        
+
         // Obstacles on ground
         obstacles.add(new Rectangle(200, PLATFORM_HEIGHT, OBSTACLE_WIDTH, OBSTACLE_HEIGHT));
         obstacles.add(new Rectangle(400, PLATFORM_HEIGHT, OBSTACLE_WIDTH, OBSTACLE_HEIGHT));
-        
+
         // Obstacles on first level platforms
         obstacles.add(new Rectangle(screenWidth - 280, 150 + PLATFORM_HEIGHT, OBSTACLE_WIDTH, OBSTACLE_HEIGHT));
-        
+
         // Obstacles on second level platforms
         obstacles.add(new Rectangle(70, 280 + PLATFORM_HEIGHT, 50, OBSTACLE_HEIGHT));
         obstacles.add(new Rectangle(350, 280 + PLATFORM_HEIGHT, 50, OBSTACLE_HEIGHT));
     }
-    
+
     /**
      * Places Auditor Beams (vertical laser grids)
      */
     private void placeAuditorBeams() {
         float screenHeight = Gdx.graphics.getHeight();
-        
+
         // Place vertical beams
         auditorBeams.add(new Rectangle(350, 0, BEAM_WIDTH, screenHeight));
         auditorBeams.add(new Rectangle(550, 0, BEAM_WIDTH, screenHeight));
     }
-    
+
     /**
      * Places the shredder (goal)
      */
@@ -192,7 +238,7 @@ public class LevelManager {
         float screenWidth = Gdx.graphics.getWidth();
         shredder = new Rectangle(screenWidth - 80, 10, SHREDDER_SIZE, SHREDDER_SIZE);
     }
-    
+
     /**
      * Updates the level (checks collisions, etc.)
      * @param deltaTime Time since last update
@@ -201,13 +247,13 @@ public class LevelManager {
      */
     public float update(float deltaTime, Fixer player) {
         float timePenalty = 0f;
-        
+
         // Check platform collisions (player standing on platforms)
         checkPlatformCollisions(player, deltaTime);
 
         // Reset slowed state; will be set if overlapping any obstacle below
         player.setSlowed(false);
-        
+
         // Check document collection
         for (int i = documents.size - 1; i >= 0; i--) {
             Rectangle doc = documents.get(i);
@@ -218,7 +264,7 @@ public class LevelManager {
                     documentsCollected, totalDocuments));
             }
         }
-        
+
         // Check obstacle collision (Red Tape - slows player)
         boolean slowed = false;
         for (Rectangle obstacle : obstacles) {
@@ -230,14 +276,14 @@ public class LevelManager {
             }
         }
         player.setSlowed(slowed);
-        
+
         // Check Auditor Beam collision (time penalty)
         for (Rectangle beam : auditorBeams) {
             if (player.getBounds().overlaps(beam)) {
                 timePenalty += 2f * deltaTime; // 2 seconds penalty per frame in beam
             }
         }
-        
+
         // Check if level is complete (all documents collected + reached shredder)
         if (documentsCollected >= totalDocuments && player.getBounds().overlaps(shredder)) {
             if (!levelComplete) {
@@ -245,10 +291,10 @@ public class LevelManager {
                 Gdx.app.log("LevelManager", "LEVEL COMPLETE! All documents shredded!");
             }
         }
-        
+
         return timePenalty;
     }
-    
+
     /**
      * Checks if the player is colliding with any platforms and handles landing
      */
@@ -342,7 +388,7 @@ public class LevelManager {
             }
         }
     }
-    
+
     /**
      * Renders all level elements
      * @param shapeRenderer The renderer to use
@@ -359,17 +405,10 @@ public class LevelManager {
             shapeRenderer.rect(platform.x, platform.y, platform.width, platform.height);
         }
 
-        // Draw documents (white/paper color)
-        shapeRenderer.setColor(1, 1, 1, 1);
-        for (Rectangle doc : documents) {
-            shapeRenderer.rect(doc.x, doc.y, doc.width, doc.height);
-        }
-
-        // Finish shape rendering before using the SpriteBatch for text
+        // Finish shape rendering before using the SpriteBatch for document visuals/text
         shapeRenderer.end();
 
-        // Draw document numbers (and any other text) with the SpriteBatch
-        // (avoid calling batch.begin() while ShapeRenderer is active)
+        // Draw document textures and document numbers with the SpriteBatch
         if (documents.size > 0) {
             boolean beganBatch = false;
             if (!batch.isDrawing()) {
@@ -378,7 +417,22 @@ public class LevelManager {
             }
             int docNum = 1;
             for (Rectangle doc : documents) {
-                font.draw(batch, "D" + docNum, doc.x + 5, doc.y + doc.height + 15);
+                // ensure document rect has the desired visual size
+                doc.width = DOCUMENT_SIZE;
+                doc.height = DOCUMENT_SIZE;
+
+                if (documentTex != null) {
+                    batch.draw(documentTex, doc.x, doc.y, doc.width, doc.height);
+                }
+                if (font != null) {
+                    font.draw(batch, "D" + docNum, doc.x + 5, doc.y + doc.height + 15);
+                }
+
+                // Debug log for the first document to confirm draw coords
+                if (docNum == 1) {
+                    Gdx.app.log("LevelManager", String.format("Drawing doc #1 at (%.1f, %.1f) size(%.1f,%.1f)", doc.x, doc.y, doc.width, doc.height));
+                }
+
                 docNum++;
             }
             if (beganBatch) batch.end();
@@ -409,20 +463,20 @@ public class LevelManager {
 
         shapeRenderer.end();
     }
-    
+
     /**
      * Resets the level to initial state
      */
     public void reset() {
         initializeLevel();
     }
-    
+
     // Getters
     public int getDocumentsCollected() { return documentsCollected; }
     public int getTotalDocuments() { return totalDocuments; }
     public boolean isLevelComplete() { return levelComplete; }
     public int getDocumentsRemaining() { return totalDocuments - documentsCollected; }
-    
+
     // Return copies or an unmodifiable list of collision/doc rectangles for debugging
     public List<Rectangle> getAllDebugRects() {
         List<Rectangle> out = new ArrayList<>();
@@ -431,5 +485,13 @@ public class LevelManager {
         // for (Document d : documents) out.add(new Rectangle(d.x, d.y, d.width, d.height));
         // ...
         return out;
+    }
+
+    // NEW: dispose document texture when level manager disposed
+    public void dispose() {
+        if (documentTex != null) {
+            documentTex.dispose();
+            documentTex = null;
+        }
     }
 }
