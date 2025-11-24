@@ -8,16 +8,13 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 
 /**
  * Cleaned GameScreen: null-safe, owns fixerTexture only when loaded here,
@@ -302,18 +299,7 @@ public class GameScreen implements Screen {
                 Gdx.app.error("GameScreen", "Error trying candidate " + c, e);
             }
         }
-<<<<<<< HEAD
-    }
-
-    // Draw only non-HUD on-screen text inside the main batch block.
-    // HUD values (documents/time) are handled by Scene2D `docsLabel`/`timeLabel`.
-    private void drawGameInfoTextContent() {
-        // Draw instructions only; caller manages batch begin/end.
-        game.font.draw(game.batch, "WASD/Arrows: Move | SPACE: Dash | P: Pause", 
-            50, Gdx.graphics.getHeight() - 20);
-=======
         return null;
->>>>>>> 3963cf6 (PLayer Sprite added)
     }
 
     @Override
@@ -343,38 +329,4 @@ public class GameScreen implements Screen {
         if (uiStage != null) uiStage.dispose();
         if (uiSkin != null) uiSkin.dispose();
     }
-<<<<<<< HEAD
-=======
-
-    // Getters / setters unchanged...
-    public MyGdxGame getGame() { return game; }
-    public Stage getUiStage() { return uiStage; }
-    public void setUiStage(Stage uiStage) { this.uiStage = uiStage; }
-    public Skin getUiSkin() { return uiSkin; }
-    public void setUiSkin(Skin uiSkin) { this.uiSkin = uiSkin; }
-    public Table getUiRoot() { return uiRoot; }
-    public void setUiRoot(Table uiRoot) { this.uiRoot = uiRoot; }
-    public Label getDocsLabel() { return docsLabel; }
-    public void setDocsLabel(Label docsLabel) { this.docsLabel = docsLabel; }
-    public Label getTimeLabel() { return timeLabel; }
-    public void setTimeLabel(Label timeLabel) { this.timeLabel = timeLabel; }
-    public LevelManager getLevelManager() { return levelManager; }
-    public float getRemainingTime() { return remainingTime; }
-    public void setRemainingTime(float remainingTime) { this.remainingTime = remainingTime; }
-    public static float getFixedTimeStep() { return FIXED_TIME_STEP; }
-    public float getAccumulator() { return accumulator; }
-    public void setAccumulator(float accumulator) { this.accumulator = accumulator; }
-    public GameState getCurrentState() { return currentState; }
-    public void setCurrentState(GameState currentState) { this.currentState = currentState; }
-    public boolean ispKeyWasPressed() { return pKeyWasPressed; }
-    public void setpKeyWasPressed(boolean pKeyWasPressed) { this.pKeyWasPressed = pKeyWasPressed; }
-    public OrthographicCamera getCamera() { return camera; }
-    public void setCamera(OrthographicCamera camera) { this.camera = camera; }
-    public Texture getFixerTexture() { return fixerTexture; }
-    public void setFixerTexture(Texture fixerTexture) { this.fixerTexture = fixerTexture; }
-    public ShapeRenderer getShapeRenderer() { return shapeRenderer; }
-    public void setShapeRenderer(ShapeRenderer shapeRenderer) { this.shapeRenderer = shapeRenderer; }
-    public Fixer getFixer() { return fixer; }
-    public void setFixer(Fixer fixer) { this.fixer = fixer; }
->>>>>>> 3963cf6 (PLayer Sprite added)
 }
