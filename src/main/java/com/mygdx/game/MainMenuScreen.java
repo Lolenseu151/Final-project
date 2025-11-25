@@ -388,7 +388,7 @@ public class MainMenuScreen implements Screen {
         switch (selectedOption) {
             case START_GAME:
                 Gdx.app.log("MainMenu", "Starting game...");
-                game.setScreen(new GameScreen(game));
+                game.setScreen(new LevelSelectScreen(game));
                 break;
             case TUTORIAL:
                 Gdx.app.log("MainMenu", "Opening tutorial...");

@@ -14,6 +14,7 @@ public class LoadingScreen implements Screen {
     private final ShapeRenderer shapeRenderer;
     private float progress = 0f;
     private float timeElapsed = 0f;
+    private float animTimer = 0f;
     private static final float MIN_LOAD_TIME = 1.5f; // Minimum time to show loading screen
     
     public LoadingScreen(MyGdxGame game) {
@@ -24,26 +25,24 @@ public class LoadingScreen implements Screen {
     @Override
     public void render(float delta) {
         timeElapsed += delta;
+        animTimer += delta;
 
-        // Simulate loading progress (in a real app, you'd check AssetManager progress)
         progress = Math.min(1f, timeElapsed / MIN_LOAD_TIME);
 
-        // Clear screen
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // Draw loading UI
         drawLoadingBar();
+        drawCharacters();
         drawText();
 
-        // When loading complete, switch to main menu (guarded)
+        // After loading completes, go to MainMenuScreen (not GameScreen)
         if (progress >= 1f && timeElapsed >= MIN_LOAD_TIME) {
             try {
-                // Defensive: ensure MainMenuScreen exists and won't throw
                 game.setScreen(new MainMenuScreen(game));
+                dispose();
             } catch (Throwable t) {
                 Gdx.app.error("LoadingScreen", "Failed to switch to MainMenuScreen", t);
-                // keep showing loading screen so you can read the log
             }
         }
     }
@@ -110,6 +109,11 @@ public class LoadingScreen implements Screen {
             try { game.batch.end(); } catch (Exception ignored) {}
             if (usingLocalFont && localFont != null) localFont.dispose();
         }
+    }
+    
+    private void drawCharacters() {
+        // Placeholder for character drawing logic
+        // This method will be used to animate and draw characters during the loading screen
     }
     
     @Override
