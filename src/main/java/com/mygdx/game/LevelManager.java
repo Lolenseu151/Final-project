@@ -39,6 +39,8 @@ public class LevelManager {
 
     // NEW: texture for document visuals
     private Texture documentTex;
+    // NEW: per-level background texture (used by loadLevel)
+    private Texture backgroundTex;
 
     /**
      * Creates a new Level Manager and initializes the level
@@ -248,6 +250,11 @@ public class LevelManager {
     public float update(float deltaTime, Fixer player) {
         float timePenalty = 0f;
 
+        // Update background state if level provides it
+        if (currentLevel instanceof BackgroundedLevel) {
+            ((BackgroundedLevel) currentLevel).updateBackground(deltaTime, this, documents, obstacles, player);
+        }
+
         // Check platform collisions (player standing on platforms)
         checkPlatformCollisions(player, deltaTime);
 
@@ -396,72 +403,63 @@ public class LevelManager {
      * @param font Font for text rendering
      */
     public void render(ShapeRenderer shapeRenderer, SpriteBatch batch, BitmapFont font) {
-        // Draw platforms and documents with the ShapeRenderer first
+        // === PHASE 1: Draw background (SpriteBatch) ===
+        if (backgroundTex != null) {
+            batch.begin();
+            if (currentLevel instanceof BackgroundedLevel) {
+                ((BackgroundedLevel) currentLevel).renderBackground(batch, backgroundTex);
+            } else {
+                batch.draw(backgroundTex, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+            }
+            batch.end();  // *** CRITICAL: END BATCH BEFORE SHAPES ***
+        }
+
+        // === PHASE 2: Draw platforms/obstacles/beams (ShapeRenderer) ===
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        // Draw platforms (brown/wood color)
+        // Platforms (brown)
         shapeRenderer.setColor(0.6f, 0.4f, 0.2f, 1);
         for (Rectangle platform : platforms) {
             shapeRenderer.rect(platform.x, platform.y, platform.width, platform.height);
         }
 
-        // Finish shape rendering before using the SpriteBatch for document visuals/text
-        shapeRenderer.end();
-
-        // Draw document textures and document numbers with the SpriteBatch
-        if (documents.size > 0) {
-            boolean beganBatch = false;
-            if (!batch.isDrawing()) {
-                batch.begin();
-                beganBatch = true;
-            }
-            int docNum = 1;
-            for (Rectangle doc : documents) {
-                // ensure document rect has the desired visual size
-                doc.width = DOCUMENT_SIZE;
-                doc.height = DOCUMENT_SIZE;
-
-                if (documentTex != null) {
-                    batch.draw(documentTex, doc.x, doc.y, doc.width, doc.height);
-                }
-                if (font != null) {
-                    font.draw(batch, "D" + docNum, doc.x + 5, doc.y + doc.height + 15);
-                }
-
-                // Debug log for the first document to confirm draw coords
-                if (docNum == 1) {
-                    Gdx.app.log("LevelManager", String.format("Drawing doc #1 at (%.1f, %.1f) size(%.1f,%.1f)", doc.x, doc.y, doc.width, doc.height));
-                }
-
-                docNum++;
-            }
-            if (beganBatch) batch.end();
-        }
-
-        // Draw obstacles, beams and shredder with ShapeRenderer again
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-
-        // Draw obstacles (red tape - red color)
+        // Obstacles (red)
         shapeRenderer.setColor(0.8f, 0.1f, 0.1f, 1);
         for (Rectangle obstacle : obstacles) {
             shapeRenderer.rect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
         }
 
-        // Draw Auditor Beams (yellow/warning color with transparency)
+        // Auditor beams (yellow semi-transparent)
         shapeRenderer.setColor(1, 1, 0, 0.5f);
         for (Rectangle beam : auditorBeams) {
             shapeRenderer.rect(beam.x, beam.y, beam.width, beam.height);
         }
 
-        // Draw shredder (green when all docs collected, gray otherwise)
+        // Shredder (green if ready, gray otherwise)
         if (documentsCollected >= totalDocuments) {
-            shapeRenderer.setColor(0, 1, 0, 1); // Green - ready to win
+            shapeRenderer.setColor(0, 1, 0, 1);
         } else {
-            shapeRenderer.setColor(0.5f, 0.5f, 0.5f, 1); // Gray - not ready yet
+            shapeRenderer.setColor(0.5f, 0.5f, 0.5f, 1);
         }
         shapeRenderer.rect(shredder.x, shredder.y, shredder.width, shredder.height);
 
-        shapeRenderer.end();
+        shapeRenderer.end();  // *** END SHAPES ***
+
+        // === PHASE 3: Draw documents (SpriteBatch) ===
+        if (documents.size > 0) {
+            batch.begin();
+            int docNum = 1;
+            for (Rectangle doc : documents) {
+                if (documentTex != null) {
+                    batch.draw(documentTex, doc.x, doc.y, DOCUMENT_SIZE, DOCUMENT_SIZE);
+                }
+                if (font != null) {
+                    font.draw(batch, "D" + docNum, doc.x + 5, doc.y + DOCUMENT_SIZE + 15);
+                }
+                docNum++;
+            }
+            batch.end();  // *** END BATCH ***
+        }
     }
 
     /**
@@ -469,6 +467,62 @@ public class LevelManager {
      */
     public void reset() {
         initializeLevel();
+    }
+
+    // NEW: field to hold current level instance (for callbacks)
+    private Level currentLevel;
+
+    // NEW: load a specific level's data into the manager
+    public void loadLevel(Level level) {
+        if (level == null) return;
+
+        // dispose previous background if any
+        if (backgroundTex != null) {
+            backgroundTex.dispose();
+            backgroundTex = null;
+        }
+
+        level.init();
+        currentLevel = level;  // STORE FOR CALLBACKS
+        documents.clear(); documents.addAll(level.getDocuments());
+        platforms.clear(); platforms.addAll(level.getPlatforms());
+        obstacles.clear(); obstacles.addAll(level.getObstacles());
+        auditorBeams.clear(); auditorBeams.addAll(level.getAuditorBeams());
+        shredder = level.getShredder();
+        totalDocuments = level.getTotalDocuments();
+        documentsCollected = 0;
+        levelComplete = false;
+
+        // If the level supplies a background path (via BackgroundedLevel), try to load it.
+        try {
+            if (level instanceof BackgroundedLevel) {
+                String bg = ((BackgroundedLevel) level).getBackgroundPath();
+                if (bg != null && !bg.isEmpty()) {
+                    String[] bgCandidates = new String[] { bg, bg.toLowerCase(), "assets/" + bg };
+                    for (String c : bgCandidates) {
+                        if (c == null) continue;
+                        if (Gdx.files.internal(c).exists()) {
+                            backgroundTex = new Texture(Gdx.files.internal(c));
+                            Gdx.app.log("LevelManager", "Loaded background: " + c);
+                            break;
+                        }
+                        if (Gdx.files.absolute(c).exists()) {
+                            backgroundTex = new Texture(Gdx.files.absolute(c));
+                            Gdx.app.log("LevelManager", "Loaded background (absolute): " + c);
+                            break;
+                        }
+                    }
+                    if (backgroundTex == null) {
+                        Gdx.app.log("LevelManager", "Background not found for path: " + bg);
+                    }
+                }
+            } else {
+                backgroundTex = null;
+            }
+        } catch (Exception e) {
+            Gdx.app.error("LevelManager", "Error loading background", e);
+            if (backgroundTex != null) { backgroundTex.dispose(); backgroundTex = null; }
+        }
     }
 
     // Getters
@@ -492,6 +546,10 @@ public class LevelManager {
         if (documentTex != null) {
             documentTex.dispose();
             documentTex = null;
+        }
+        if (backgroundTex != null) {
+            backgroundTex.dispose();
+            backgroundTex = null;
         }
     }
 }
