@@ -5,7 +5,7 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 
 /**
- * Level3 - edit positions to design
+ * Level2 - edit positions to design
  */
 public class Level3 implements Level {
     private final Array<Rectangle> documents = new Array<>();
@@ -52,4 +52,10 @@ public class Level3 implements Level {
     @Override public Rectangle getShredder() { return shredder; }
     @Override public int getTotalDocuments() { return totalDocs; }
     @Override public void dispose() {}
+
+    // ADD THIS ↓↓↓
+    @Override
+    public String getBackgroundPath() {
+        return "level3.png"; // <-- change if needed
+    }
 }

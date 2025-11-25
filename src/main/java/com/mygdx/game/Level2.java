@@ -52,4 +52,10 @@ public class Level2 implements Level {
     @Override public Rectangle getShredder() { return shredder; }
     @Override public int getTotalDocuments() { return totalDocs; }
     @Override public void dispose() {}
+
+    // ADD THIS ↓↓↓
+    @Override
+    public String getBackgroundPath() {
+        return "level2.png"; // <-- change if needed
+    }
 }
