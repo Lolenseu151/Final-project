@@ -115,6 +115,32 @@ public class LoadingScreen implements Screen {
     @Override
     public void show() {
         Gdx.app.log("LoadingScreen", "Loading game assets...");
+        // Preload tutorial images so switching to tutorial doesn't block
+        try {
+            String[] paths = new String[] {"The Urgent Call/1.png", "The Urgent Call/2.png", "The Urgent Call/3.png"};
+            com.badlogic.gdx.graphics.Texture[] imgs = new com.badlogic.gdx.graphics.Texture[paths.length];
+            for (int i = 0; i < paths.length; i++) {
+                String p = paths[i];
+                try {
+                    imgs[i] = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal(p));
+                    imgs[i].setFilter(com.badlogic.gdx.graphics.Texture.TextureFilter.Linear, com.badlogic.gdx.graphics.Texture.TextureFilter.Linear);
+                    Gdx.app.log("LoadingScreen", "Preloaded tutorial image internal: " + p + " (w=" + imgs[i].getWidth() + ", h=" + imgs[i].getHeight() + ")");
+                } catch (Exception ex) {
+                    String absPath = System.getProperty("user.dir") + "/assets/" + p;
+                    try {
+                        imgs[i] = new com.badlogic.gdx.graphics.Texture(Gdx.files.absolute(absPath));
+                        imgs[i].setFilter(com.badlogic.gdx.graphics.Texture.TextureFilter.Linear, com.badlogic.gdx.graphics.Texture.TextureFilter.Linear);
+                        Gdx.app.log("LoadingScreen", "Preloaded tutorial image absolute: " + absPath + " (w=" + imgs[i].getWidth() + ", h=" + imgs[i].getHeight() + ")");
+                    } catch (Exception ex2) {
+                        Gdx.app.error("LoadingScreen", "Failed to preload tutorial image: " + p, ex2);
+                        imgs[i] = null;
+                    }
+                }
+            }
+            game.tutorialImages = imgs;
+        } catch (Throwable t) {
+            Gdx.app.error("LoadingScreen", "Error preloading tutorial images", t);
+        }
     }
     
     @Override
