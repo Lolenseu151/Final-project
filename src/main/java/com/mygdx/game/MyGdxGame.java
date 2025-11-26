@@ -10,6 +10,8 @@ public class MyGdxGame extends Game {
 
     public SpriteBatch batch;
     public BitmapFont font;
+    // Preloaded tutorial images (optional)
+    public com.badlogic.gdx.graphics.Texture[] tutorialImages;
 
     @Override
     public void create() {
@@ -22,6 +24,9 @@ public class MyGdxGame extends Game {
     public void dispose() {
         if (batch != null) batch.dispose();
         if (font != null) font.dispose();
+        if (tutorialImages != null) {
+            for (com.badlogic.gdx.graphics.Texture t : tutorialImages) if (t != null) t.dispose();
+        }
         super.dispose();
     }
 }
