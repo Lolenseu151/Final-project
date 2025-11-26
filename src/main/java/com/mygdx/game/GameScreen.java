@@ -17,14 +17,10 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
 /**
- * Cleaned GameScreen: null-safe, owns fixerTexture only when loaded here,
- * draws world sprites and UI in the correct order.
+ * GameScreen with Level progression (1-5), level select, and completion notifications
  */
 public class GameScreen implements Screen {
-
-    public enum GameState {
-        RUNNING, PAUSED, GAMEOVER
-    }
+    public enum GameState { RUNNING, PAUSED, GAMEOVER }
 
     private final MyGdxGame game;
     private Stage uiStage;
@@ -33,67 +29,98 @@ public class GameScreen implements Screen {
     private Label docsLabel;
     private Label timeLabel;
 
-    private final LevelManager levelManager;
-    private float remainingTime = 180;
-    private static final float FIXED_TIME_STEP = 1 / 60f;
-    private float accumulator = 0f;
-
+    // Game logic
+    private LevelManager levelManager;
+    private Fixer fixer;
+    private ShapeRenderer shapeRenderer;
+    private OrthographicCamera camera;
     private GameState currentState = GameState.RUNNING;
+    private float remainingTime = 180f;
+    private float accumulator = 0f;
     private boolean pKeyWasPressed = false;
 
-    private OrthographicCamera camera;
-    private Texture fixerTexture;
-    private boolean fixerTextureOwned = false; // only dispose if we loaded it
-    private ShapeRenderer shapeRenderer;
-    private Fixer fixer;
+    // Level progression
+    private int currentLevel = 1;
+    private static final int MAX_LEVEL = 5;
+    private boolean showLevelComplete = false;
+    private float levelCompleteTimer = 0f;
+    private static final float LEVEL_COMPLETE_DELAY = 3f;
 
-    public GameScreen(MyGdxGame game) {
+    /**
+     * Constructor - pass currentLevel to load
+     */
+    public GameScreen(MyGdxGame game, int level) {
         this.game = game;
-        this.levelManager = new LevelManager();
+        this.currentLevel = Math.max(1, Math.min(level, MAX_LEVEL));
+        
+        // Initialize rendering
+        shapeRenderer = new ShapeRenderer();
+        camera = new OrthographicCamera();
+        camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        
+        // Initialize UI
         initUi();
+        
+        // Create fixer player (will be reinitialized in show())
+        fixer = new Fixer(100, 100, null);
     }
 
     @Override
     public void show() {
-        camera = new OrthographicCamera();
-        camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        shapeRenderer = new ShapeRenderer();
-        shapeRenderer.setAutoShapeType(true);
-
-        // SAFE texture load (try common candidates)
-        Texture standingTexture = safeLoadTexture("Standing.png", "standing.PNG", "standing.png", "Stand.png");
-        if (standingTexture == null) {
-            Gdx.app.error("GameScreen", "Standing.png not found in assets; player will use debug fallback.");
-            fixerTextureOwned = false;
-        } else {
-            fixerTextureOwned = true;
+        levelManager = new LevelManager();
+        
+        // Load level based on currentLevel
+        Level level = null;
+        switch (currentLevel) {
+            case 1: level = new Level1(); break;
+            case 2: level = new Level2(); break;
+            case 3: level = new Level3(); break;
+            case 4: level = new Level4(); break;
+            case 5: level = new Level5(); break;
+            default: level = new Level1(); break;
         }
-        fixerTexture = standingTexture;
+        
+        if (level != null) {
+            levelManager.loadLevel(level);
+        }
 
-        // pass shared texture to Fixer (Fixer should NOT dispose sharedTexture if provided)
-        fixer = new Fixer(100f, 100f, fixerTexture);
+        // Ensure raw keyboard input is delivered to Fixer (prevents UI stage or other processors
+        // from blocking keys). This doesn't change game logic — it only sets the input target.
+        Gdx.input.setInputProcessor(null);
+
+        // Reset game state
+        currentState = GameState.RUNNING;
+        remainingTime = 180f;
+        accumulator = 0f;
+        showLevelComplete = false;
+        levelCompleteTimer = 0f;
+        
+        if (fixer != null) fixer.reset(100, 100);
+        Gdx.app.log("GameScreen", "Loaded Level " + currentLevel);
     }
 
     @Override
     public void render(float delta) {
-        handleInput();
+        Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        if (currentState == GameState.RUNNING) {
-            if (delta > 0.25f) delta = 0.25f;
-            accumulator += delta;
-            while (accumulator >= FIXED_TIME_STEP) {
-                update(FIXED_TIME_STEP);
-                accumulator -= FIXED_TIME_STEP;
+        // Show level complete screen
+        if (showLevelComplete) {
+            levelCompleteTimer += delta;
+            renderLevelCompleteScreen();
+            if (levelCompleteTimer >= LEVEL_COMPLETE_DELAY) {
+                proceedToNextLevel();
             }
+            return;
         }
 
-        // update camera and projection matrices
-        if (camera != null) {
-            camera.update();
-            if (shapeRenderer != null) shapeRenderer.setProjectionMatrix(camera.combined);
-            if (game != null && game.batch != null) game.batch.setProjectionMatrix(camera.combined);
+        // Normal gameplay
+        handleInput();
+        
+        if (currentState == GameState.RUNNING) {
+            update(delta);
         }
-
+        
         renderGame();
     }
 
@@ -107,56 +134,64 @@ public class GameScreen implements Screen {
         pKeyWasPressed = pKeyIsPressed;
 
         if (currentState == GameState.GAMEOVER && Gdx.input.isKeyJustPressed(Input.Keys.R)) {
-            restartGame();
+            show();  // reinit current level
         }
 
         if (currentState == GameState.GAMEOVER &&
                 (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.Q))) {
-            // If you have a main menu screen: game.setScreen(new MainMenuScreen(game));
+            game.setScreen(new LevelSelectScreen(game));
+            dispose();
         }
     }
 
     private void update(float deltaTime) {
+        // Player physics FIRST (input, velocity, position)
         if (fixer != null) fixer.update(deltaTime);
+        
+        // Then collision resolution
         float timePenalty = 0f;
         if (levelManager != null) timePenalty = levelManager.update(deltaTime, fixer);
+        
         remainingTime -= (deltaTime + timePenalty);
-
-        if (remainingTime <= 0) {
-            remainingTime = 0;
-            currentState = GameState.GAMEOVER;
-        }
-
-        if (docsLabel != null) docsLabel.setText("Documents: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments());
-        if (timeLabel != null) {
-            int minutes = (int) (remainingTime / 60);
-            int seconds = (int) (remainingTime % 60);
-            timeLabel.setText(String.format("Time: %d:%02d", minutes, seconds));
-        }
-
-        if (levelManager.isLevelComplete()) currentState = GameState.GAMEOVER;
-    }
+ 
+         if (remainingTime <= 0) {
+             remainingTime = 0;
+             currentState = GameState.GAMEOVER;
+         }
+ 
+         // Update UI labels
+         if (docsLabel != null && levelManager != null) {
+             docsLabel.setText("Documents: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments());
+         }
+         if (timeLabel != null) {
+             int minutes = (int) (remainingTime / 60);
+             int seconds = (int) (remainingTime % 60);
+             timeLabel.setText(String.format("Time: %d:%02d", minutes, seconds));
+         }
+ 
+         // Check if level is complete
+         if (levelManager != null && levelManager.isLevelComplete()) {
+             levelComplete();
+         }
+     }
 
     private void renderGame() {
-        Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1);
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+        // Render level shapes and documents
+        if (levelManager != null) {
+            levelManager.render(shapeRenderer, game.batch, game.font);
+        }
 
-        // Let LevelManager render shapes/background first
-        if (levelManager != null) levelManager.render(shapeRenderer, game.batch, game.font);
-
-        // Draw world sprites with a single SpriteBatch begin/end
+        // Draw world sprites
         if (game != null && game.batch != null) {
             game.batch.begin();
-            // If LevelManager requires sprite drawing via batch, call its draw method here:
-            // levelManager.drawSprites(game.batch);
             if (fixer != null) fixer.draw(game.batch);
             game.batch.end();
         }
 
-        // Draw HUD text (world-space) using the same projection as the camera
+        // Draw HUD text
         drawText();
 
-        // Draw UI stage (screen-space)
+        // Draw UI stage
         if (uiStage != null) {
             uiStage.act(Math.min(Gdx.graphics.getDeltaTime(), 1/30f));
             uiStage.draw();
@@ -170,14 +205,7 @@ public class GameScreen implements Screen {
         if (game == null || game.batch == null || game.font == null) return;
 
         game.batch.begin();
-        // world-space HUD (top-left / top-right)
-        game.font.draw(game.batch, "Documents: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments(),
-                10, Gdx.graphics.getHeight() - 10);
-        int minutes = (int) (remainingTime / 60);
-        int seconds = (int) (remainingTime % 60);
-        String timeText = String.format("Time: %d:%02d", minutes, seconds);
-        game.font.draw(game.batch, timeText, Gdx.graphics.getWidth() - 120, Gdx.graphics.getHeight() - 10);
-        game.font.draw(game.batch, "WASD/Arrows: Move | SPACE: Dash | P: Pause",
+        game.font.draw(game.batch, "WASD/Arrows: Move | SPACE: Dash | P: Pause | Level: " + currentLevel,
                 10, Gdx.graphics.getHeight() - 30);
         game.batch.end();
     }
@@ -215,8 +243,8 @@ public class GameScreen implements Screen {
         shapeRenderer.end();
 
         if (game.font != null) {
-            String title = "GAME OVER";
-            String hint = "Press R to Restart";
+            String title = "GAME OVER - Time's Up!";
+            String hint = "Press R to Restart or ESC for Level Select";
             com.badlogic.gdx.graphics.g2d.GlyphLayout titleLayout = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, title);
             com.badlogic.gdx.graphics.g2d.GlyphLayout hintLayout = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, hint);
 
@@ -238,12 +266,46 @@ public class GameScreen implements Screen {
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
-    private void restartGame() {
-        currentState = GameState.RUNNING;
-        remainingTime = 180;
-        if (fixer != null) fixer.reset(100, 100);
-        if (levelManager != null) levelManager.reset();
-        accumulator = 0f;
+    private void levelComplete() {
+        showLevelComplete = true;
+        levelCompleteTimer = 0f;
+        Gdx.app.log("GameScreen", "Level " + currentLevel + " Complete!");
+    }
+
+    private void renderLevelCompleteScreen() {
+        Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        game.batch.begin();
+        if (game.font != null) {
+            String mainMsg = "LEVEL " + currentLevel + " COMPLETED!";
+            String nextMsg = (currentLevel >= MAX_LEVEL) ? "All Levels Complete!" : "Proceeding to Level " + (currentLevel + 1) + "...";
+            
+            com.badlogic.gdx.graphics.g2d.GlyphLayout mainLayout = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, mainMsg);
+            com.badlogic.gdx.graphics.g2d.GlyphLayout nextLayout = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, nextMsg);
+
+            float centerX = Gdx.graphics.getWidth() * 0.5f;
+            float centerY = Gdx.graphics.getHeight() * 0.5f;
+
+            game.font.draw(game.batch, mainLayout, centerX - mainLayout.width * 0.5f, centerY + 50);
+            game.font.draw(game.batch, nextLayout, centerX - nextLayout.width * 0.5f, centerY - 50);
+        }
+        game.batch.end();
+    }
+
+    private void proceedToNextLevel() {
+        if (currentLevel >= MAX_LEVEL) {
+            // All levels completed
+            Gdx.app.log("GameScreen", "All levels completed!");
+            game.setScreen(new MainMenuScreen(game));
+            dispose();
+        } else {
+            // Load next level
+            currentLevel++;
+            show();  // reinit for next level
+            showLevelComplete = false;
+            levelCompleteTimer = 0f;
+        }
     }
 
     private void initUi() {
@@ -281,27 +343,6 @@ public class GameScreen implements Screen {
         uiRoot.add(top).expandX().fillX().row();
     }
 
-    // try several candidate locations; prefer internal assets
-    private Texture safeLoadTexture(String... candidates) {
-        for (String c : candidates) {
-            try {
-                com.badlogic.gdx.files.FileHandle fh = Gdx.files.internal(c);
-                if (fh.exists()) {
-                    Gdx.app.log("GameScreen", "Loaded texture from internal: " + c);
-                    return new Texture(fh);
-                }
-                fh = Gdx.files.absolute(c);
-                if (fh.exists()) {
-                    Gdx.app.log("GameScreen", "Loaded texture from absolute: " + fh.path());
-                    return new Texture(fh);
-                }
-            } catch (Exception e) {
-                Gdx.app.error("GameScreen", "Error trying candidate " + c, e);
-            }
-        }
-        return null;
-    }
-
     @Override
     public void resize(int width, int height) {
         if (uiStage != null) uiStage.getViewport().update(width, height, true);
@@ -312,21 +353,16 @@ public class GameScreen implements Screen {
         }
     }
 
-    @Override
-    public void pause() { }
-
-    @Override
-    public void resume() { }
-
-    @Override
-    public void hide() { }
+    @Override public void pause() {}
+    @Override public void resume() {}
+    @Override public void hide() {}
 
     @Override
     public void dispose() {
+        if (levelManager != null) levelManager.dispose();
         if (shapeRenderer != null) shapeRenderer.dispose();
-        // Only dispose the fixerTexture if this class loaded it
-        if (fixerTextureOwned && fixerTexture != null) fixerTexture.dispose();
         if (uiStage != null) uiStage.dispose();
         if (uiSkin != null) uiSkin.dispose();
+        if (fixer != null) fixer.dispose();
     }
 }
