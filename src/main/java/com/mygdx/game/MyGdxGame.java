@@ -15,14 +15,9 @@ public class MyGdxGame extends Game {
 
     @Override
     public void create() {
-        Gdx.app.setLogLevel(Application.LOG_DEBUG);
-
-        // ensure rendering resources exist for all screens
         batch = new SpriteBatch();
         font = new BitmapFont();
-
-        // show the loading screen first (it will switch to the main menu when ready)
-        setScreen(new LoadingScreen(this));
+        setScreen(new LoadingScreen(this));  // START WITH LOADING SCREEN
     }
 
     @Override

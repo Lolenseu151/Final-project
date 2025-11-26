@@ -102,7 +102,9 @@ public class Fixer {
         // input + state transitions (dash has priority)
         boolean left = Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A);
         boolean right = Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.D);
-        boolean jumpPressed = Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W);
+        // use isKeyPressed so a jump input held during the same frame LevelManager
+        // resolves grounding is still honored (prevents missed jump when order changes)
+        boolean jumpPressed = Gdx.input.isKeyPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.W);
         boolean dashPressed = Gdx.input.isKeyJustPressed(Input.Keys.SPACE);
 
         // dash handling
