@@ -307,91 +307,15 @@ public class LevelManager {
      */
     private void checkPlatformCollisions(Fixer player, float deltaTime) {
         Rectangle p = player.getBounds();
-        player.setOnGround(false); // Reset, will be set to true if on a platform
-
-        // Cache current and previous edges
-        float vx = player.getVelocity().x;
-        float vy = player.getVelocity().y;
-        float prevLeft = p.x - vx * deltaTime;
-        float prevRight = prevLeft + p.width;
-        float prevBottom = p.y - vy * deltaTime;
-        float prevTop = prevBottom + p.height;
-        float curLeft = p.x;
-        float curRight = p.x + p.width;
-        float curBottom = p.y;
-        float curTop = p.y + p.height;
-
-        final float slop = 0.5f; // small tolerance to reduce jitter
-
+        player.setOnGround(false);
+        
+        // Only land if moving down or stationary (vy <= 0)
         for (Rectangle platform : platforms) {
-            float platLeft = platform.x;
-            float platRight = platform.x + platform.width;
-            float platBottom = platform.y;
-            float platTop = platform.y + platform.height;
-
-            // --- Vertical collisions ---
-            // Landing from above (one-way top surface): allow only when moving down and crossing the top
-            boolean horizOverlapForVertical = (curRight > platLeft + slop) && (curLeft < platRight - slop);
-            if (vy <= 0) {
-                // Continuity: if we're already essentially on the platform top and still overlapping horizontally,
-                // keep the player grounded (prevents falling through on flat motion when vy == 0)
-                if (horizOverlapForVertical && Math.abs(curBottom - platTop) <= 1.0f) {
-                    p.y = platTop;
-                    player.setVelocityY(0);
-                    player.setOnGround(true);
-                    // Recompute edges
-                    curBottom = p.y;
-                    curTop = p.y + p.height;
-                    continue;
-                }
-                if (horizOverlapForVertical && prevBottom > platTop && curBottom <= platTop) {
-                    // Snap to top
-                    p.y = platTop;
-                    player.setVelocityY(0);
-                    player.setOnGround(true);
-                    // Recompute current edges after resolution
-                    curBottom = p.y;
-                    curTop = p.y + p.height;
-                    continue; // Check other platforms for side collisions
-                }
-            }
-
-            // Hitting from below (barrier under platform): block when moving up and crossing the bottom
-            if (vy > 0) {
-                if (horizOverlapForVertical && prevTop < platBottom && curTop >= platBottom) {
-                    // Snap just below the platform
-                    p.y = platBottom - p.height;
-                    player.setVelocityY(0);
-                    // Recompute current edges after resolution
-                    curBottom = p.y;
-                    curTop = p.y + p.height;
-                    // Do not set onGround; remain airborne
-                    continue;
-                }
-            }
-
-            // --- Horizontal collisions (simple) ---
-            // Only when vertical ranges overlap and crossing a side edge
-            boolean vertOverlapForHorizontal = (curTop > platBottom + slop) && (curBottom < platTop - slop);
-            if (vertOverlapForHorizontal && vx != 0) {
-                // Crossing from left to right into the platform's left edge
-                if (prevRight <= platLeft && curRight > platLeft) {
-                    p.x = platLeft - p.width;
-                    player.setVelocityX(0);
-                    // update current edges
-                    curLeft = p.x;
-                    curRight = p.x + p.width;
-                    continue;
-                }
-                // Crossing from right to left into the platform's right edge
-                if (prevLeft >= platRight && curLeft < platRight) {
-                    p.x = platRight;
-                    player.setVelocityX(0);
-                    // update current edges
-                    curLeft = p.x;
-                    curRight = p.x + p.width;
-                    continue;
-                }
+            if (p.overlaps(platform) && player.getVelocity().y <= 0) {
+                p.y = platform.y + platform.height;
+                player.setVelocityY(0);
+                player.setOnGround(true);
+                return;
             }
         }
     }
