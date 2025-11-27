@@ -95,7 +95,7 @@ public class GameScreen implements Screen {
         showLevelComplete = false;
         levelCompleteTimer = 0f;
         
-        if (fixer != null) fixer.reset(100, 100);
+        if (fixer != null) fixer.reset(100, 0);  // Spawn exactly on ground platform (y=0, platform h=15)
         Gdx.app.log("GameScreen", "Loaded Level " + currentLevel);
     }
 
@@ -145,7 +145,7 @@ public class GameScreen implements Screen {
     }
 
     private void update(float deltaTime) {
-        // Player physics FIRST (input, velocity, position)
+        // Player physics FIRST
         if (fixer != null) fixer.update(deltaTime);
         
         // Then collision resolution
@@ -153,52 +153,39 @@ public class GameScreen implements Screen {
         if (levelManager != null) timePenalty = levelManager.update(deltaTime, fixer);
         
         remainingTime -= (deltaTime + timePenalty);
- 
-         if (remainingTime <= 0) {
-             remainingTime = 0;
-             currentState = GameState.GAMEOVER;
-         }
- 
-         // Update UI labels
-         if (docsLabel != null && levelManager != null) {
-             docsLabel.setText("Documents: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments());
-         }
-         if (timeLabel != null) {
-             int minutes = (int) (remainingTime / 60);
-             int seconds = (int) (remainingTime % 60);
-             timeLabel.setText(String.format("Time: %d:%02d", minutes, seconds));
-         }
- 
-         // Check if level is complete
-         if (levelManager != null && levelManager.isLevelComplete()) {
-             levelComplete();
-         }
-     }
+        if (remainingTime <= 0) {
+            remainingTime = 0;
+            currentState = GameState.GAMEOVER;
+        }
+        
+        // Update UI labels
+        if (docsLabel != null && levelManager != null) {
+            docsLabel.setText("Documents: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments());
+        }
+        if (timeLabel != null) {
+            int minutes = (int) (remainingTime / 60);
+            int seconds = (int) (remainingTime % 60);
+            timeLabel.setText(String.format("Time: %d:%02d", minutes, seconds));
+        }
+        
+        // Check win condition
+        if (levelManager != null && levelManager.isLevelComplete()) {
+            levelComplete();
+        }
+    }
 
     private void renderGame() {
-        // Render level shapes and documents
+        // Render level
         if (levelManager != null) {
             levelManager.render(shapeRenderer, game.batch, game.font);
         }
 
-        // Draw world sprites
+        // Draw sprites
         if (game != null && game.batch != null) {
             game.batch.begin();
             if (fixer != null) fixer.draw(game.batch);
             game.batch.end();
         }
-
-        // Draw HUD text
-        drawText();
-
-        // Draw UI stage
-        if (uiStage != null) {
-            uiStage.act(Math.min(Gdx.graphics.getDeltaTime(), 1/30f));
-            uiStage.draw();
-        }
-
-        if (currentState == GameState.PAUSED) drawPausedOverlay();
-        else if (currentState == GameState.GAMEOVER) drawGameOverOverlay();
     }
 
     private void drawText() {
