@@ -21,15 +21,9 @@ public class Fixer {
     // physics tunables
     private static final float MOVE_ACCEL = 1500f;   // px/s^2
     private static final float MAX_MOVE_SPEED = 220f; // px/s
-<<<<<<< HEAD
-    private static final float GROUND_FRICTION = 24f; // per second (increased to reduce sliding)
-    private static final float AIR_DRAG = 1.0f; // lighter air drag
-    private static final float JUMP_VY = 800f;
-=======
     private static final float GROUND_FRICTION = 12f; // per second
     private static final float AIR_DRAG = 1.5f;
     private static final float JUMP_VY = 900f;
->>>>>>> 04c63a84b0dfc23f64c8324db093cc92b4d7f2e9
     private static final float GRAVITY = 1400f;
     private static final float DASH_SPEED = 700f;
     private static final float DASH_TIME = 0.12f;
@@ -43,34 +37,6 @@ public class Fixer {
     private Vector2 velocity = new Vector2();
     private boolean isOnGround = false;
     private boolean canJump = true;
-    private boolean isSlowed = false;
-
-    public void setSlowed(boolean slowed) {
-        this.isSlowed = slowed;
-    }
-
-    public Rectangle getBounds() {
-        return bounds;
-    }
-
-    public Vector2 getVelocity() {
-        return velocity;
-    }
-
-    public void setVelocityY(float vy) {
-        velocity.y = vy;
-    }
-
-    public void setVelocityX(float vx) {
-        velocity.x = vx;
-    }
-
-    public void setOnGround(boolean onGround) {
-        this.isOnGround = onGround;
-        if (onGround) {
-            this.canJump = true;  // Can jump when landing on ground
-        }
-    }
 
     // animation / visuals
     private Texture standingTex, jumpTex, runTex1, runTex2, runTex3;
@@ -130,61 +96,74 @@ public class Fixer {
         return null;
     }
 
-    public void update(float dt) {
-        // accumulate state time for animations
-        stateTime += dt;
+    public void update(float delta) {
+        stateTime += delta;
 
-        // Fallback: if player falls too low, reset to ground
-        if (bounds.y < -50f) {
-            bounds.y = 50f;
-            velocity.y = 0f;
-            isOnGround = true;
-            canJump = true;
-            Gdx.app.log("Fixer", "Fell off world, respawning at y=50");
+        // input + state transitions (dash has priority)
+        boolean left = Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A);
+        boolean right = Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.D);
+        // use isKeyPressed so a jump input held during the same frame LevelManager
+        // resolves grounding is still honored (prevents missed jump when order changes)
+        boolean jumpPressed = Gdx.input.isKeyPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.W);
+        boolean dashPressed = Gdx.input.isKeyJustPressed(Input.Keys.SPACE);
+
+        // dash handling
+        if (dashPressed && dashTimer <= 0f) {
+            dashTimer = DASH_TIME;
+            state = State.DASH;
+            // dash in facing direction; if standing, prefer right
+            float dir = (velocity.x != 0) ? Math.signum(velocity.x) : (facingRight ? 1f : -1f);
+            velocity.x = dir * DASH_SPEED;
+            velocity.y = 0;
+            canJump = false;
         }
 
-        // input
-        boolean left = Gdx.input.isKeyPressed(Input.Keys.A) || Gdx.input.isKeyPressed(Input.Keys.LEFT);
-        boolean right = Gdx.input.isKeyPressed(Input.Keys.D) || Gdx.input.isKeyPressed(Input.Keys.RIGHT);
-        // accept jump from SPACE, W, or UP (either just-pressed or pressed to be robust)
-        boolean jumpPressed = Gdx.input.isKeyJustPressed(Input.Keys.SPACE) || Gdx.input.isKeyPressed(Input.Keys.SPACE)
-                || Gdx.input.isKeyJustPressed(Input.Keys.W) || Gdx.input.isKeyPressed(Input.Keys.W)
-                || Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.UP);        // Horizontal movement (kinematic)
-        if (left) {
-            velocity.x -= MOVE_ACCEL * dt;
-        } else if (right) {
-            velocity.x += MOVE_ACCEL * dt;
+        if (dashTimer > 0f) {
+            dashTimer -= delta;
+            if (dashTimer <= 0f) {
+                // end dash, resume to fall/run or idle
+                if (!isOnGround) state = State.FALL;
+                else state = (Math.abs(velocity.x) > 1f) ? State.RUN : State.IDLE;
+            }
         } else {
-            // ground friction: proportional damping so player comes to a stop
-            if (isOnGround) {
-                float damping = Math.min(GROUND_FRICTION * dt, 1f);
-                velocity.x -= velocity.x * damping;
-                if (Math.abs(velocity.x) < 1f) velocity.x = 0f;
-            } else {
-                // gentle air drag
-                velocity.x *= Math.max(1f - AIR_DRAG * dt, 0f);
+            // normal movement
+            float accel = 0f;
+            if (left) accel -= MOVE_ACCEL;
+            if (right) accel += MOVE_ACCEL;
+
+            // apply horizontal accel
+            velocity.x += accel * delta;
+
+            // clamp speed when not dashing
+            if (Math.abs(velocity.x) > MAX_MOVE_SPEED && state != State.DASH) {
+                velocity.x = Math.signum(velocity.x) * MAX_MOVE_SPEED;
+            }
+
+            // friction / drag
+            if (accel == 0f) {
+                float drag = isOnGround ? GROUND_FRICTION : AIR_DRAG;
+                // approximate exponential friction
+                velocity.x -= velocity.x * Math.min(1f, drag * delta);
+                if (Math.abs(velocity.x) < 4f) velocity.x = 0f;
+            }
+
+            // jumping
+            if (jumpPressed && isOnGround && canJump) {
+                velocity.y = JUMP_VY;
+                isOnGround = false;
+                canJump = false;
+                state = State.JUMP;
             }
         }
 
-        // clamp horizontal speed
-        velocity.x = com.badlogic.gdx.math.MathUtils.clamp(velocity.x, -MAX_MOVE_SPEED, MAX_MOVE_SPEED);
+        // gravity
+        if (state != State.DASH) velocity.y -= GRAVITY * delta;
 
-        // Jump
-        if (jumpPressed && isOnGround && canJump) {
-            velocity.y = JUMP_VY;
-            isOnGround = false;
-            canJump = false;
-            Gdx.app.log("Fixer", "JUMP triggered vx:" + velocity.x + " vy:" + velocity.y);
-        }
+        // update position
+        bounds.x += velocity.x * delta;
+        bounds.y += velocity.y * delta;
 
-        // Gravity
-        velocity.y -= GRAVITY * dt;
-
-        // Integrate position
-        bounds.x += velocity.x * dt;
-        bounds.y += velocity.y * dt;
-
-        // simple ground fallback if LevelManager didnt set ground
+        // simple ground check fallback (LevelManager should call setOnGround(true) when colliding)
         if (bounds.y <= 0f) {
             bounds.y = 0f;
             velocity.y = 0f;
@@ -192,24 +171,20 @@ public class Fixer {
             canJump = true;
         }
 
-        // update state from velocities (if not dashing)
+        // compute state from velocities (if not dashing)
         if (dashTimer <= 0f) {
             if (!isOnGround) {
-                state = (velocity.y > 0f) ? State.JUMP : State.FALL;
+                state = (velocity.y > 0) ? State.JUMP : State.FALL;
             } else {
-                // lower run threshold so running activates earlier and make idle threshold small
-                state = (Math.abs(velocity.x) > 1f) ? State.RUN : State.IDLE;
+                state = (Math.abs(velocity.x) > 6f) ? State.RUN : State.IDLE;
             }
-        } else {
-            dashTimer -= dt;
-            state = State.DASH;
         }
 
         // facing
         if (velocity.x < -1f) facingRight = false;
         else if (velocity.x > 1f) facingRight = true;
 
-        // select animation frame
+        // animation selection
         TextureRegion next = currentFrame;
         switch (state) {
             case JUMP:
@@ -228,6 +203,7 @@ public class Fixer {
         }
 
         if (next != null) {
+            // ensure flip matches facing
             boolean wantFlip = !facingRight;
             if (next.isFlipX() != wantFlip) next.flip(true, false);
             currentFrame = next;
@@ -260,12 +236,12 @@ public class Fixer {
         if (runTex3 != null) { runTex3.dispose(); runTex3 = null; }
     }
 
-    public void reset(float x, float y) { 
-        bounds.setPosition(x, y); 
-        velocity.set(0, 0); 
-        stateTime = 0f; 
-        isOnGround = true; 
-        canJump = true; 
-        Gdx.app.log("Fixer", "Reset to position (" + x + "," + y + ") onGround=true");
-    }
+    // LevelManager interaction helpers
+    public Rectangle getBounds() { return bounds; }
+    public Vector2 getVelocity() { return velocity; }
+    public void setOnGround(boolean onGround) { this.isOnGround = onGround; if (onGround) { canJump = true; } }
+    public void setSlowed(boolean slowed) { /* keep for compatibility */ }
+    public void setVelocityY(float vy) { this.velocity.y = vy; }
+    public void setVelocityX(float vx) { this.velocity.x = vx; }
+    public void reset(float x, float y) { bounds.setPosition(x, y); velocity.set(0,0); stateTime = 0f; isOnGround = false; canJump = true; }
 }
