@@ -23,7 +23,7 @@ public class Fixer {
     private static final float MAX_MOVE_SPEED = 220f; // px/s
     private static final float GROUND_FRICTION = 12f; // per second
     private static final float AIR_DRAG = 1.5f;
-    private static final float JUMP_VY = 800f;
+    private static final float JUMP_VY = 900f;
     private static final float GRAVITY = 1400f;
     private static final float DASH_SPEED = 700f;
     private static final float DASH_TIME = 0.12f;
