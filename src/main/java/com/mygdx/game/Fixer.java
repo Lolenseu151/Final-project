@@ -21,9 +21,15 @@ public class Fixer {
     // physics tunables
     private static final float MOVE_ACCEL = 1500f;   // px/s^2
     private static final float MAX_MOVE_SPEED = 220f; // px/s
+<<<<<<< HEAD
     private static final float GROUND_FRICTION = 24f; // per second (increased to reduce sliding)
     private static final float AIR_DRAG = 1.0f; // lighter air drag
     private static final float JUMP_VY = 800f;
+=======
+    private static final float GROUND_FRICTION = 12f; // per second
+    private static final float AIR_DRAG = 1.5f;
+    private static final float JUMP_VY = 900f;
+>>>>>>> 04c63a84b0dfc23f64c8324db093cc92b4d7f2e9
     private static final float GRAVITY = 1400f;
     private static final float DASH_SPEED = 700f;
     private static final float DASH_TIME = 0.12f;
