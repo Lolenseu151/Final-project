@@ -1,6 +1,5 @@
 package com.mygdx.game;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Texture;
@@ -63,10 +62,12 @@ public void init() {
 platforms.clear();
 
 // === FLOOR 1 (Bottom floor) ===
-platforms.add(new Rectangle(0, 105, 1280, 20));
+platforms.add(new Rectangle(0, 7, 525, 20)); // LEFT SIDE
+platforms.add(new Rectangle(525, 22, 385, 20));   // MIDDLE SECTION
+platforms.add(new Rectangle(960, 0, 265, 4));  // RIGHT SIDE
 
 // === FLOOR 2 ===
-platforms.add(new Rectangle(0, 300, 1280, 20));
+platforms.add(new Rectangle(0, 225, 620, 20));
 
 // === FLOOR 3 ===
 platforms.add(new Rectangle(0, 475, 1280, 20));
