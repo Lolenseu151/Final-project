@@ -23,10 +23,11 @@ public class Fixer {
     private static final float MAX_MOVE_SPEED = 220f; // px/s
     private static final float GROUND_FRICTION = 24f; // per second (increased to reduce sliding)
     private static final float AIR_DRAG = 1.0f; // lighter air drag
-    private static final float JUMP_VY = 800f;
+    private static final float JUMP_VY =800f;
     private static final float GRAVITY = 1400f;
-    private static final float DASH_SPEED = 700f;
-    private static final float DASH_TIME = 0.12f;
+    private static final float DASH_SPEED = 1500f;  // Burst speed
+    private static final float DASH_TIME = 0.15f;  // Very short burst (150ms = quick dash)
+    private static final float DASH_COOLDOWN = 10.0f;  // 10 second cooldown
 
     // Sprite / collision sizes (frames are 64x64 in assets)
     private static final float SPRITE_SIZE = 64f;
@@ -66,6 +67,18 @@ public class Fixer {
         }
     }
 
+    public float getDashCooldown() {
+        return Math.max(0f, dashCooldownTimer);  // Return remaining cooldown time
+    }
+
+    public boolean isDashAvailable() {
+        return dashCooldownTimer <= 0f;  // Check if dash is ready
+    }
+
+    public boolean isDashing() {
+        return dashEffectTimer > 0f;  // Check if currently dashing (for visual effect)
+    }
+
     // animation / visuals
     private Texture standingTex, jumpTex, runTex1, runTex2, runTex3;
     private TextureRegion standingFrame, jumpFrame, runFrame1, runFrame2, runFrame3;
@@ -77,6 +90,8 @@ public class Fixer {
     // state machine
     private State state = State.IDLE;
     private float dashTimer = 0f;
+    private float dashCooldownTimer = 0f;  // cooldown before next dash allowed
+    private float dashEffectTimer = 0f;  // visual effect timer for dash animation
 
     public Fixer(float x, float y, Texture fixerTexture) {
         bounds = new Rectangle(x, y, WIDTH, HEIGHT);
@@ -140,30 +155,44 @@ public class Fixer {
         // input
         boolean left = Gdx.input.isKeyPressed(Input.Keys.A) || Gdx.input.isKeyPressed(Input.Keys.LEFT);
         boolean right = Gdx.input.isKeyPressed(Input.Keys.D) || Gdx.input.isKeyPressed(Input.Keys.RIGHT);
-        // accept jump from SPACE, W, or UP (either just-pressed or pressed to be robust)
-        boolean jumpPressed = Gdx.input.isKeyJustPressed(Input.Keys.SPACE) || Gdx.input.isKeyPressed(Input.Keys.SPACE)
-                || Gdx.input.isKeyJustPressed(Input.Keys.W) || Gdx.input.isKeyPressed(Input.Keys.W)
-                || Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.UP);        // Horizontal movement (kinematic)
-        if (left) {
-            velocity.x -= MOVE_ACCEL * dt;
-        } else if (right) {
-            velocity.x += MOVE_ACCEL * dt;
-        } else {
-            // ground friction: proportional damping so player comes to a stop
-            if (isOnGround) {
-                float damping = Math.min(GROUND_FRICTION * dt, 1f);
-                velocity.x -= velocity.x * damping;
-                if (Math.abs(velocity.x) < 1f) velocity.x = 0f;
+        // SPACE is dash, W/UP are jump
+        boolean dashPressed = Gdx.input.isKeyJustPressed(Input.Keys.SPACE);
+        boolean jumpPressed = Gdx.input.isKeyJustPressed(Input.Keys.W) || Gdx.input.isKeyPressed(Input.Keys.W)
+                || Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.UP);        // Horizontal movement (kinematic) - disabled during dash
+        if (dashTimer <= 0f) {  // Only allow normal movement when NOT dashing
+            if (left) {
+                velocity.x -= MOVE_ACCEL * dt;
+            } else if (right) {
+                velocity.x += MOVE_ACCEL * dt;
             } else {
-                // gentle air drag
-                velocity.x *= Math.max(1f - AIR_DRAG * dt, 0f);
+                // ground friction: proportional damping so player comes to a stop
+                if (isOnGround) {
+                    float damping = Math.min(GROUND_FRICTION * dt, 1f);
+                    velocity.x -= velocity.x * damping;
+                    if (Math.abs(velocity.x) < 1f) velocity.x = 0f;
+                } else {
+                    // gentle air drag
+                    velocity.x *= Math.max(1f - AIR_DRAG * dt, 0f);
+                }
             }
         }
+        // During dash, velocity.x is maintained and not affected by friction
 
-        // clamp horizontal speed
-        velocity.x = com.badlogic.gdx.math.MathUtils.clamp(velocity.x, -MAX_MOVE_SPEED, MAX_MOVE_SPEED);
+        // clamp horizontal speed (only when not dashing to allow full dash speed)
+        if (dashTimer <= 0f) {
+            velocity.x = com.badlogic.gdx.math.MathUtils.clamp(velocity.x, -MAX_MOVE_SPEED, MAX_MOVE_SPEED);
+        }
 
-        // Jump
+        // Dash (SPACE key)
+        if (dashPressed && dashCooldownTimer <= 0f) {
+            velocity.x = facingRight ? DASH_SPEED : -DASH_SPEED;
+            dashTimer = DASH_TIME;
+            dashCooldownTimer = DASH_COOLDOWN;
+            dashEffectTimer = DASH_TIME;  // Show effect for dash duration
+            Gdx.app.log("Fixer", "DASH triggered - burst movement");
+        }
+
+        // Jump (W/UP keys)
         if (jumpPressed && isOnGround && canJump) {
             velocity.y = JUMP_VY;
             isOnGround = false;
@@ -184,6 +213,16 @@ public class Fixer {
             velocity.y = 0f;
             isOnGround = true;
             canJump = true;
+        }
+
+        // Decrement dash cooldown
+        if (dashCooldownTimer > 0f) {
+            dashCooldownTimer -= dt;
+        }
+
+        // Decrement dash effect timer
+        if (dashEffectTimer > 0f) {
+            dashEffectTimer -= dt;
         }
 
         // update state from velocities (if not dashing)
