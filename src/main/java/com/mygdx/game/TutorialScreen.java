@@ -87,6 +87,19 @@ public class TutorialScreen implements Screen {
     private boolean overlay9Done = false;
     private float overlay9Y = 0f;
     private float overlay9TargetY = 0f;
+    // ensure we only launch the tutorial once after the slideshow completes
+    private boolean tutorialLaunched = false;
+    // finishing/pause/collapse transition state
+    private boolean finishing = false;
+    private float finishTimer = 0f;
+    private static final float FINISH_PAUSE = 5f; // 5 second pause before transition
+    private boolean collapsing = false;
+    private float collapseTimer = 0f;
+    private static final float COLLAPSE_DURATION = 1.2f; // collapse animation duration
+    // grid for pixel collapse (computed on first use)
+    private int collapseCols = 80;
+    private int collapseRows = 50;
+    private boolean collapseGridInitialized = false;
     // overlay6 typing state (messages shown on slide 6)
     private boolean overlay6Started = false;
     private boolean overlay6Done = false;
@@ -1015,6 +1028,15 @@ public class TutorialScreen implements Screen {
         // if both overlays finished, reveal buttons
         if ((overlay8Started ? overlay8Done : true) && (overlay9Started ? overlay9Done : true)) {
             if (overlay8Started || overlay9Started) buttonsShown = true;
+            // When image9 finished, begin the post-slideshow sequence: 5s pause then collapse animation
+            if (!tutorialLaunched && overlay9Started && overlay9Done) {
+                // mark launched to avoid starting multiple timers
+                tutorialLaunched = true;
+                finishing = true;
+                finishTimer = 0f;
+                collapsing = false;
+                collapseTimer = 0f;
+            }
         }
 
         batch.end();
@@ -1089,6 +1111,84 @@ public class TutorialScreen implements Screen {
                         talkingStopped = false;
                     }
                     game.setScreen(new MainMenuScreen(game));
+                }
+            }
+        }
+
+        // Handle finishing / pause / collapse transition after slideshow finishes
+        if (finishing) {
+            if (!collapsing) {
+                finishTimer += dt;
+                if (finishTimer >= FINISH_PAUSE) {
+                    collapsing = true;
+                    collapseTimer = 0f;
+                    // initialize grid count based on current screen size for consistent look
+                    collapseCols = Math.max(8, (int)(screenW / 16f));
+                    collapseRows = Math.max(6, (int)(screenH / 16f));
+                    collapseGridInitialized = true;
+                }
+            } else {
+                collapseTimer += dt;
+                float progress = Math.min(1f, collapseTimer / Math.max(0.0001f, COLLAPSE_DURATION));
+
+                // draw pixel collapse effect on top
+                Gdx.gl.glEnable(GL20.GL_BLEND);
+                shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+
+                float cellW = screenW / (float)collapseCols;
+                float cellH = screenH / (float)collapseRows;
+                float cx = screenW * 0.5f;
+                float cy = screenH * 0.5f;
+                float maxDist = (float)Math.hypot(cx, cy);
+
+                for (int r = 0; r < collapseRows; r++) {
+                    for (int c = 0; c < collapseCols; c++) {
+                        float x = c * cellW;
+                        float y = r * cellH;
+                        float cellCx = x + cellW * 0.5f;
+                        float cellCy = y + cellH * 0.5f;
+                        float dist = (float)Math.hypot(cellCx - cx, cellCy - cy);
+                        float delay = (dist / maxDist) * 0.6f; // outer cells start a bit later
+                        float localP = (progress - delay) / (1f - delay);
+                        localP = Math.max(0f, Math.min(1f, localP));
+                        // shrinking factor (1 -> full size, 0 -> collapsed)
+                        float s = 1f - localP;
+                        float w = cellW * s;
+                        float h = cellH * s;
+                        float px = x + (cellW - w) * 0.5f;
+                        float py = y + (cellH - h) * 0.5f;
+                        // fade to black while collapsing
+                        float alpha = 0.9f * (1f - s);
+                        shapeRenderer.setColor(0f, 0f, 0f, alpha);
+                        shapeRenderer.rect(px, py, Math.max(1f, w), Math.max(1f, h));
+                    }
+                }
+
+                shapeRenderer.end();
+                Gdx.gl.glDisable(GL20.GL_BLEND);
+
+                if (progress >= 1f) {
+                    // finalise: stop music and switch to map
+                    if (ringMusic != null) {
+                        try { ringMusic.stop(); ringMusic.dispose(); } catch (Exception ignored) {}
+                        ringMusic = null; musicStarted = false;
+                    }
+                    if (pickupMusic != null) {
+                        try { pickupMusic.stop(); pickupMusic.dispose(); } catch (Exception ignored) {}
+                        pickupMusic = null; pickupStarted = false;
+                    }
+                    if (talkingMusic != null) {
+                        try { talkingMusic.stop(); talkingMusic.dispose(); } catch (Exception ignored) {}
+                        talkingMusic = null; talkingStarted = false; talkingStopped = false; talkingFading = false;
+                    }
+
+                    try {
+                        game.setScreen(new GameScreen(game, 0));
+                    } catch (Exception e) {
+                        Gdx.app.log("TutorialScreen", "Failed to switch to GameScreen(level 0)", e);
+                    }
+                    try { dispose(); } catch (Exception ignored) {}
+                    return;
                 }
             }
         }

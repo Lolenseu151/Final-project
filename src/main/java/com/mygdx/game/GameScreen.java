@@ -51,7 +51,8 @@ public class GameScreen implements Screen {
      */
     public GameScreen(MyGdxGame game, int level) {
         this.game = game;
-        this.currentLevel = Math.max(1, Math.min(level, MAX_LEVEL));
+        // allow level 0 for the dedicated tutorial map
+        this.currentLevel = Math.max(0, Math.min(level, MAX_LEVEL));
         
         // Initialize rendering
         shapeRenderer = new ShapeRenderer();
@@ -72,6 +73,7 @@ public class GameScreen implements Screen {
         // Load level based on currentLevel
         Level level = null;
         switch (currentLevel) {
+            case 0: level = new LevelTutorial(); break;
             case 1: level = new Level1(); break;
             case 2: level = new Level2(); break;
             case 3: level = new Level3(); break;
@@ -180,12 +182,59 @@ public class GameScreen implements Screen {
             levelManager.render(shapeRenderer, game.batch, game.font);
         }
 
+        // Draw tutorial overlay if tutorial map is loaded (level 0)
+        if (currentLevel == 0) {
+            drawTutorialOverlay();
+        }
+
         // Draw sprites
         if (game != null && game.batch != null) {
             game.batch.begin();
             if (fixer != null) fixer.draw(game.batch);
             game.batch.end();
         }
+    }
+
+    /**
+     * Draws an on-screen overlay for the tutorial map with movement instructions
+     */
+    private void drawTutorialOverlay() {
+        if (shapeRenderer == null || game == null || game.batch == null || game.font == null) return;
+
+        // Dim background slightly
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0f, 0f, 0f, 0.35f);
+        shapeRenderer.rect(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+
+        // Highlight the light area near the property files (matches LevelTutorial placement)
+        float lightW = 160f, lightH = 120f;
+        float lightX = Gdx.graphics.getWidth() / 2f - lightW / 2f;
+        float lightY = 220f;
+        shapeRenderer.setColor(1f, 1f, 0.8f, 0.6f);
+        shapeRenderer.rect(lightX, lightY, lightW, lightH);
+        shapeRenderer.end();
+
+        // Instruction text
+        String title = "MOVEMENT:";
+        String detail = "Use [W], [A], [S], [D] to navigate the Archive floor.";
+        String hint = "Try moving into the light near the property files.";
+
+        float padding = 20f;
+        com.badlogic.gdx.graphics.g2d.GlyphLayout glTitle = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, title);
+        com.badlogic.gdx.graphics.g2d.GlyphLayout glDetail = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, detail);
+        com.badlogic.gdx.graphics.g2d.GlyphLayout glHint = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, hint);
+
+        float x = padding;
+        float y = Gdx.graphics.getHeight() - padding;
+
+        game.batch.begin();
+        game.font.draw(game.batch, glTitle, x, y);
+        game.font.draw(game.batch, glDetail, x, y - glTitle.height - 6f);
+        game.font.draw(game.batch, glHint, x, y - glTitle.height - glDetail.height - 12f);
+        game.batch.end();
+
+        Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
     private void drawText() {
