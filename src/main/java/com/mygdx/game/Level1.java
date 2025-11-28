@@ -3,6 +3,7 @@ package com.mygdx.game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 /**
@@ -19,6 +20,7 @@ public class Level1 implements Level, BackgroundedLevel {
     private static final float DOC_SIZE = 36f;
     private static final float PLATFORM_H = 15f;
 
+    /* 
     @Override
     public void init() {
         documents.clear();
@@ -45,6 +47,46 @@ public class Level1 implements Level, BackgroundedLevel {
         shredder = new Rectangle(w - 80, 10, 50, 50);
         totalDocs = documents.size;
     }
+ */
+
+ @Override
+public void init() {
+    documents.clear();
+    platforms.clear();
+    obstacles.clear();
+    beams.clear();
+
+    float w = 1280;
+    float h = 800;
+
+    // === Invisible Platforms Matching Level1Map.png ===
+platforms.clear();
+
+// === FLOOR 1 (Bottom floor) ===
+platforms.add(new Rectangle(0, 105, 1280, 20));
+
+// === FLOOR 2 ===
+platforms.add(new Rectangle(0, 300, 1280, 20));
+
+// === FLOOR 3 ===
+platforms.add(new Rectangle(0, 475, 1280, 20));
+
+// === FLOOR 4 (Roof inside section) ===
+platforms.add(new Rectangle(0, 500, 1280, 20));
+
+
+    // === Your existing items ===
+    documents.add(new Rectangle(200, 160, DOC_SIZE, DOC_SIZE));
+     documents.add(new Rectangle(300, 160, DOC_SIZE, DOC_SIZE));
+    documents.add(new Rectangle(w - 250, 270, DOC_SIZE, DOC_SIZE));
+
+    
+     obstacles.add(new Rectangle(250, 150, 60, 10));
+     obstacles.add(new Rectangle(w - 300, 250, 60, 10));
+    beams.add(new Rectangle(400, 0, 5, h));
+    shredder = new Rectangle(w - 80, 10, 50, 50);
+    totalDocs = documents.size;
+}
 
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
@@ -68,11 +110,11 @@ public class Level1 implements Level, BackgroundedLevel {
     }
 
     @Override
-    public void renderBackground(SpriteBatch batch, com.badlogic.gdx.graphics.Texture backgroundTex) {
-        // Example: draw background with a tint or alpha based on player state
-        if (backgroundTex != null) {
-            // Default draw (you can add tint/alpha effects here later)
-            batch.draw(backgroundTex, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        }
+
+    public void renderBackground(SpriteBatch batch, Texture backgroundTex) {
+    if (backgroundTex != null) {
+        batch.draw(backgroundTex, 0, 0, 1280, 800);
     }
+}
+
 }

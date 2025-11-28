@@ -243,6 +243,58 @@ public class GameScreen implements Screen {
         game.batch.begin();
         game.font.draw(game.batch, "WASD/Arrows: Move | SPACE: Dash | P: Pause | Level: " + currentLevel,
                 10, Gdx.graphics.getHeight() - 30);
+        
+        // Draw dash cooldown bar and text
+        if (fixer != null && shapeRenderer != null) {
+            float cooldown = fixer.getDashCooldown();
+            float maxCooldown = 10.0f;  // Match DASH_COOLDOWN from Fixer (10 seconds)
+            float barWidth = 150f;
+            float barHeight = 20f;
+            float barX = 10f;
+            float barY = Gdx.graphics.getHeight() - 80f;
+            
+            // Draw dash effect glow if currently dashing
+            if (fixer.isDashing()) {
+                game.batch.end();
+                shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+                shapeRenderer.setColor(0.2f, 1f, 1f, 0.3f);  // Cyan glow during dash
+                shapeRenderer.rect(barX - 5, barY - 5, barWidth + 10, barHeight + 10);
+                shapeRenderer.end();
+                game.batch.begin();
+            }
+            
+            // Draw cooldown bar background
+            game.batch.end();
+            shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(0.2f, 0.2f, 0.2f, 1f);  // Dark gray background
+            shapeRenderer.rect(barX, barY, barWidth, barHeight);
+            
+            // Draw cooldown bar fill
+            if (cooldown > 0f) {
+                float fillWidth = barWidth * (1f - (cooldown / maxCooldown));
+                shapeRenderer.setColor(1f, 0f, 0f, 1f);  // Red for cooldown
+                shapeRenderer.rect(barX, barY, fillWidth, barHeight);
+            } else {
+                shapeRenderer.setColor(0f, 1f, 0f, 1f);  // Green for ready
+                shapeRenderer.rect(barX, barY, barWidth, barHeight);
+            }
+            
+            // Draw bar border
+            shapeRenderer.setColor(1f, 1f, 1f, 0.5f);  // White semi-transparent border
+            shapeRenderer.rect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
+            shapeRenderer.end();
+            
+            game.batch.begin();
+            // Draw cooldown text
+            String cooldownText;
+            if (cooldown > 0f) {
+                cooldownText = String.format("DASH: %.1fs", cooldown);
+            } else {
+                cooldownText = "DASH: READY";
+            }
+            game.font.draw(game.batch, cooldownText, barX + 10f, barY + barHeight - 5f);
+        }
+        
         game.batch.end();
     }
 
