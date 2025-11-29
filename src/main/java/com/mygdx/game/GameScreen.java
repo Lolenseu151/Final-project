@@ -95,16 +95,7 @@ public class GameScreen implements Screen {
         // Third caption to display after second Continue click
         public static String TALKING_OVERLAY_THIRD_TEXT = "See that other document on the other floors? You must collect them all";
 
-        // Optional explicit positions for the documents that appear after the final caption.
-        // Edit this array to specify exact X/Y pixel positions for each spawned document.
-        // Example:
-        // public static float[][] TUTORIAL_DOC_POSITIONS = new float[][] { {400f,300f}, {480f,300f}, {560f,300f}, {640f,300f} };
-        public static float[][] TUTORIAL_DOC_POSITIONS = new float[][] {
-            { 200f, 260f },
-            { 700f, 260f },
-            { 580f, 850f },
-            { 100, 20f }
-        };
+        // Tutorial document positions have been moved to `LevelTutorial.TUTORIAL_DOC_POSITIONS`.
 
     // Level progression
     private int currentLevel = 1;
@@ -617,8 +608,8 @@ public class GameScreen implements Screen {
                                 // After final talking caption, spawn tutorial documents.
                                 try {
                                     if (levelManager != null) {
-                                        if (TUTORIAL_DOC_POSITIONS != null && TUTORIAL_DOC_POSITIONS.length > 0) {
-                                            levelManager.addDocumentsAtPositions(TUTORIAL_DOC_POSITIONS);
+                                        if (LevelTutorial.TUTORIAL_DOC_POSITIONS != null && LevelTutorial.TUTORIAL_DOC_POSITIONS.length > 0) {
+                                            levelManager.addDocumentsAtPositions(LevelTutorial.TUTORIAL_DOC_POSITIONS);
                                         } else {
                                             levelManager.addDocuments(4);
                                         }
