@@ -31,6 +31,17 @@ public class LevelTutorial implements Level, BackgroundedLevel {
     private static final float DOC_SIZE = 36f;
     private static final float PLATFORM_H = 27f;
 
+    // Optional explicit positions for the documents that appear after the final caption.
+    // Edit this array to specify exact X/Y pixel positions for each spawned document.
+    // Example:
+    // public static float[][] TUTORIAL_DOC_POSITIONS = new float[][] { {400f,300f}, {480f,300f}, {560f,300f}, {640f,300f} };
+    public static float[][] TUTORIAL_DOC_POSITIONS = new float[][] {
+        { 200f, 260f },
+        { 700f, 260f },
+        { 580f, 850f },
+        { 100f, 20f }
+    };
+
     // Allow this level to request a different document draw size (only affects visuals)
     private float documentScale = 1.5f; // 150% size for tutorial
 
