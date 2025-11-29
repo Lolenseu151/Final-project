@@ -23,12 +23,14 @@ public class Fixer {
     private static final float MAX_MOVE_SPEED = 220f; // px/s
     private static final float GROUND_FRICTION = 24f; // per second (increased to reduce sliding)
     private static final float AIR_DRAG = 1.0f; // lighter air drag
-    // vertical jump velocity (configurable per-level)
-    private float jumpVy = 650f;
-    private static final float GRAVITY = 1400f;
-    private static final float DASH_SPEED = 1250f;  // Burst speed
+    private static final float JUMP_VY =1500f;
+    private static final float GRAVITY = 800f;
+    private static final float DASH_SPEED = 1150f;  // Burst speed
     private static final float DASH_TIME = 0.15f;  // Very short burst (150ms = quick dash)
     private static final float DASH_COOLDOWN = 10.0f;  // 10 second cooldown
+
+    // per-instance jump velocity (initialized from JUMP_VY)
+    private float jumpVy = JUMP_VY;
 
     // Sprite / collision sizes (frames are 64x64 in assets)
     private static final float SPRITE_SIZE = 64f;
