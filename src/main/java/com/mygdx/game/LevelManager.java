@@ -11,6 +11,9 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import java.util.List;
 import java.util.ArrayList;
+import java.lang.reflect.Method; // added
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.graphics.g2d.Animation;
 
 /**
  * LevelManager - Manages all level elements including obstacles, documents, and shredders
@@ -34,11 +37,15 @@ public class LevelManager {
     private static final float OBSTACLE_WIDTH = 60f;
     private static final float OBSTACLE_HEIGHT = 10f;
     private static final float BEAM_WIDTH = 5f;
-    private static final float SHREDDER_SIZE = 50f;
+    private static final float SHREDDER_SIZE = 36f; // was 50f — smaller collision rect
     private static final float PLATFORM_HEIGHT = 15f;
 
-    // NEW: texture for document visuals
-    private Texture documentTex;
+    // NEW: texture for document visuals (spritesheet)
+    private Texture documentSheetTex;
+    private TextureRegion[] documentFrames;
+    // NEW: animation for documents
+    private Animation<TextureRegion> documentAnim;
+    private float documentAnimTime = 0f;
     // NEW: per-level background texture (used by loadLevel)
     private Texture backgroundTex;
 
@@ -53,7 +60,7 @@ public class LevelManager {
         this.documentsCollected = 0;
         this.levelComplete = false;
 
-        // load documents.png safely (try internal then absolute and common asset path), fallback placeholder
+        // load documents spritesheet safely (try internal then absolute and common asset path), fallback placeholder
         try {
             String[] candidates = new String[] {
                 "documents.png",
@@ -65,34 +72,86 @@ public class LevelManager {
             for (String c : candidates) {
                 if (c == null) continue;
                 if (Gdx.files.internal(c).exists()) {
-                    documentTex = new Texture(Gdx.files.internal(c));
-                    Gdx.app.log("LevelManager", "Loaded document texture (internal): " + c);
+                    documentSheetTex = new Texture(Gdx.files.internal(c));
+                    Gdx.app.log("LevelManager", "Loaded document spritesheet (internal): " + c);
                     loaded = true;
                     break;
                 }
                 if (Gdx.files.absolute(c).exists()) {
-                    documentTex = new Texture(Gdx.files.absolute(c));
-                    Gdx.app.log("LevelManager", "Loaded document texture (absolute): " + c);
+                    documentSheetTex = new Texture(Gdx.files.absolute(c));
+                    Gdx.app.log("LevelManager", "Loaded document spritesheet (absolute): " + c);
                     loaded = true;
                     break;
                 }
             }
             if (!loaded) {
                 Pixmap pm = new Pixmap((int)DOCUMENT_SIZE, (int)DOCUMENT_SIZE, Pixmap.Format.RGBA8888);
-                // make placeholder fully transparent so it never covers sprites
                 pm.setColor(1f, 1f, 1f, 0f);
                 pm.fill();
-                documentTex = new Texture(pm);
+                documentSheetTex = new Texture(pm);
                 pm.dispose();
                 Gdx.app.log("LevelManager", "documents.png not found, using placeholder.");
             }
+
+            // Split spritesheet into frames: 2 cols x 3 rows
+            try {
+                final int COLS = 2;
+                final int ROWS = 3;
+                int fw = Math.max(1, documentSheetTex.getWidth() / COLS);
+                int fh = Math.max(1, documentSheetTex.getHeight() / ROWS);
+                TextureRegion[][] tmp = TextureRegion.split(documentSheetTex, fw, fh);
+                documentFrames = new TextureRegion[COLS * ROWS];
+                int idx = 0;
+                for (int r = 0; r < ROWS; r++) {
+                    for (int c = 0; c < COLS; c++) {
+                        if (r < tmp.length && c < tmp[r].length) {
+                            documentFrames[idx++] = tmp[r][c];
+                        }
+                    }
+                }
+                if (idx < documentFrames.length) {
+                    TextureRegion[] trimmed = new TextureRegion[idx];
+                    System.arraycopy(documentFrames, 0, trimmed, 0, idx);
+                    documentFrames = trimmed;
+                }
+            } catch (Exception e) {
+                Gdx.app.error("LevelManager", "Error splitting document spritesheet", e);
+                documentFrames = new TextureRegion[] { new TextureRegion(documentSheetTex) };
+            }
         } catch (Exception e) {
-            Gdx.app.error("LevelManager", "Error loading documents.png", e);
+            Gdx.app.error("LevelManager", "Error loading documents spritesheet", e);
             Pixmap pm = new Pixmap((int)DOCUMENT_SIZE, (int)DOCUMENT_SIZE, Pixmap.Format.RGBA8888);
-            pm.setColor(1f, 1f, 1f, 0f); // transparent fallback
+            pm.setColor(1f, 1f, 1f, 0f);
             pm.fill();
-            documentTex = new Texture(pm);
+            documentSheetTex = new Texture(pm);
             pm.dispose();
+            documentFrames = new TextureRegion[] { new TextureRegion(documentSheetTex) };
+        }
+
+        // after loading documentSheetTex (right after you create the Texture)
+        if (documentSheetTex != null) {
+            // smooth scaling when we draw the sprites larger than native size
+            documentSheetTex.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+        }
+
+        // Create an animation from the frames (safe even if there's only 1 frame).
+        try {
+            if (documentFrames != null && documentFrames.length > 0) {
+                // SLOWER animation: 0.24s per frame (was 0.12s)
+                final float FRAME_DURATION = 0.24f;
+                documentAnim = new Animation<TextureRegion>(FRAME_DURATION, documentFrames);
+                // keep ping-pong for a subtle pulse, but slower now
+                documentAnim.setPlayMode(Animation.PlayMode.LOOP_PINGPONG);
+            } else if (documentSheetTex != null) {
+                // single-frame fallback (slower)
+                documentAnim = new Animation<TextureRegion>(0.5f, new TextureRegion(documentSheetTex));
+                documentAnim.setPlayMode(Animation.PlayMode.LOOP);
+            } else {
+                documentAnim = null;
+            }
+        } catch (Exception e) {
+            Gdx.app.error("LevelManager", "Error creating document animation", e);
+            documentAnim = null;
         }
 
         initializeLevel();
@@ -239,6 +298,7 @@ public class LevelManager {
      */
     private void placeShredder() {
         float screenWidth = Gdx.graphics.getWidth();
+        // keep same position but use the smaller constant size
         shredder = new Rectangle(screenWidth - 80, 10, SHREDDER_SIZE, SHREDDER_SIZE);
     }
 
@@ -293,12 +353,27 @@ public class LevelManager {
         }
 
         // Check if level is complete (all documents collected + reached shredder)
-        if (documentsCollected >= totalDocuments && player.getBounds().overlaps(shredder)) {
+        if (documentsCollected >= totalDocuments && rectsOverlap(player.getBounds(), shredder)) {
             if (!levelComplete) {
                 levelComplete = true;
                 Gdx.app.log("LevelManager", "LEVEL COMPLETE! All documents shredded!");
             }
         }
+
+        // === Screen-edge invisible walls: prevent the player from leaving left/right edges ===
+        try {
+            if (player != null && player.getBounds() != null) {
+                float minX = 0f;
+                float maxX = Gdx.graphics.getWidth() - player.getBounds().width;
+                if (player.getBounds().x < minX) {
+                    player.getBounds().x = minX;
+                    player.setVelocityX(0f);
+                } else if (player.getBounds().x > maxX) {
+                    player.getBounds().x = maxX;
+                    player.setVelocityX(0f);
+                }
+            }
+        } catch (Exception ignored) {}
 
         return timePenalty;
     }
@@ -309,42 +384,76 @@ public class LevelManager {
     private void checkPlatformCollisions(Fixer player, float deltaTime) {
         Rectangle p = player.getBounds();
         player.setOnGround(false);
-        
-        // Minimum horizontal overlap required to land on a platform (prevent landing on tips)
-        final float MIN_OVERLAP = 20f;  // Player needs at least 20 pixels of horizontal overlap
-        
-        // Check all platforms for collisions
+        // Use previous-position checks to avoid jitter when hitting platform tops/undersides.
+        // Also require a minimum horizontal overlap so corner/edge overlaps don't count as standing.
+        float vy = player.getVelocity().y;
+        float vx = player.getVelocity().x;
+        float prevY = p.y - vy * deltaTime; // approximate previous bottom
+        float prevTop = prevY + p.height;
+        float prevBottom = prevY;
+        final float EPS = 0.6f; // small offset to prevent sticking
+        final float MIN_HORIZONTAL_OVERLAP = Math.max(6f, p.width * 0.25f);
+
         for (Rectangle platform : platforms) {
-            if (p.overlaps(platform)) {
-                float playerBottom = p.y;
-                float playerTop = p.y + p.height;
-                float platformTop = platform.y + platform.height;
-                float platformBottom = platform.y;
-                
-                // Check which side the player is colliding with
-                float overlapTop = playerBottom - platformTop;      // positive if player is above platform
-                float overlapBottom = platformBottom - playerTop;   // positive if player is below platform
-                
-                // Calculate horizontal overlap with platform
-                float playerLeft = p.x;
-                float playerRight = p.x + p.width;
-                float platformLeft = platform.x;
-                float platformRight = platform.x + platform.width;
-                float horizontalOverlap = Math.min(playerRight, platformRight) - Math.max(playerLeft, platformLeft);
-                
-                // Landing on top of platform (moving down or stationary)
-                if (player.getVelocity().y <= 0 && overlapTop >= overlapBottom && horizontalOverlap >= MIN_OVERLAP) {
-                    p.y = platformTop;
-                    player.setVelocityY(0);
+            if (!p.overlaps(platform)) continue;
+
+            // compute horizontal overlap amount
+            float left = Math.max(p.x, platform.x);
+            float right = Math.min(p.x + p.width, platform.x + platform.width);
+            float overlapX = right - left;
+
+            // If not enough horizontal overlap, treat as side contact and ignore for vertical landing
+            if (overlapX < MIN_HORIZONTAL_OVERLAP) continue;
+
+            // If moving down (vy <= 0): check if we crossed the platform top this frame -> land
+            if (vy <= 0f) {
+                // previous bottom was at or above platform top (standing above) -> landed this frame
+                if (prevBottom >= platform.y + platform.height - EPS || prevTop > platform.y + platform.height) {
+                    p.y = platform.y + platform.height;
+                    player.setVelocityY(0f);
                     player.setOnGround(true);
                     return;
                 }
-                // Bumping head on bottom of platform (moving up)
-                else if (player.getVelocity().y > 0 && overlapBottom >= overlapTop) {
-                    p.y = platformBottom - p.height;
-                    player.setVelocityY(0);  // Stop upward momentum, fall down
+            } else {
+                // moving up: check if we came from below and pierced into platform this frame -> block underside
+                if (prevTop <= platform.y + EPS && (p.y + p.height) > platform.y + EPS) {
+                    p.y = platform.y - p.height - EPS;
+                    player.setVelocityY(0f);
+                    player.setOnGround(false);
                     return;
                 }
+            }
+        }
+
+        // If no vertical collision resolved, check horizontal collisions to prevent passing through sides
+        float prevX = p.x - vx * deltaTime;
+        float prevLeft = prevX;
+        float prevRight = prevX + p.width;
+        final float H_EPS = 0.6f;
+
+        for (Rectangle platform : platforms) {
+            if (!p.overlaps(platform)) continue;
+
+            // compute vertical overlap to ensure we're not resolving vertical case here
+            float top = Math.min(p.y + p.height, platform.y + platform.height);
+            float bottom = Math.max(p.y, platform.y);
+            float overlapY = top - bottom;
+            if (overlapY <= 0f) continue;
+
+            // compute previous horizontal relation
+            // collided from left?
+            if (prevRight <= platform.x + H_EPS && (p.x + p.width) > platform.x + H_EPS) {
+                // push player to left side of platform
+                p.x = platform.x - p.width - H_EPS;
+                // stop horizontal velocity
+                player.setVelocityX(0f);
+                return;
+            }
+            // collided from right?
+            if (prevLeft >= platform.x + platform.width - H_EPS && p.x < platform.x + platform.width - H_EPS) {
+                p.x = platform.x + platform.width + H_EPS;
+                player.setVelocityX(0f);
+                return;
             }
         }
     }
@@ -373,10 +482,15 @@ public class LevelManager {
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        // Platforms (brown)
-        shapeRenderer.setColor(0.6f, 0.4f, 0.2f, 1);
-        for (Rectangle platform : platforms) {
-            shapeRenderer.rect(platform.x, platform.y, platform.width, platform.height);
+        // Platforms are intentionally not rendered (invisible platforms)
+        // They remain in `platforms` for collision detection but are not drawn.
+        // If you want to debug them, set debugPlatformRender to true.
+        boolean debugPlatformRender = false;              // set to true to visualize platforms
+        if (debugPlatformRender) {
+            shapeRenderer.setColor(153f/255f, 170f/255f, 187f/255f, 1f);
+            for (Rectangle platform : platforms) {
+                shapeRenderer.rect(platform.x, platform.y, platform.width, platform.height);
+            }
         }
 
         // Obstacles (red)
@@ -410,12 +524,28 @@ public class LevelManager {
         if (documents.size > 0) {
             batch.begin();
             int docNum = 1;
+            // increase drawn size slightly so sprite padding looks right on-screen
+            float drawDocSize = DOCUMENT_SIZE * 2.0f; // was 1.6f
+
+            // advance animation time once per render frame
+            documentAnimTime += Gdx.graphics.getDeltaTime();
+
             for (Rectangle doc : documents) {
-                if (documentTex != null) {
-                    batch.draw(documentTex, doc.x, doc.y, DOCUMENT_SIZE, DOCUMENT_SIZE);
+                // small per-document phase offset so they aren't perfectly in-sync
+                float phaseOffset = (docNum - 1) * 0.06f;
+
+                if (documentAnim != null) {
+                    TextureRegion frame = documentAnim.getKeyFrame(documentAnimTime + phaseOffset, true);
+                    batch.draw(frame, doc.x, doc.y, drawDocSize, drawDocSize);
+                } else if (documentFrames != null && documentFrames.length > 0) {
+                    int idx = (docNum - 1) % documentFrames.length; // fallback cycling
+                    batch.draw(documentFrames[idx], doc.x, doc.y, drawDocSize, drawDocSize);
+                } else if (documentSheetTex != null) {
+                    batch.draw(documentSheetTex, doc.x, doc.y, drawDocSize, drawDocSize);
                 }
+
                 if (font != null) {
-                    font.draw(batch, "D" + docNum, doc.x + 5, doc.y + DOCUMENT_SIZE + 15);
+                    font.draw(batch, "D" + docNum, doc.x + 5, doc.y + drawDocSize + 15);
                 }
                 docNum++;
             }
@@ -449,7 +579,10 @@ public class LevelManager {
         platforms.clear(); platforms.addAll(level.getPlatforms());
         obstacles.clear(); obstacles.addAll(level.getObstacles());
         auditorBeams.clear(); auditorBeams.addAll(level.getAuditorBeams());
-        shredder = level.getShredder();
+
+        // Use helper that falls back to level.getShredderCollisionRect() if getShredder() is null
+        shredder = getLevelShredder(level);
+
         totalDocuments = level.getTotalDocuments();
         documentsCollected = 0;
         levelComplete = false;
@@ -504,9 +637,9 @@ public class LevelManager {
 
     // NEW: dispose document texture when level manager disposed
     public void dispose() {
-        if (documentTex != null) {
-            documentTex.dispose();
-            documentTex = null;
+        if (documentSheetTex != null) {
+            documentSheetTex.dispose();
+            documentSheetTex = null;
         }
         if (backgroundTex != null) {
             backgroundTex.dispose();
@@ -519,63 +652,44 @@ public class LevelManager {
         return a != null && b != null && a.overlaps(b);
     }
 
+    // Add a helper to retrieve the shredder rect from the level (with fallback)
+    private Rectangle getLevelShredder(Level level) {
+        if (level == null) return this.shredder;
+        try {
+            Rectangle r = level.getShredder();
+            if (r != null) return r;
+        } catch (Exception ignored) {}
+
+        // try to call a non-standard public method used by some levels
+        try {
+            Method m = level.getClass().getMethod("getShredderCollisionRect");
+            Object o = m.invoke(level);
+            if (o instanceof Rectangle) return (Rectangle) o;
+        } catch (Exception ignored) {}
+
+        // final fallback to manager's shredder
+        return this.shredder;
+    }
+
     public void update(float dt, Fixer player, Level level) {
-        // Update background state if level provides it
-        if (currentLevel instanceof BackgroundedLevel) {
-            ((BackgroundedLevel) currentLevel).updateBackground(dt, this, documents, obstacles, player);
+        // run the existing update logic (document collection, obstacles, beams, platform collisions)
+        // The single-arg update(...) handles those and returns time penalty which we can ignore here.
+        try {
+            update(dt, player);
+        } catch (StackOverflowError e) {
+            // defensive: should never happen, but avoid crash if overload resolution changed
         }
 
-        // Check platform collisions (player standing on platforms)
-        checkPlatformCollisions(player, dt);
+        // Determine shredder rect to test against: prefer level-provided rect, fallback to manager's shredder
+        Rectangle playerBounds = player != null ? player.getBounds() : null;
+        Rectangle shredderRect = getLevelShredder(level);
 
-        // Reset slowed state; will be set if overlapping any obstacle below
-        player.setSlowed(false);
-
-        // Check document collection
-        for (int i = documents.size - 1; i >= 0; i--) {
-            Rectangle doc = documents.get(i);
-            if (player.getBounds().overlaps(doc)) {
-                documents.removeIndex(i);
-                documentsCollected++;
-                Gdx.app.log("LevelManager", String.format("Document collected! (%d/%d)", 
-                    documentsCollected, totalDocuments));
-            }
-        }
-
-        // Check obstacle collision (Red Tape - slows player)
-        boolean slowed = false;
-        for (Rectangle obstacle : obstacles) {
-            if (player.getBounds().overlaps(obstacle)) {
-                slowed = true;
-                // Do not directly mutate velocity here; inform the player that they are slowed
-                Gdx.app.log("LevelManager", "Hit Red Tape! Player slowed.");
-                break; // one obstacle is enough to slow the player
-            }
-        }
-        player.setSlowed(slowed);
-
-
-
-        // Check if level is complete (all documents collected + reached shredder)
-        Rectangle playerBounds = player.getBounds();
-        Rectangle shredderRect = level.getShredder(); // may be null for levels that hide debug rect
-        if (rectsOverlap(playerBounds, shredderRect)) {
-            // handle collision
-        }
-
-        // Similarly, replace other direct calls like:
-        // if (someRect.overlaps(doc)) { ... }
-        // with:
-        // if (rectsOverlap(someRect, doc)) { ... }
-
-        // Check if level is complete (all documents collected + reached shredder)
-        if (documentsCollected >= totalDocuments && player.getBounds().overlaps(shredder)) {
+        // Only mark level complete when all documents were collected and the player overlaps the shredder
+        if (playerBounds != null && documentsCollected >= totalDocuments && rectsOverlap(playerBounds, shredderRect)) {
             if (!levelComplete) {
                 levelComplete = true;
                 Gdx.app.log("LevelManager", "LEVEL COMPLETE! All documents shredded!");
             }
         }
-
-        
     }
 }
