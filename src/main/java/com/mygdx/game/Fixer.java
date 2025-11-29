@@ -26,7 +26,7 @@ public class Fixer {
     private static final float AIR_DRAG = 1.0f; // lighter air drag
     private static final float JUMP_VY = 800f;  // Jump velocity - reasonable jump height
     private static final float GRAVITY = 1400f;
-    private static final float DASH_SPEED = 1700f;  // Burst speed
+    private static final float DASH_SPEED = 1280f;  // Burst speed (3x character width = 192 pixels)
     private static final float DASH_TIME = 0.15f;  // Very short burst (150ms = quick dash)
     private static final float DASH_COOLDOWN = 10.0f;  // 10 second cooldown
 
@@ -88,9 +88,10 @@ public class Fixer {
     private float stateTime = 0f;
     private boolean facingRight = true;
 
-    // dash visual effect texture
+    // dash visual effect texture and animation
     private Texture dashEffectTex;
-    private TextureRegion dashEffectFrame;
+    private Animation<TextureRegion> dashEffectAnim;
+    private float dashAnimTime = 0f;
 
     // state machine
     private State state = State.IDLE;
@@ -110,10 +111,29 @@ public class Fixer {
         runTex2 = safeLoad("running2.png", "running2.PNG", "assets/running2.png");
         runTex3 = safeLoad("running3.png", "running3.PNG", "assets/running3.png");
 
-        // load dash effect texture
+        // load dash effect sprite sheet and create animation
         dashEffectTex = safeLoad("dashing.png", "assets/dashing.png");
         if (dashEffectTex != null) {
-            dashEffectFrame = new TextureRegion(dashEffectTex);
+            // Assuming 1024x1024 sprite sheet with 16 frames (4x4 grid of 256x256 each)
+            // Adjust FRAME_COLS and FRAME_ROWS if your sprite sheet is different
+            int FRAME_COLS = 4;
+            int FRAME_ROWS = 4;
+            int frameWidth = dashEffectTex.getWidth() / FRAME_COLS;
+            int frameHeight = dashEffectTex.getHeight() / FRAME_ROWS;
+            
+            TextureRegion[][] tmp = TextureRegion.split(dashEffectTex, frameWidth, frameHeight);
+            Array<TextureRegion> dashFrames = new Array<>();
+            
+            // Add frames in reading order (left to right, top to bottom)
+            for (int i = 0; i < FRAME_ROWS; i++) {
+                for (int j = 0; j < FRAME_COLS; j++) {
+                    dashFrames.add(tmp[i][j]);
+                }
+            }
+            
+            // Create animation - fast playback to match the short dash duration
+            dashEffectAnim = new Animation<>(0.01f, dashFrames, Animation.PlayMode.NORMAL);
+            Gdx.app.log("Fixer", "Loaded dash effect animation with " + dashFrames.size + " frames");
         }
 
         if (standingTex != null) standingFrame = new TextureRegion(standingTex);
@@ -134,7 +154,7 @@ public class Fixer {
 
         // set initial frame
         currentFrame = (standingFrame != null) ? standingFrame : (runFrame1 != null ? runFrame1 : jumpFrame);
-        Gdx.app.log("Fixer", "Init frames: standing=" + (standingFrame!=null) + " run=" + (runAnim!=null) + " jump=" + (jumpFrame!=null) + " dash=" + (dashEffectFrame!=null));
+        Gdx.app.log("Fixer", "Init frames: standing=" + (standingFrame!=null) + " run=" + (runAnim!=null) + " jump=" + (jumpFrame!=null) + " dashAnim=" + (dashEffectAnim!=null));
     }
 
     private Texture safeLoad(String... candidates) {
@@ -246,9 +266,12 @@ public class Fixer {
             dashCooldownTimer -= dt;
         }
 
-        // Decrement dash effect timer
+        // Decrement dash effect timer and update dash animation time
         if (dashEffectTimer > 0f) {
             dashEffectTimer -= dt;
+            dashAnimTime += dt;  // Advance dash animation
+        } else {
+            dashAnimTime = 0f;  // Reset animation when not dashing
         }
 
         // update state from velocities (if not dashing)
@@ -302,10 +325,22 @@ public class Fixer {
             batch.draw(currentFrame, bounds.x, bounds.y, bounds.width, bounds.height);
         }
         
-        // Draw dash effect on top if currently dashing
-        if (isDashing() && dashEffectFrame != null) {
-            batch.setColor(1f, 1f, 1f, 0.6f);  // Semi-transparent white for the dash overlay
-            batch.draw(dashEffectFrame, bounds.x, bounds.y, bounds.width, bounds.height);
+        // Draw animated dash effect behind/around character if currently dashing
+        if (isDashing() && dashEffectAnim != null) {
+            TextureRegion dashFrame = dashEffectAnim.getKeyFrame(dashAnimTime, false);
+            batch.setColor(1f, 1f, 1f, 0.5f);  // More transparent
+            
+            // Match the dash frame flip to character facing direction
+            boolean wantFlip = !facingRight;
+            if (dashFrame.isFlipX() != wantFlip) dashFrame.flip(true, false);
+            
+            // Center the dash effect on the character but make it smaller
+            // Scale down from 256x256 to ~128x128 and center it
+            float effectSize = 96f;  // Smaller than character's 64x64 to be more subtle
+            float offsetX = bounds.x + (bounds.width - effectSize) / 2f;
+            float offsetY = bounds.y + (bounds.height - effectSize) / 2f;
+            
+            batch.draw(dashFrame, offsetX, offsetY, effectSize, effectSize);
             batch.setColor(1f, 1f, 1f, 1f);  // Reset color
         }
     }
@@ -363,3 +398,4 @@ public class Fixer {
         return true;
     }
 }
+
