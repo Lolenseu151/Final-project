@@ -21,8 +21,13 @@ public class LevelTutorial implements Level, BackgroundedLevel {
     // special "light" area representing the property files spotlight
     private Rectangle propertyFilesLight;
 
+    // Customizable tutorial text (defaults provided)
+    private String tutorialTitle = "MOVEMENT:";
+    private String tutorialDetail = "Use [W], [A], [S], [D] to navigate the Archive floor.";
+    private String tutorialHint = "Try moving into the light near the property files.";
+
     private static final float DOC_SIZE = 36f;
-    private static final float PLATFORM_H = 15f;
+    private static final float PLATFORM_H = 27f;
 
     @Override
     public void init() {
@@ -32,11 +37,12 @@ public class LevelTutorial implements Level, BackgroundedLevel {
 
         // Basic ground and a couple of low platforms to keep movement simple
         platforms.add(new Rectangle(0, 0, w, PLATFORM_H));
-        platforms.add(new Rectangle(120, 120, 400, PLATFORM_H));
-        platforms.add(new Rectangle(w - 350, 180, 300, PLATFORM_H));
-
+        platforms.add(new Rectangle(0, 217, 1132, PLATFORM_H));
+        platforms.add(new Rectangle(w - 555, 432, 650, PLATFORM_H));
+        platforms.add(new Rectangle(0, 432, 588, PLATFORM_H));
+        
         // Place a few sample documents
-        documents.add(new Rectangle(200, 140, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(200, 400, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(340, 140, DOC_SIZE, DOC_SIZE));
 
         // Shredder off to the right
@@ -59,20 +65,29 @@ public class LevelTutorial implements Level, BackgroundedLevel {
 
     @Override
     public String getBackgroundPath() {
-        return "TutorialMap.png"; // optional background image if provided
+        // use the tutorial map provided in assets: "tutorial map.png"
+        return "tutorial map.png";
     }
 
     @Override
     public void renderBackground(SpriteBatch batch, com.badlogic.gdx.graphics.Texture backgroundTex) {
         // Draw the default background via LevelManager, then overlay a subtle light at propertyFilesLight
         if (backgroundTex != null) {
-            batch.begin();
             batch.draw(backgroundTex, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-            batch.end();
         }
         // the actual light highlight will be drawn by the LevelManager or GameScreen overlay logic
     }
 
     // expose light area for overlay logic
     public Rectangle getPropertyFilesLight() { return propertyFilesLight; }
+
+    // Tutorial text getters/setters so the game or designer can customize the overlay
+    public String getTutorialTitle() { return tutorialTitle; }
+    public void setTutorialTitle(String title) { this.tutorialTitle = title; }
+
+    public String getTutorialDetail() { return tutorialDetail; }
+    public void setTutorialDetail(String detail) { this.tutorialDetail = detail; }
+
+    public String getTutorialHint() { return tutorialHint; }
+    public void setTutorialHint(String hint) { this.tutorialHint = hint; }
 }

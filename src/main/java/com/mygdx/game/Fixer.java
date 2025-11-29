@@ -67,6 +67,15 @@ public class Fixer {
         }
     }
 
+    /**
+     * Scale the player's collision box and sprite size by a factor.
+     * For example, 1.5f will make the player 50% larger.
+     */
+    public void setScale(float scale) {
+        if (scale <= 0f) return;
+        bounds.setSize(WIDTH * scale, HEIGHT * scale);
+    }
+
     public float getDashCooldown() {
         return Math.max(0f, dashCooldownTimer);  // Return remaining cooldown time
     }

@@ -97,7 +97,16 @@ public class GameScreen implements Screen {
         showLevelComplete = false;
         levelCompleteTimer = 0f;
         
-        if (fixer != null) fixer.reset(100, 0);  // Spawn exactly on ground platform (y=0, platform h=15)
+        if (fixer != null) {
+            // For tutorial (level 0) make the player larger and spawn slightly higher
+            if (currentLevel == 0) {
+                try { fixer.setScale(1.5f); } catch (Exception ignored) {}
+                fixer.reset(100, 50);
+            } else {
+                try { fixer.setScale(1f); } catch (Exception ignored) {}
+                fixer.reset(100, 0);
+            }
+        }
         Gdx.app.log("GameScreen", "Loaded Level " + currentLevel);
     }
 
@@ -207,31 +216,49 @@ public class GameScreen implements Screen {
         shapeRenderer.setColor(0f, 0f, 0f, 0.35f);
         shapeRenderer.rect(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
-        // Highlight the light area near the property files (matches LevelTutorial placement)
-        float lightW = 160f, lightH = 120f;
-        float lightX = Gdx.graphics.getWidth() / 2f - lightW / 2f;
-        float lightY = 220f;
-        shapeRenderer.setColor(1f, 1f, 0.8f, 0.6f);
-        shapeRenderer.rect(lightX, lightY, lightW, lightH);
+        // The property-files "light" overlay was removed — the LevelTutorial
+        // exposes `getPropertyFilesLight()` for optional highlighting elsewhere.
         shapeRenderer.end();
-
-        // Instruction text
+        // Instruction text: center on screen and allow customization via LevelTutorial
         String title = "MOVEMENT:";
         String detail = "Use [W], [A], [S], [D] to navigate the Archive floor.";
         String hint = "Try moving into the light near the property files.";
+        // If the loaded level is LevelTutorial, ask it for custom text
+        if (levelManager != null && levelManager instanceof LevelManager) {
+            try {
+                Level lvl = null; // safe access via currentLevel field is not public; attempt to infer via LevelTutorial
+                // Try to cast the loaded current level from levelManager via reflection (best-effort)
+                java.lang.reflect.Field f = LevelManager.class.getDeclaredField("currentLevel");
+                f.setAccessible(true);
+                Object cur = f.get(levelManager);
+                if (cur instanceof LevelTutorial) {
+                    LevelTutorial lt = (LevelTutorial) cur;
+                    title = lt.getTutorialTitle();
+                    detail = lt.getTutorialDetail();
+                    hint = lt.getTutorialHint();
+                }
+            } catch (Exception ignored) {}
+        }
 
-        float padding = 20f;
         com.badlogic.gdx.graphics.g2d.GlyphLayout glTitle = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, title);
         com.badlogic.gdx.graphics.g2d.GlyphLayout glDetail = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, detail);
         com.badlogic.gdx.graphics.g2d.GlyphLayout glHint = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, hint);
 
-        float x = padding;
-        float y = Gdx.graphics.getHeight() - padding;
+        float centerX = Gdx.graphics.getWidth() * 0.5f;
+        float startY = Gdx.graphics.getHeight() * 0.66f; // start a bit below the top
 
         game.batch.begin();
-        game.font.draw(game.batch, glTitle, x, y);
-        game.font.draw(game.batch, glDetail, x, y - glTitle.height - 6f);
-        game.font.draw(game.batch, glHint, x, y - glTitle.height - glDetail.height - 12f);
+        // draw title centered
+        float tx = centerX - (glTitle.width * 0.5f);
+        game.font.draw(game.batch, glTitle, tx, startY);
+        // draw detail centered below
+        float tyDetail = startY - glTitle.height - 8f;
+        float dx = centerX - (glDetail.width * 0.5f);
+        game.font.draw(game.batch, glDetail, dx, tyDetail);
+        // draw hint centered below detail
+        float tyHint = tyDetail - glDetail.height - 8f;
+        float hx = centerX - (glHint.width * 0.5f);
+        game.font.draw(game.batch, glHint, hx, tyHint);
         game.batch.end();
 
         Gdx.gl.glDisable(GL20.GL_BLEND);

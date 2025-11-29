@@ -299,6 +299,21 @@ public class LevelManager {
             }
         }
 
+        // === Screen-edge invisible walls: prevent the player from leaving left/right edges ===
+        try {
+            if (player != null && player.getBounds() != null) {
+                float minX = 0f;
+                float maxX = Gdx.graphics.getWidth() - player.getBounds().width;
+                if (player.getBounds().x < minX) {
+                    player.getBounds().x = minX;
+                    player.setVelocityX(0f);
+                } else if (player.getBounds().x > maxX) {
+                    player.getBounds().x = maxX;
+                    player.setVelocityX(0f);
+                }
+            }
+        } catch (Exception ignored) {}
+
         return timePenalty;
     }
 
@@ -308,13 +323,75 @@ public class LevelManager {
     private void checkPlatformCollisions(Fixer player, float deltaTime) {
         Rectangle p = player.getBounds();
         player.setOnGround(false);
-        
-        // Only land if moving down or stationary (vy <= 0)
+        // Use previous-position checks to avoid jitter when hitting platform tops/undersides.
+        // Also require a minimum horizontal overlap so corner/edge overlaps don't count as standing.
+        float vy = player.getVelocity().y;
+        float vx = player.getVelocity().x;
+        float prevY = p.y - vy * deltaTime; // approximate previous bottom
+        float prevTop = prevY + p.height;
+        float prevBottom = prevY;
+        final float EPS = 0.6f; // small offset to prevent sticking
+        final float MIN_HORIZONTAL_OVERLAP = Math.max(6f, p.width * 0.25f);
+
         for (Rectangle platform : platforms) {
-            if (p.overlaps(platform) && player.getVelocity().y <= 0) {
-                p.y = platform.y + platform.height;
-                player.setVelocityY(0);
-                player.setOnGround(true);
+            if (!p.overlaps(platform)) continue;
+
+            // compute horizontal overlap amount
+            float left = Math.max(p.x, platform.x);
+            float right = Math.min(p.x + p.width, platform.x + platform.width);
+            float overlapX = right - left;
+
+            // If not enough horizontal overlap, treat as side contact and ignore for vertical landing
+            if (overlapX < MIN_HORIZONTAL_OVERLAP) continue;
+
+            // If moving down (vy <= 0): check if we crossed the platform top this frame -> land
+            if (vy <= 0f) {
+                // previous bottom was at or above platform top (standing above) -> landed this frame
+                if (prevBottom >= platform.y + platform.height - EPS || prevTop > platform.y + platform.height) {
+                    p.y = platform.y + platform.height;
+                    player.setVelocityY(0f);
+                    player.setOnGround(true);
+                    return;
+                }
+            } else {
+                // moving up: check if we came from below and pierced into platform this frame -> block underside
+                if (prevTop <= platform.y + EPS && (p.y + p.height) > platform.y + EPS) {
+                    p.y = platform.y - p.height - EPS;
+                    player.setVelocityY(0f);
+                    player.setOnGround(false);
+                    return;
+                }
+            }
+        }
+
+        // If no vertical collision resolved, check horizontal collisions to prevent passing through sides
+        float prevX = p.x - vx * deltaTime;
+        float prevLeft = prevX;
+        float prevRight = prevX + p.width;
+        final float H_EPS = 0.6f;
+
+        for (Rectangle platform : platforms) {
+            if (!p.overlaps(platform)) continue;
+
+            // compute vertical overlap to ensure we're not resolving vertical case here
+            float top = Math.min(p.y + p.height, platform.y + platform.height);
+            float bottom = Math.max(p.y, platform.y);
+            float overlapY = top - bottom;
+            if (overlapY <= 0f) continue;
+
+            // compute previous horizontal relation
+            // collided from left?
+            if (prevRight <= platform.x + H_EPS && (p.x + p.width) > platform.x + H_EPS) {
+                // push player to left side of platform
+                p.x = platform.x - p.width - H_EPS;
+                // stop horizontal velocity
+                player.setVelocityX(0f);
+                return;
+            }
+            // collided from right?
+            if (prevLeft >= platform.x + platform.width - H_EPS && p.x < platform.x + platform.width - H_EPS) {
+                p.x = platform.x + platform.width + H_EPS;
+                player.setVelocityX(0f);
                 return;
             }
         }
@@ -341,8 +418,13 @@ public class LevelManager {
         // === PHASE 2: Draw platforms/obstacles/beams (ShapeRenderer) ===
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        // Platforms (brown)
-        shapeRenderer.setColor(0.6f, 0.4f, 0.2f, 1);
+        // Platforms: default brown, but the tutorial uses a purple color
+        if (currentLevel instanceof com.mygdx.game.LevelTutorial) {
+            // rgba(127,17,224,1) normalized
+            shapeRenderer.setColor(127f/255f, 17f/255f, 224f/255f, 1f);
+        } else {
+            shapeRenderer.setColor(0.6f, 0.4f, 0.2f, 1);
+        }
         for (Rectangle platform : platforms) {
             shapeRenderer.rect(platform.x, platform.y, platform.width, platform.height);
         }
