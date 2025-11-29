@@ -29,6 +29,11 @@ application {
     mainClass = 'com.mygdx.game.desktop.DesktopLauncher'
 }
 
+// Set working directory for the run task to find assets
+tasks.named('run') {
+    workingDir = project.rootDir
+}
+
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17

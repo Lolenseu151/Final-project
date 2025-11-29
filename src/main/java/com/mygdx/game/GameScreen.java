@@ -156,15 +156,11 @@ public class GameScreen implements Screen {
         levelCompleteTimer = 0f;
         
         if (fixer != null) {
-            // For tutorial (level 0) make the player larger and spawn slightly higher
+            // For tutorial (level 0) spawn player slightly higher
             if (currentLevel == 0) {
-                try { fixer.setScale(1.5f); } catch (Exception ignored) {}
                 fixer.reset(100, 50);
-                try { fixer.setJumpVelocity(900f); } catch (Exception ignored) {}
             } else {
-                try { fixer.setScale(1f); } catch (Exception ignored) {}
                 fixer.reset(100, 0);
-                try { fixer.setJumpVelocity(650f); } catch (Exception ignored) {}
             }
         }
         Gdx.app.log("GameScreen", "Loaded Level " + currentLevel);
