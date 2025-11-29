@@ -23,7 +23,8 @@ public class Fixer {
     private static final float MAX_MOVE_SPEED = 220f; // px/s
     private static final float GROUND_FRICTION = 24f; // per second (increased to reduce sliding)
     private static final float AIR_DRAG = 1.0f; // lighter air drag
-    private static final float JUMP_VY = 650f;
+    // vertical jump velocity (configurable per-level)
+    private float jumpVy = 650f;
     private static final float GRAVITY = 1400f;
     private static final float DASH_SPEED = 1250f;  // Burst speed
     private static final float DASH_TIME = 0.15f;  // Very short burst (150ms = quick dash)
@@ -203,7 +204,7 @@ public class Fixer {
 
         // Jump (W/UP keys)
         if (jumpPressed && isOnGround && canJump) {
-            velocity.y = JUMP_VY;
+            velocity.y = jumpVy;
             isOnGround = false;
             canJump = false;
             Gdx.app.log("Fixer", "JUMP triggered vx:" + velocity.x + " vy:" + velocity.y);
@@ -310,4 +311,13 @@ public class Fixer {
         canJump = true; 
         Gdx.app.log("Fixer", "Reset to position (" + x + "," + y + ") onGround=true");
     }
+
+    /**
+     * Allow changing the vertical jump velocity at runtime (useful for tutorial levels).
+     */
+    public void setJumpVelocity(float vy) {
+        if (vy > 0f) this.jumpVy = vy;
+    }
+
+    public float getJumpVelocity() { return this.jumpVy; }
 }

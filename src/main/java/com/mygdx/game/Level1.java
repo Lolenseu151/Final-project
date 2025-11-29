@@ -83,7 +83,6 @@ platforms.add(new Rectangle(0, 500, 1280, 20));
     
      obstacles.add(new Rectangle(250, 150, 60, 10));
      obstacles.add(new Rectangle(w - 300, 250, 60, 10));
-    beams.add(new Rectangle(400, 0, 5, h));
     shredder = new Rectangle(w - 80, 10, 50, 50);
     totalDocs = documents.size;
 }
