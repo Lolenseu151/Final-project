@@ -31,6 +31,10 @@ public class LevelManager {
     private int documentsCollected;
     private int totalDocuments;
     private boolean levelComplete;
+    // Shred delay state: when player reaches shredder with all docs, wait before completing
+    private boolean shredPending = false;
+    private float shredTimer = 0f;
+    private static final float SHRED_DELAY_SECONDS = 3.0f;
 
     // Visual properties
     private static final float DOCUMENT_SIZE = 36f;
@@ -335,6 +339,20 @@ public class LevelManager {
                     if (currentLevel instanceof LevelTutorial && documentsCollected == 1) {
                         ((LevelTutorial) currentLevel).setTalkingOverlayVisible(true);
                     }
+                    // If we have collected all documents, attempt to set shredder visual to READY
+                    if (currentLevel != null && documentsCollected >= totalDocuments) {
+                        try {
+                            java.lang.reflect.Field f = currentLevel.getClass().getDeclaredField("shredderVisual");
+                            f.setAccessible(true);
+                            Object sv = f.get(currentLevel);
+                            if (sv != null) {
+                                try {
+                                    java.lang.reflect.Method m = sv.getClass().getMethod("setReady");
+                                    m.invoke(sv);
+                                } catch (NoSuchMethodException ignored) {}
+                            }
+                        } catch (Exception ignored) {}
+                    }
                 } catch (Exception ignored) {}
             }
         }
@@ -371,10 +389,51 @@ public class LevelManager {
         }
 
         // Check if level is complete (all documents collected + reached shredder)
+        // Instead of completing immediately, start a delayed shred sequence so we can show the
+        // paper being shredded visually (e.g., play shredder ACTIVE animation) for a short time.
         if (documentsCollected >= totalDocuments && rectsOverlap(player.getBounds(), shredder)) {
-            if (!levelComplete) {
+            if (!levelComplete && !shredPending) {
+                shredPending = true;
+                shredTimer = 0f;
+                Gdx.app.log("LevelManager", "Shredding sequence started — delaying completion for " + SHRED_DELAY_SECONDS + "s");
+                // Try to set shredder visual to ACTIVE via reflection if present on the level
+                try {
+                    if (currentLevel != null) {
+                        java.lang.reflect.Field f = currentLevel.getClass().getDeclaredField("shredderVisual");
+                        f.setAccessible(true);
+                        Object sv = f.get(currentLevel);
+                        if (sv != null) {
+                            try {
+                                java.lang.reflect.Method m = sv.getClass().getMethod("setActive");
+                                m.invoke(sv);
+                            } catch (NoSuchMethodException ignored) {}
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        // If a shred sequence is pending, advance its timer and complete the level when elapsed
+        if (shredPending && !levelComplete) {
+            shredTimer += deltaTime;
+            if (shredTimer >= SHRED_DELAY_SECONDS) {
                 levelComplete = true;
-                Gdx.app.log("LevelManager", "LEVEL COMPLETE! All documents shredded!");
+                shredPending = false;
+                Gdx.app.log("LevelManager", "LEVEL COMPLETE! All documents shredded! (after delay)");
+                // Optionally set shredder back to idle via reflection
+                try {
+                    if (currentLevel != null) {
+                        java.lang.reflect.Field f = currentLevel.getClass().getDeclaredField("shredderVisual");
+                        f.setAccessible(true);
+                        Object sv = f.get(currentLevel);
+                        if (sv != null) {
+                            try {
+                                java.lang.reflect.Method m = sv.getClass().getMethod("setIdle");
+                                m.invoke(sv);
+                            } catch (NoSuchMethodException ignored) {}
+                        }
+                    }
+                } catch (Exception ignored) {}
             }
         }
 
