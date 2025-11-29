@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -200,13 +201,51 @@ public class GameScreen implements Screen {
             levelManager.render(shapeRenderer, game.batch, game.font);
         }
 
+<<<<<<< HEAD
         // Draw tutorial overlay if tutorial map is loaded (level 0)
         if (currentLevel == 0) {
             drawTutorialOverlay();
         }
 
         // Draw sprites
+=======
+        // Draw sprites with dash smoke trail effect
+>>>>>>> aa223fd689ebe30e314c0624a0c1de35b0042c19
         if (game != null && game.batch != null) {
+            // Draw smoke trail BEHIND the player when dashing
+            if (fixer != null && fixer.isDashing() && shapeRenderer != null) {
+                Rectangle playerBounds = fixer.getBounds();
+                float playerCenterX = playerBounds.x + playerBounds.width / 2;
+                float playerCenterY = playerBounds.y + playerBounds.height / 2;
+                
+                // Determine direction - smoke appears behind where player is moving from
+                float velocityX = fixer.getVelocity().x;
+                float smokeX = playerCenterX - (velocityX > 0 ? 40 : -40);  // Behind the movement direction
+                float smokeY = playerCenterY;
+                
+                // Draw multiple smoke puffs fading out
+                shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+                
+                // Outer smoke layer (largest, most transparent - gray)
+                shapeRenderer.setColor(0.6f, 0.6f, 0.65f, 0.2f);  // Gray smoke
+                shapeRenderer.circle(smokeX, smokeY, 35);
+                
+                // Middle smoke layer
+                shapeRenderer.setColor(0.5f, 0.5f, 0.55f, 0.3f);  // Darker gray
+                shapeRenderer.circle(smokeX + 15, smokeY + 10, 25);
+                
+                // Inner smoke puff (closer to player)
+                shapeRenderer.setColor(0.4f, 0.4f, 0.45f, 0.4f);  // Darkest gray
+                shapeRenderer.circle(smokeX - 10, smokeY - 10, 18);
+                
+                // Additional puffs to the side for swirling effect
+                shapeRenderer.setColor(0.55f, 0.55f, 0.6f, 0.15f);
+                shapeRenderer.circle(smokeX + 20, smokeY - 15, 20);
+                shapeRenderer.circle(smokeX - 15, smokeY + 15, 20);
+                
+                shapeRenderer.end();
+            }
+            
             game.batch.begin();
             if (fixer != null) fixer.draw(game.batch);
             game.batch.end();
