@@ -44,6 +44,67 @@ public class GameScreen implements Screen {
         private boolean overlayFullVisible = false;
         // Prevent the same mouse click that opened the overlay from immediately closing it
         private boolean overlaySuppressNextClick = false;
+        // Tutorial talking overlay (shown when first doc collected)
+        private com.badlogic.gdx.graphics.Texture overlayTalkingTex;
+        private boolean overlayTalkingVisible = false;
+        // --- Talking overlay tunables (edit these PUBLIC static values to reposition the overlay text) ---
+        // Example: change these values at the top of this file to move the overlay text.
+        // Width as fraction of screen (0.0 - 1.0). Max width caps the computed width.
+        public static float TALKING_TEXT_WIDTH_PERCENT = 0.60f;
+        public static float TALKING_TEXT_MAX_WIDTH = 680f;
+        // Height as fraction of screen (0.0 - 1.0). Min height ensures readability.
+        public static float TALKING_TEXT_HEIGHT_PERCENT = 0.18f;
+        public static float TALKING_TEXT_MIN_HEIGHT = 10f;
+        // Margin from screen edges (in pixels) and vertical gap above the Continue button
+        public static float TALKING_TEXT_MARGIN = 30f;
+        public static float TALKING_TEXT_BUTTON_GAP = 8f;
+        // --- Continue button tunables ---
+        // If BUTTON_X/Y are >= 0 they will be used as absolute screen coordinates (pixels).
+        // Otherwise the button is positioned relative to the text box (default behavior).
+        public static float TALKING_BUTTON_X = 1030f;
+        public static float TALKING_BUTTON_Y = 60f;
+        public static float TALKING_BUTTON_WIDTH = 160f;
+        public static float TALKING_BUTTON_HEIGHT = 28f;
+        // If false, do not draw the filled background rectangle (transparent button)
+        public static boolean TALKING_BUTTON_DRAW_BG = false;
+        // If false, do not draw the button border/stroke (transparent border)
+        public static boolean TALKING_BUTTON_DRAW_BORDER = false;
+        // Hover underline tunables
+        public static boolean TALKING_BUTTON_HOVER_UNDERLINE = true;
+        public static float TALKING_BUTTON_HOVER_UNDERLINE_THICKNESS = 2f;
+        public static float TALKING_BUTTON_HOVER_UNDERLINE_R = 1f;
+        public static float TALKING_BUTTON_HOVER_UNDERLINE_G = 1f;
+        public static float TALKING_BUTTON_HOVER_UNDERLINE_B = 1f;
+        public static float TALKING_BUTTON_HOVER_UNDERLINE_A = 1f;
+        // Optional absolute Y for the talking text box. If >=0, used as pixel Y coordinate.
+        // If left negative (default), the text box Y is computed independently of the button.
+        public static float TALKING_TEXT_ABSOLUTE_Y = 50f;
+        // Typing transition tunable (seconds)
+        public static float TALKING_TEXT_TYPING_DURATION = 3f;
+        // The default full talking overlay text (can be customized)
+        public static String TALKING_OVERLAY_FULL_TEXT = "Now, listen closely. They are hunting for the 'Poblacion Water Fund Diversion' file. The one that shows... [whispers dramatically] ...me corrupting the people's money.";
+
+        // Runtime typing state
+        private com.badlogic.gdx.graphics.g2d.BitmapFont overlayTalkingFont = null;
+        private float talkingTypingElapsed = 0f;
+        private boolean talkingPreviouslyVisible = false;
+        // Talking overlay stage (0 = first caption, 1 = second caption)
+        private int talkingStage = 0;
+        // Second caption to display after Continue is clicked once
+        public static String TALKING_OVERLAY_SECOND_TEXT = "Yes, I said it! I need that gone. Or, better yet, changed.";
+        // Third caption to display after second Continue click
+        public static String TALKING_OVERLAY_THIRD_TEXT = "See that other document on the other floors? You must collect them all";
+
+        // Optional explicit positions for the documents that appear after the final caption.
+        // Edit this array to specify exact X/Y pixel positions for each spawned document.
+        // Example:
+        // public static float[][] TUTORIAL_DOC_POSITIONS = new float[][] { {400f,300f}, {480f,300f}, {560f,300f}, {640f,300f} };
+        public static float[][] TUTORIAL_DOC_POSITIONS = new float[][] {
+            { 200f, 260f },
+            { 700f, 260f },
+            { 580f, 850f },
+            { 100, 20f }
+        };
 
     // Level progression
     private int currentLevel = 1;
@@ -130,6 +191,38 @@ public class GameScreen implements Screen {
             } catch (Exception e) {
                 try { overlayFullTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("Overlay.png")); }
                 catch (Exception ex) { overlayFullTex = null; }
+            }
+            // Load the tutorial talking overlay (shown when first document collected)
+            try {
+                overlayTalkingTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("assets/Loloy's talking.png"));
+            } catch (Exception e) {
+                try { overlayTalkingTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("Loloy's talking.png")); }
+                catch (Exception ex) {
+                    try { overlayTalkingTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("assets/Loloy talk.png")); }
+                    catch (Exception ex2) {
+                        try { overlayTalkingTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("Loloy talk.png")); }
+                        catch (Exception ex3) { overlayTalkingTex = null; }
+                    }
+                }
+            }
+            // Load the small white font for overlay text (optional)
+            try {
+                overlayTalkingFont = new com.badlogic.gdx.graphics.g2d.BitmapFont(
+                        Gdx.files.internal("assets/smallwhite/Small_white.fnt"),
+                        Gdx.files.internal("assets/smallwhite/Small_white.png"),
+                        false);
+                Gdx.app.log("GameScreen", "Loaded Small_white font from assets/smallwhite/");
+            } catch (Exception e) {
+                try {
+                    overlayTalkingFont = new com.badlogic.gdx.graphics.g2d.BitmapFont(
+                            Gdx.files.internal("smallwhite/Small_white.fnt"),
+                            Gdx.files.internal("smallwhite/Small_white.png"),
+                            false);
+                    Gdx.app.log("GameScreen", "Loaded Small_white font from smallwhite/ fallback");
+                } catch (Exception ex) {
+                    overlayTalkingFont = null; // fallback to game.font when drawing
+                    Gdx.app.log("GameScreen", "Small_white font not found; using default font");
+                }
             }
     }
 
@@ -262,6 +355,8 @@ public class GameScreen implements Screen {
 
         // Draw the full-screen overlay if activated by the tutorial OK button
         drawFullOverlayIfActive();
+        // Draw the talking overlay if the tutorial level requested it (first doc collected)
+        drawTalkingOverlayIfActive();
     }
 
     /**
@@ -378,6 +473,165 @@ public class GameScreen implements Screen {
                 overlayFullVisible = false;
             }
         }
+    }
+
+    // Draw the tutorial talking overlay (triggered when first document is collected)
+    private void drawTalkingOverlayIfActive() {
+        // Prioritize the talking overlay only when current level is tutorial and that level wants it
+        if (levelManager == null) return;
+        try {
+            java.lang.reflect.Field f = LevelManager.class.getDeclaredField("currentLevel");
+            f.setAccessible(true);
+            Object cur = f.get(levelManager);
+            if (cur instanceof LevelTutorial) {
+                LevelTutorial lt = (LevelTutorial) cur;
+                if (!lt.isTalkingOverlayVisible()) {
+                    // Reset typing state when overlay is closed
+                    talkingPreviouslyVisible = false;
+                    return;
+                }
+                // Show the talking texture full-screen-ish centered (or scaled)
+                if (game == null || game.batch == null) return;
+                float w = Gdx.graphics.getWidth();
+                float h = Gdx.graphics.getHeight();
+                game.batch.begin();
+                if (overlayTalkingTex != null) {
+                    // Draw the talking image full-screen
+                    game.batch.draw(overlayTalkingTex, 0, 0, w, h);
+                }
+                game.batch.end();
+
+                // Draw an overlay text box and a Continue button (only the button will dismiss)
+
+                // Text box area (margin and button location) using the tunable values
+                float margin = TALKING_TEXT_MARGIN;
+                float btnW = TALKING_BUTTON_WIDTH, btnH = TALKING_BUTTON_HEIGHT;
+                // Compute button position: prefer explicit tunables if set, otherwise place relative to edges
+                float btnX = (TALKING_BUTTON_X >= 0f) ? TALKING_BUTTON_X : (w - btnW - margin);
+                float btnY = (TALKING_BUTTON_Y >= 0f) ? TALKING_BUTTON_Y : margin;
+
+                // Position text using top-level tunables. Use an absolute Y if provided,
+                // otherwise compute a default that does NOT depend on the button Y.
+                float textBoxW = Math.min(w * TALKING_TEXT_WIDTH_PERCENT, TALKING_TEXT_MAX_WIDTH);
+                float textBoxH = Math.max(h * TALKING_TEXT_HEIGHT_PERCENT, TALKING_TEXT_MIN_HEIGHT);
+                // Position text on the LEFT side (use margin from left edge)
+                float textBoxX = TALKING_TEXT_MARGIN + 220;
+                float textBoxY;
+                if (TALKING_TEXT_ABSOLUTE_Y >= 0f) {
+                    textBoxY = TALKING_TEXT_ABSOLUTE_Y;
+                } else {
+                    // Default: use a low screen position independent of button Y
+                    textBoxY = TALKING_TEXT_MARGIN + TALKING_TEXT_BUTTON_GAP + btnH;
+                }
+
+                // No background rectangle for the text box (transparent)
+
+                // Draw the overlay text with wrapping and typing transition
+                com.badlogic.gdx.graphics.g2d.BitmapFont fontToUse = (overlayTalkingFont != null) ? overlayTalkingFont : game.font;
+                // Reset typing timer when the overlay first appears
+                if (!talkingPreviouslyVisible) {
+                    talkingTypingElapsed = 0f;
+                    talkingPreviouslyVisible = true;
+                    talkingStage = 0; // start at first caption when overlay appears
+                }
+                talkingTypingElapsed += Gdx.graphics.getDeltaTime();
+
+                float duration = Math.max(0.001f, TALKING_TEXT_TYPING_DURATION);
+                float frac = Math.min(1f, talkingTypingElapsed / duration);
+                String fullText;
+                if (talkingStage == 0) fullText = TALKING_OVERLAY_FULL_TEXT;
+                else if (talkingStage == 1) fullText = TALKING_OVERLAY_SECOND_TEXT;
+                else fullText = TALKING_OVERLAY_THIRD_TEXT;
+                int chars = Math.max(0, Math.min(fullText.length(), (int) (fullText.length() * frac)));
+                String visibleText = fullText.substring(0, chars);
+
+                if (game.batch != null && fontToUse != null) {
+                    float textPad = 12f;
+                    com.badlogic.gdx.graphics.g2d.GlyphLayout gl = new com.badlogic.gdx.graphics.g2d.GlyphLayout();
+                    gl.setText(fontToUse, visibleText, com.badlogic.gdx.graphics.Color.WHITE, textBoxW - textPad * 2f, com.badlogic.gdx.utils.Align.left, true);
+                    game.batch.begin();
+                    fontToUse.draw(game.batch, gl, textBoxX + textPad, textBoxY + textBoxH - textPad);
+                    game.batch.end();
+                }
+
+                // Draw Continue button (background optional)
+                if (shapeRenderer != null) {
+                    if (TALKING_BUTTON_DRAW_BG) {
+                        shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+                        shapeRenderer.setColor(0.12f, 0.12f, 0.12f, 1f);
+                        shapeRenderer.rect(btnX, btnY, btnW, btnH);
+                        shapeRenderer.end();
+                    }
+
+                    // Draw border only if enabled (allows fully transparent button)
+                    if (TALKING_BUTTON_DRAW_BORDER) {
+                        shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Line);
+                        shapeRenderer.setColor(1f, 1f, 1f, 0.85f);
+                        shapeRenderer.rect(btnX, btnY, btnW, btnH);
+                        shapeRenderer.end();
+                    }
+                }
+
+                // Draw button label and hover underline
+                if (game.batch != null) {
+                    com.badlogic.gdx.graphics.g2d.BitmapFont btnFont = (overlayTalkingFont != null) ? overlayTalkingFont : game.font;
+                    com.badlogic.gdx.graphics.g2d.GlyphLayout glBtn = new com.badlogic.gdx.graphics.g2d.GlyphLayout(btnFont, "Continue");
+                    // Vertically center the label inside the button using the glyph height as reference.
+                    float textX = btnX + (btnW - glBtn.width) * 0.5f;
+                    float textY = btnY + (btnH + glBtn.height) * 0.5f; // baseline for drawing
+                    game.batch.begin();
+                    btnFont.draw(game.batch, glBtn, textX, textY);
+                    game.batch.end();
+
+                    // Hover detection
+                    float mx = Gdx.input.getX();
+                    float my = Gdx.graphics.getHeight() - Gdx.input.getY();
+                    boolean hovered = (mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH);
+
+                    if (hovered && TALKING_BUTTON_HOVER_UNDERLINE && shapeRenderer != null) {
+                        // Draw underline BELOW the bottom of the laid-out glyphs so it doesn't overlap characters.
+                        float thickness = TALKING_BUTTON_HOVER_UNDERLINE_THICKNESS;
+                        // GlyphLayout.height represents the total vertical size of the text. When
+                        // drawing at (textX, textY) the baseline is at textY and the bottom of the
+                        // visible glyphs is roughly at (textY - glBtn.height). Place the underline
+                        // a few pixels below that point.
+                        float underlineY = textY - glBtn.height - 4f; // 4px padding below glyphs
+                        shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+                        shapeRenderer.setColor(TALKING_BUTTON_HOVER_UNDERLINE_R, TALKING_BUTTON_HOVER_UNDERLINE_G, TALKING_BUTTON_HOVER_UNDERLINE_B, TALKING_BUTTON_HOVER_UNDERLINE_A);
+                        shapeRenderer.rect(textX, underlineY, glBtn.width, thickness);
+                        shapeRenderer.end();
+                    }
+
+                    // Only dismiss / advance when clicking the Continue button
+                    if (Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
+                        if (mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH) {
+                            // Advance through captions: 0 -> 1 -> 2 -> dismiss
+                            if (talkingStage == 0) {
+                                talkingStage = 1;
+                                talkingTypingElapsed = 0f; // restart typing for second caption
+                            } else if (talkingStage == 1) {
+                                talkingStage = 2;
+                                talkingTypingElapsed = 0f; // restart typing for third caption
+                            } else {
+                                lt.setTalkingOverlayVisible(false);
+                                // After final talking caption, spawn tutorial documents.
+                                try {
+                                    if (levelManager != null) {
+                                        if (TUTORIAL_DOC_POSITIONS != null && TUTORIAL_DOC_POSITIONS.length > 0) {
+                                            levelManager.addDocumentsAtPositions(TUTORIAL_DOC_POSITIONS);
+                                        } else {
+                                            levelManager.addDocuments(4);
+                                        }
+                                    }
+                                } catch (Exception ignored) {}
+                                talkingStage = 0;
+                                talkingPreviouslyVisible = false;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     private void drawText() {
@@ -597,5 +851,7 @@ public class GameScreen implements Screen {
         if (fixer != null) fixer.dispose();
         if (overlayArrowTex != null) overlayArrowTex.dispose();
         if (overlayFullTex != null) overlayFullTex.dispose();
+        if (overlayTalkingTex != null) overlayTalkingTex.dispose();
+        if (overlayTalkingFont != null) overlayTalkingFont.dispose();
     }
 }
