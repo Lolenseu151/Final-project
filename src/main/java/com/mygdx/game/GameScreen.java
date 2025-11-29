@@ -201,16 +201,7 @@ public class GameScreen implements Screen {
             levelManager.render(shapeRenderer, game.batch, game.font);
         }
 
-<<<<<<< HEAD
-        // Draw tutorial overlay if tutorial map is loaded (level 0)
-        if (currentLevel == 0) {
-            drawTutorialOverlay();
-        }
-
-        // Draw sprites
-=======
         // Draw sprites with dash smoke trail effect
->>>>>>> aa223fd689ebe30e314c0624a0c1de35b0042c19
         if (game != null && game.batch != null) {
             // Draw smoke trail BEHIND the player when dashing
             if (fixer != null && fixer.isDashing() && shapeRenderer != null) {
@@ -249,6 +240,11 @@ public class GameScreen implements Screen {
             game.batch.begin();
             if (fixer != null) fixer.draw(game.batch);
             game.batch.end();
+        }
+
+        // If tutorial overlay is active, draw it on top of everything
+        if (currentLevel == 0) {
+            drawTutorialOverlay();
         }
     }
 

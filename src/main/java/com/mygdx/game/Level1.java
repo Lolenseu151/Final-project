@@ -60,15 +60,10 @@ public void init() {
 
     // === Invisible Platforms Matching Level1Map.png ===
 platforms.clear();
-
 // === FLOOR 1 (Bottom floor) ===
-<<<<<<< HEAD
-platforms.add(new Rectangle(0, 220, 620, 20));
-=======
 platforms.add(new Rectangle(0, 7, 525, 20)); // LEFT SIDE
 platforms.add(new Rectangle(525, 22, 385, 20));   // MIDDLE SECTION
 platforms.add(new Rectangle(960, 0, 265, 4));  // RIGHT SIDE
->>>>>>> aa223fd689ebe30e314c0624a0c1de35b0042c19
 
 // === FLOOR 2 ===
 platforms.add(new Rectangle(0, 225, 620, 20));
