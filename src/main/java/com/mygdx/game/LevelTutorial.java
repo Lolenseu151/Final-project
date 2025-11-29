@@ -121,6 +121,65 @@ public class LevelTutorial implements Level, BackgroundedLevel {
                 batch.draw(finalTalkingTex, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
             }
 
+            // Draw a subtle shredder highlight so the shredder location remains visible
+            try {
+                if (shredder != null) {
+                    if (pixelTex == null) {
+                        com.badlogic.gdx.graphics.Pixmap pm = new com.badlogic.gdx.graphics.Pixmap(1, 1, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
+                        pm.setColor(1f, 1f, 1f, 1f);
+                        pm.fill();
+                        pixelTex = new com.badlogic.gdx.graphics.Texture(pm);
+                        pm.dispose();
+                    }
+                    // outline thickness and color
+                    float t = 3f;
+                    float sx = shredder.x;
+                    float sy = shredder.y;
+                    float sw = shredder.width;
+                    float sh = shredder.height;
+                    // Draw a large filled marker at the shredder center (bright yellow) for higher visibility
+                    float markerSize = Math.max(48f, Math.min(160f, Math.max(sw, sh) * 1.5f));
+                    float mx = sx + (sw - markerSize) * 0.5f;
+                    float my = sy + (sh - markerSize) * 0.5f;
+                    batch.setColor(1f, 1f, 0f, 0.98f);
+                    batch.draw(pixelTex, mx, my, markerSize, markerSize);
+                    // crosshair lines through the center
+                    float cx = sx + sw * 0.5f;
+                    float cy = sy + sh * 0.5f;
+                    float lineW = 4f;
+                    batch.setColor(1f, 0f, 0f, 0.95f);
+                    // horizontal
+                    batch.draw(pixelTex, sx - markerSize * 0.2f, cy - lineW * 0.5f, sw + markerSize * 0.4f, lineW);
+                    // vertical
+                    batch.draw(pixelTex, cx - lineW * 0.5f, sy - markerSize * 0.2f, lineW, sh + markerSize * 0.4f);
+                    
+                    Gdx.app.log("LevelTutorial", "Drawing shredder marker at " + sx + "," + sy + " size " + sw + "x" + sh + " markerSize=" + markerSize);
+                    // Draw a contrasting red outline around the shredder rect
+                    batch.setColor(1f, 0.2f, 0.2f, 0.95f);
+                    // top
+                    batch.draw(pixelTex, sx - t, sy + sh, sw + 2f * t, t);
+                    // bottom
+                    batch.draw(pixelTex, sx - t, sy - t, sw + 2f * t, t);
+                    // left
+                    batch.draw(pixelTex, sx - t, sy - t, t, sh + 2f * t);
+                    // right
+                    batch.draw(pixelTex, sx + sw, sy - t, t, sh + 2f * t);
+                    // Draw a small label above the shredder
+                    try {
+                        if (finalOverlayFont != null) {
+                            String label = "SHREDDER";
+                            com.badlogic.gdx.graphics.g2d.GlyphLayout lbl = new com.badlogic.gdx.graphics.g2d.GlyphLayout(finalOverlayFont, label);
+                            float lx = sx + (sw - lbl.width) * 0.5f;
+                            float ly = sy + sh + lbl.height + 6f;
+                            finalOverlayFont.setColor(1f, 1f, 1f, 0.95f);
+                            finalOverlayFont.draw(batch, lbl, lx, ly);
+                        }
+                    } catch (Exception ignored) {}
+                    // restore batch tint
+                    batch.setColor(1f, 1f, 1f, 1f);
+                }
+            } catch (Exception ignored) {}
+
             // Draw the overlay text above the image (centered near the top) with typing transition
             String fullFinalText = (finalOverlayStage == 0) ? FINAL_OVERLAY_FIRST_TEXT : FINAL_OVERLAY_SECOND_TEXT;
             try {

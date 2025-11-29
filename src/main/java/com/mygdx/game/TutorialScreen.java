@@ -159,6 +159,14 @@ public class TutorialScreen implements Screen {
     private float talkingFadeTimer = 0f;
     private static final float TALKING_FADE_DURATION = 1f; // fade-out duration in seconds
     private float talkingInitialVolume = 0.8f;
+    // Special TALING music to play when overlay6 first message appears
+    private Music talingMusic;
+    private boolean talingStarted = false;
+    // TALING fade-out control
+    private boolean talingFading = false;
+    private float talingFadeTimer = 0f;
+    private static final float TALING_FADE_DURATION = 3.0f; // seconds
+    private float talingInitialVolume = 0.8f;
 
     // Button customization
     // Requested color: rgb(9,35,53) -> normalized floats
@@ -453,6 +461,28 @@ public class TutorialScreen implements Screen {
             }
         } catch (Exception e) {
             Gdx.app.log("TutorialScreen", "Failed to load talking music", e);
+        }
+        // Load TALING music (play when overlay6 first message appears)
+        try {
+            com.badlogic.gdx.files.FileHandle talingInternal = Gdx.files.internal("Sounds/TALING.mp3");
+            if (talingInternal.exists()) {
+                talingMusic = Gdx.audio.newMusic(talingInternal);
+                Gdx.app.log("TutorialScreen", "Loaded internal TALING music");
+            } else {
+                String absT = System.getProperty("user.dir") + "/assets/Sounds/TALING.mp3";
+                com.badlogic.gdx.files.FileHandle talingAbs = Gdx.files.absolute(absT);
+                if (talingAbs.exists()) {
+                    talingMusic = Gdx.audio.newMusic(talingAbs);
+                    Gdx.app.log("TutorialScreen", "Loaded absolute TALING music: " + absT);
+                }
+            }
+            if (talingMusic != null) {
+                talingMusic.setLooping(true);
+                talingMusic.setVolume(0.9f);
+            }
+        } catch (Exception e) {
+            Gdx.app.log("TutorialScreen", "Failed to load TALING music", e);
+            talingMusic = null;
         }
     }
 
@@ -775,6 +805,23 @@ public class TutorialScreen implements Screen {
                     }
                 }
 
+                // handle TALING music fade (if active)
+                if (talingFading) {
+                    talingFadeTimer += dt;
+                    float p2 = Math.min(1f, talingFadeTimer / Math.max(0.0001f, TALING_FADE_DURATION));
+                    if (talingMusic != null) {
+                        try { talingMusic.setVolume((1f - p2) * talingInitialVolume); } catch (Exception ignored) {}
+                    }
+                    if (p2 >= 1f) {
+                        if (talingMusic != null) {
+                            try { talingMusic.stop(); talingMusic.dispose(); } catch (Exception ignored) {}
+                            talingMusic = null;
+                        }
+                        talingFading = false;
+                        talingStarted = false;
+                    }
+                }
+
                 // draw prefix instantly
                 BitmapFont cap = captionFont != null ? captionFont : font;
                 float tx = overlay2TextPosX;
@@ -825,6 +872,7 @@ public class TutorialScreen implements Screen {
             if (overlay6Stage >= STAGE6_TEXTS.length * 2) {
                 overlay6Done = true;
                 typed6 = STAGE6_TEXTS[STAGE6_TEXTS.length - 1];
+                // do not stop TALING music here - it should run until the TutorialScreen ends
             } else if ((overlay6Stage % 2) == 1) {
                 overlay6PostPauseTimer += dt;
                 int lastTextIndex = (overlay6Stage - 1) / 2;
@@ -841,6 +889,13 @@ public class TutorialScreen implements Screen {
                 if (textIndex < 0) textIndex = 0;
                 if (textIndex >= STAGE6_TEXTS.length) textIndex = STAGE6_TEXTS.length - 1;
                 String current = STAGE6_TEXTS[textIndex];
+                // If this is the first STAGE6 message, start TALING music looping (once)
+                if (textIndex == 0 && !talingStarted) {
+                    if (talingMusic != null) {
+                        try { talingMusic.setLooping(true); talingMusic.play(); } catch (Exception ignored) {}
+                    }
+                    talingStarted = true;
+                }
                 float currentDuration = STAGE6_DURATIONS[textIndex];
                 if (!overlay6TypingDone) overlay6TypingTimer += dt;
                 int totalChars = current != null ? current.length() : 0;
@@ -1110,6 +1165,11 @@ public class TutorialScreen implements Screen {
                         talkingStarted = false;
                         talkingStopped = false;
                     }
+                        if (talingMusic != null) {
+                            try { talingMusic.stop(); talingMusic.dispose(); } catch (Exception ignored) {}
+                            talingMusic = null;
+                            talingStarted = false;
+                        }
                     // immediately open the tutorial level (level 0)
                     try {
                         game.setScreen(new GameScreen(game, 0));
@@ -1133,6 +1193,12 @@ public class TutorialScreen implements Screen {
                     collapseCols = Math.max(8, (int)(screenW / 16f));
                     collapseRows = Math.max(6, (int)(screenH / 16f));
                     collapseGridInitialized = true;
+                    // start fading TALING music as we begin collapsing
+                    if (talingMusic != null && !talingFading) {
+                        talingFading = true;
+                        talingFadeTimer = 0f;
+                        try { talingInitialVolume = talingMusic.getVolume(); } catch (Exception ignored) { talingInitialVolume = 0.9f; }
+                    }
                 }
             } else {
                 collapseTimer += dt;
@@ -1188,6 +1254,10 @@ public class TutorialScreen implements Screen {
                         try { talkingMusic.stop(); talkingMusic.dispose(); } catch (Exception ignored) {}
                         talkingMusic = null; talkingStarted = false; talkingStopped = false; talkingFading = false;
                     }
+                        if (talingMusic != null) {
+                            try { talingMusic.stop(); talingMusic.dispose(); } catch (Exception ignored) {}
+                            talingMusic = null; talingStarted = false;
+                        }
 
                     try {
                         game.setScreen(new GameScreen(game, 0));
@@ -1240,6 +1310,11 @@ public class TutorialScreen implements Screen {
             talkingMusic = null;
             talkingStarted = false;
             talkingStopped = false;
+        }
+        if (talingMusic != null) {
+            try { talingMusic.stop(); talingMusic.dispose(); } catch (Exception ignored) {}
+            talingMusic = null;
+            talingStarted = false;
         }
     }
 }
