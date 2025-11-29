@@ -418,15 +418,15 @@ public class LevelManager {
         // === PHASE 2: Draw platforms/obstacles/beams (ShapeRenderer) ===
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        // Platforms: default brown, but the tutorial uses a purple color
-        if (currentLevel instanceof com.mygdx.game.LevelTutorial) {
-            // rgba(127,17,224,1) normalized
-            shapeRenderer.setColor(127f/255f, 17f/255f, 224f/255f, 1f);
-        } else {
-            shapeRenderer.setColor(0.6f, 0.4f, 0.2f, 1);
-        }
-        for (Rectangle platform : platforms) {
-            shapeRenderer.rect(platform.x, platform.y, platform.width, platform.height);
+        // Platforms are intentionally not rendered (invisible platforms)
+        // They remain in `platforms` for collision detection but are not drawn.
+        // If you want to debug them, set debugPlatformRender to true.
+        boolean debugPlatformRender = false;
+        if (debugPlatformRender) {
+            shapeRenderer.setColor(153f/255f, 170f/255f, 187f/255f, 1f);
+            for (Rectangle platform : platforms) {
+                shapeRenderer.rect(platform.x, platform.y, platform.width, platform.height);
+            }
         }
 
         // Obstacles (red)

@@ -38,6 +38,7 @@ public class GameScreen implements Screen {
     private float remainingTime = 180f;
     private float accumulator = 0f;
     private boolean pKeyWasPressed = false;
+        private com.badlogic.gdx.graphics.Texture overlayArrowTex;
 
     // Level progression
     private int currentLevel = 1;
@@ -108,6 +109,14 @@ public class GameScreen implements Screen {
             }
         }
         Gdx.app.log("GameScreen", "Loaded Level " + currentLevel);
+        
+            // Load overlay arrow texture (optional)
+            try {
+                overlayArrowTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("assets/arrow.png"));
+            } catch (Exception e) {
+                try { overlayArrowTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("arrow.png")); }
+                catch (Exception ex) { overlayArrowTex = null; }
+            }
     }
 
     @Override
@@ -223,44 +232,70 @@ public class GameScreen implements Screen {
         String title = "MOVEMENT:";
         String detail = "Use [W], [A], [S], [D] to navigate the Archive floor.";
         String hint = "Try moving into the light near the property files.";
-        // If the loaded level is LevelTutorial, ask it for custom text
-        if (levelManager != null && levelManager instanceof LevelManager) {
+
+        // Try to obtain the active LevelTutorial (via reflection) to fetch custom text
+        LevelTutorial lt = null;
+        if (levelManager != null) {
             try {
-                Level lvl = null; // safe access via currentLevel field is not public; attempt to infer via LevelTutorial
-                // Try to cast the loaded current level from levelManager via reflection (best-effort)
                 java.lang.reflect.Field f = LevelManager.class.getDeclaredField("currentLevel");
                 f.setAccessible(true);
                 Object cur = f.get(levelManager);
                 if (cur instanceof LevelTutorial) {
-                    LevelTutorial lt = (LevelTutorial) cur;
+                    lt = (LevelTutorial) cur;
                     title = lt.getTutorialTitle();
                     detail = lt.getTutorialDetail();
                     hint = lt.getTutorialHint();
+                    // If the overlay has been dismissed, do not draw it
+                    if (!lt.isShowOverlay()) {
+                        Gdx.gl.glDisable(GL20.GL_BLEND);
+                        return;
+                    }
                 }
             } catch (Exception ignored) {}
         }
 
-        com.badlogic.gdx.graphics.g2d.GlyphLayout glTitle = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, title);
-        com.badlogic.gdx.graphics.g2d.GlyphLayout glDetail = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, detail);
-        com.badlogic.gdx.graphics.g2d.GlyphLayout glHint = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, hint);
-
+        // Draw arrow asset centered instead of the box overlay
         float centerX = Gdx.graphics.getWidth() * 0.5f;
-        float startY = Gdx.graphics.getHeight() * 0.66f; // start a bit below the top
+        float centerY = Gdx.graphics.getHeight() * 0.5f;
+
+        float arrowW = 800, arrowH = 528;
+        float arrowX = centerX - arrowW * 0.5f;
+        float arrowY = centerY - arrowH * 0.5f + 40f; // slightly above center to leave room for OK
 
         game.batch.begin();
-        // draw title centered
-        float tx = centerX - (glTitle.width * 0.5f);
-        game.font.draw(game.batch, glTitle, tx, startY);
-        // draw detail centered below
-        float tyDetail = startY - glTitle.height - 8f;
-        float dx = centerX - (glDetail.width * 0.5f);
-        game.font.draw(game.batch, glDetail, dx, tyDetail);
-        // draw hint centered below detail
-        float tyHint = tyDetail - glDetail.height - 8f;
-        float hx = centerX - (glHint.width * 0.5f);
-        game.font.draw(game.batch, glHint, hx, tyHint);
+        if (overlayArrowTex != null) {
+            game.batch.draw(overlayArrowTex, arrowX, arrowY, arrowW, arrowH);
+        }
         game.batch.end();
 
+        // Draw OK button below the arrow
+        float btnW = 120f, btnH = 40f;
+        float btnX = centerX - btnW * 0.5f;
+        float btnY = arrowY - btnH - 16f;
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0.12f, 0.12f, 0.12f, 1f);
+        shapeRenderer.rect(btnX, btnY, btnW, btnH);
+        shapeRenderer.end();
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(1f, 1f, 1f, 0.7f);
+        shapeRenderer.rect(btnX, btnY, btnW, btnH);
+        shapeRenderer.end();
+
+        com.badlogic.gdx.graphics.g2d.GlyphLayout glBtn = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, "OK");
+        game.batch.begin();
+        game.font.draw(game.batch, glBtn, centerX - glBtn.width * 0.5f, btnY + btnH * 0.66f + glBtn.height * 0.33f);
+        game.batch.end();
+
+        // Handle OK click
+        if (lt != null && Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
+            float mx = Gdx.input.getX();
+            float my = Gdx.graphics.getHeight() - Gdx.input.getY();
+            if (mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH) {
+                try { lt.setShowOverlay(false); } catch (Exception ignored) {}
+            }
+        }
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
@@ -479,5 +514,6 @@ public class GameScreen implements Screen {
         if (uiStage != null) uiStage.dispose();
         if (uiSkin != null) uiSkin.dispose();
         if (fixer != null) fixer.dispose();
+        if (overlayArrowTex != null) overlayArrowTex.dispose();
     }
 }
