@@ -23,11 +23,14 @@ public class Fixer {
     private static final float MAX_MOVE_SPEED = 220f; // px/s
     private static final float GROUND_FRICTION = 24f; // per second (increased to reduce sliding)
     private static final float AIR_DRAG = 1.0f; // lighter air drag
-    private static final float JUMP_VY = 750f;
-    private static final float GRAVITY = 1400f;
+    private static final float JUMP_VY =1500f;
+    private static final float GRAVITY = 800f;
     private static final float DASH_SPEED = 1150f;  // Burst speed
     private static final float DASH_TIME = 0.15f;  // Very short burst (150ms = quick dash)
     private static final float DASH_COOLDOWN = 10.0f;  // 10 second cooldown
+
+    // per-instance jump velocity (initialized from JUMP_VY)
+    private float jumpVy = JUMP_VY;
 
     // Sprite / collision sizes (frames are 64x64 in assets)
     private static final float SPRITE_SIZE = 64f;
@@ -65,6 +68,15 @@ public class Fixer {
         if (onGround) {
             this.canJump = true;  // Can jump when landing on ground
         }
+    }
+
+    /**
+     * Scale the player's collision box and sprite size by a factor.
+     * For example, 1.5f will make the player 50% larger.
+     */
+    public void setScale(float scale) {
+        if (scale <= 0f) return;
+        bounds.setSize(WIDTH * scale, HEIGHT * scale);
     }
 
     public float getDashCooldown() {
@@ -194,7 +206,7 @@ public class Fixer {
 
         // Jump (W/UP keys)
         if (jumpPressed && isOnGround && canJump) {
-            velocity.y = JUMP_VY;
+            velocity.y = jumpVy;
             isOnGround = false;
             canJump = false;
             Gdx.app.log("Fixer", "JUMP triggered vx:" + velocity.x + " vy:" + velocity.y);
@@ -301,4 +313,13 @@ public class Fixer {
         canJump = true; 
         Gdx.app.log("Fixer", "Reset to position (" + x + "," + y + ") onGround=true");
     }
+
+    /**
+     * Allow changing the vertical jump velocity at runtime (useful for tutorial levels).
+     */
+    public void setJumpVelocity(float vy) {
+        if (vy > 0f) this.jumpVy = vy;
+    }
+
+    public float getJumpVelocity() { return this.jumpVy; }
 }

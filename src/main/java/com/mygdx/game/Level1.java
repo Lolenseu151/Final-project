@@ -1,5 +1,5 @@
 package com.mygdx.game;
-
+ 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
@@ -11,6 +11,7 @@ import com.badlogic.gdx.graphics.g2d.Animation;
 /**
  * Level1 - edit positions to design
  */
+
 public class Level1 implements Level, BackgroundedLevel {
     private final Array<Rectangle> documents = new Array<>();
     private final Array<Rectangle> platforms = new Array<>();
@@ -19,9 +20,9 @@ public class Level1 implements Level, BackgroundedLevel {
     private Rectangle shredder;
     // use explicit position/size for visual shredder (no rectangle placeholder)
     private float shredderX = 80f;
-    private float shredderY = 420f;
-    private float shredderW = 50f;
-    private float shredderH = 50f;
+    private float shredderY = 415f;
+    private float shredderW = 36f; // was 50f
+    private float shredderH = 36f; // was 50f
     private int totalDocs = 0;
 
     private static final float DOC_SIZE = 36f;
@@ -34,36 +35,8 @@ public class Level1 implements Level, BackgroundedLevel {
     private static final int SHREDDER_FRAME_COUNT = 9;
     private static final float SHREDDER_FRAME_DURATION = 0.08f; // tweak speed if needed
 
-    /* 
-    @Override
-    public void init() {
-        documents.clear();
-        platforms.clear();
-        obstacles.clear();
-        beams.clear();
+    
 
-        float w = Gdx.graphics.getWidth();
-        float h = Gdx.graphics.getHeight();
-
-        // Level 2 design (harder than Level 1)
-        platforms.add(new Rectangle(0, 0, w, PLATFORM_H));
-        platforms.add(new Rectangle(100, 150, 400, PLATFORM_H));
-        platforms.add(new Rectangle(w - 350, 250, 300, PLATFORM_H));
-
-        documents.add(new Rectangle(200, 160, DOC_SIZE, DOC_SIZE));
-        documents.add(new Rectangle(300, 160, DOC_SIZE, DOC_SIZE));
-        documents.add(new Rectangle(w - 250, 270, DOC_SIZE, DOC_SIZE));
-
-        obstacles.add(new Rectangle(250, 150, 60, 10));
-        obstacles.add(new Rectangle(w - 300, 250, 60, 10));
-        beams.add(new Rectangle(400, 0, 5, h));
-
-        shredder = new Rectangle(w - 80, 10, 50, 50);
-        totalDocs = documents.size;
-    }
- */
-
-    @Override
     public void init() {
         documents.clear();
         platforms.clear();
@@ -87,20 +60,22 @@ public class Level1 implements Level, BackgroundedLevel {
 
         // === FLOOR 3 ===
         platforms.add(new Rectangle(0, 400, 925, 20));
+         platforms.add(new Rectangle(1030, 400, 200, 20));
 
         // === FLOOR 4 (Roof inside section) ===
-        platforms.add(new Rectangle(0, 600, 1280, 20));
+        platforms.add(new Rectangle(525, 540, 705, 20));
 
 
         // === Your existing items ===
-        documents.add(new Rectangle(200, 160, DOC_SIZE, DOC_SIZE));
-        documents.add(new Rectangle(300, 160, DOC_SIZE, DOC_SIZE));
-        documents.add(new Rectangle(w - 250, 270, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(200, 30, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(500, 20, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(300, 270, DOC_SIZE, DOC_SIZE));
+         documents.add(new Rectangle(350, 270, DOC_SIZE, DOC_SIZE));
 
 
-        obstacles.add(new Rectangle(250, 150, 60, 10));
-        obstacles.add(new Rectangle(w - 300, 250, 60, 10));
-    
+        //obstacles.add(new Rectangle(250, 150, 60, 10));
+        //obstacles.add(new Rectangle(w - 300, 250, 60, 10));
+
 
         // Keep the rectangle for gameplay/collision, but we'll draw the animated shredder over it
         // shredder = new Rectangle(80, 420, 50, 50);
@@ -230,13 +205,12 @@ public class Level1 implements Level, BackgroundedLevel {
 
     @Override
     public void updateBackground(float deltaTime, LevelManager levelMgr, Array<Rectangle> documents,
-                                  Array<Rectangle> obstacles, Fixer player) {
+                                 Array<Rectangle> obstacles, Fixer player) {
         // Advance shredder animation state time
         if (shredderAnim != null) {
             shredderStateTime += deltaTime;
         }
         // Example: track documents collected and adjust visual state
-        // (You can add fields to Level1 to track state if needed)
     }
 
     @Override
@@ -257,7 +231,7 @@ public class Level1 implements Level, BackgroundedLevel {
             }
 
             // scale up for visibility while debugging
-            float scaleDebug = 1.5f;
+            float scaleDebug = 0.9f; // reduce visual scale so shredder appears smaller
             float drawW = shredderW * scaleDebug;
             float drawH = shredderH * scaleDebug;
             // center the scaled draw on the visual bottom-left shredderX/Y

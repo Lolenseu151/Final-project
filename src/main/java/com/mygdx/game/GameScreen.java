@@ -39,6 +39,11 @@ public class GameScreen implements Screen {
     private float remainingTime = 180f;
     private float accumulator = 0f;
     private boolean pKeyWasPressed = false;
+        private com.badlogic.gdx.graphics.Texture overlayArrowTex;
+        private com.badlogic.gdx.graphics.Texture overlayFullTex;
+        private boolean overlayFullVisible = false;
+        // Prevent the same mouse click that opened the overlay from immediately closing it
+        private boolean overlaySuppressNextClick = false;
 
     // Level progression
     private int currentLevel = 1;
@@ -52,7 +57,8 @@ public class GameScreen implements Screen {
      */
     public GameScreen(MyGdxGame game, int level) {
         this.game = game;
-        this.currentLevel = Math.max(1, Math.min(level, MAX_LEVEL));
+        // allow level 0 for the dedicated tutorial map
+        this.currentLevel = Math.max(0, Math.min(level, MAX_LEVEL));
         
         // Initialize rendering
         shapeRenderer = new ShapeRenderer();
@@ -73,6 +79,7 @@ public class GameScreen implements Screen {
         // Load level based on currentLevel
         Level level = null;
         switch (currentLevel) {
+            case 0: level = new LevelTutorial(); break;
             case 1: level = new Level1(); break;
             case 2: level = new Level2(); break;
             case 3: level = new Level3(); break;
@@ -96,8 +103,34 @@ public class GameScreen implements Screen {
         showLevelComplete = false;
         levelCompleteTimer = 0f;
         
-        if (fixer != null) fixer.reset(100, 0);  // Spawn exactly on ground platform (y=0, platform h=15)
+        if (fixer != null) {
+            // For tutorial (level 0) make the player larger and spawn slightly higher
+            if (currentLevel == 0) {
+                try { fixer.setScale(1.5f); } catch (Exception ignored) {}
+                fixer.reset(100, 50);
+                try { fixer.setJumpVelocity(900f); } catch (Exception ignored) {}
+            } else {
+                try { fixer.setScale(1f); } catch (Exception ignored) {}
+                fixer.reset(100, 0);
+                try { fixer.setJumpVelocity(650f); } catch (Exception ignored) {}
+            }
+        }
         Gdx.app.log("GameScreen", "Loaded Level " + currentLevel);
+        
+            // Load overlay arrow texture (optional)
+            try {
+                overlayArrowTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("assets/arrow.png"));
+            } catch (Exception e) {
+                try { overlayArrowTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("arrow.png")); }
+                catch (Exception ex) { overlayArrowTex = null; }
+            }
+            // Load the full-screen overlay image (shown after OK)
+            try {
+                overlayFullTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("assets/Overlay.png"));
+            } catch (Exception e) {
+                try { overlayFullTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("Overlay.png")); }
+                catch (Exception ex) { overlayFullTex = null; }
+            }
     }
 
     @Override
@@ -188,14 +221,6 @@ public class GameScreen implements Screen {
             levelManager.render(shapeRenderer, game.batch, game.font);
         }
 
-        // DIAGNOSTIC: draw a visible debug rectangle at the shredder location reported in logs
-        // (73,413, size 64x64) to verify ordering / occlusion. Remove after debugging.
-        if (shapeRenderer != null) {
-            shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Line);
-            shapeRenderer.setColor(1f, 0f, 0f, 1f); // bright red outline
-            shapeRenderer.rect(73f, 413f, 64f, 64f);
-            shapeRenderer.end();
-        }
 
         // Draw dash smoke (existing logic) - unchanged
         if (game != null && game.batch != null) {
@@ -224,6 +249,130 @@ public class GameScreen implements Screen {
             game.batch.begin();
             if (fixer != null) fixer.draw(game.batch);
             game.batch.end();
+        }
+
+        // If tutorial overlay is active, draw it on top of everything
+        if (currentLevel == 0) {
+            drawTutorialOverlay();
+        }
+
+        // Draw the full-screen overlay if activated by the tutorial OK button
+        drawFullOverlayIfActive();
+    }
+
+    /**
+     * Draws an on-screen overlay for the tutorial map with movement instructions
+     */
+    private void drawTutorialOverlay() {
+        if (shapeRenderer == null || game == null || game.batch == null || game.font == null) return;
+
+        // Dim background slightly
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0f, 0f, 0f, 0.35f);
+        shapeRenderer.rect(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+
+        // The property-files "light" overlay was removed — the LevelTutorial
+        // exposes `getPropertyFilesLight()` for optional highlighting elsewhere.
+        shapeRenderer.end();
+        // Instruction text: center on screen and allow customization via LevelTutorial
+        String title = "MOVEMENT:";
+        String detail = "Use [W], [A], [S], [D] to navigate the Archive floor.";
+        String hint = "Try moving into the light near the property files.";
+
+        // Try to obtain the active LevelTutorial (via reflection) to fetch custom text
+        LevelTutorial lt = null;
+        if (levelManager != null) {
+            try {
+                java.lang.reflect.Field f = LevelManager.class.getDeclaredField("currentLevel");
+                f.setAccessible(true);
+                Object cur = f.get(levelManager);
+                if (cur instanceof LevelTutorial) {
+                    lt = (LevelTutorial) cur;
+                    title = lt.getTutorialTitle();
+                    detail = lt.getTutorialDetail();
+                    hint = lt.getTutorialHint();
+                    // If the overlay has been dismissed, do not draw it
+                    if (!lt.isShowOverlay()) {
+                        Gdx.gl.glDisable(GL20.GL_BLEND);
+                        return;
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // Draw arrow asset centered instead of the box overlay
+        float centerX = Gdx.graphics.getWidth() * 0.5f;
+        float centerY = Gdx.graphics.getHeight() * 0.5f;
+
+        float arrowW = 800, arrowH = 528;
+        float arrowX = centerX - arrowW * 0.5f;
+        float arrowY = centerY - arrowH * 0.5f + 40f; // slightly above center to leave room for OK
+
+        game.batch.begin();
+        if (overlayArrowTex != null) {
+            game.batch.draw(overlayArrowTex, arrowX, arrowY, arrowW, arrowH);
+        }
+        game.batch.end();
+
+        // Draw OK button below the arrow
+        float btnW = 120f, btnH = 40f;
+        float btnX = centerX - btnW * 0.5f;
+        float btnY = arrowY - btnH - 16f;
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0.12f, 0.12f, 0.12f, 1f);
+        shapeRenderer.rect(btnX, btnY, btnW, btnH);
+        shapeRenderer.end();
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(1f, 1f, 1f, 0.7f);
+        shapeRenderer.rect(btnX, btnY, btnW, btnH);
+        shapeRenderer.end();
+
+        com.badlogic.gdx.graphics.g2d.GlyphLayout glBtn = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, "OK");
+        game.batch.begin();
+        game.font.draw(game.batch, glBtn, centerX - glBtn.width * 0.5f, btnY + btnH * 0.66f + glBtn.height * 0.33f);
+        game.batch.end();
+
+        // Handle OK click
+        if (lt != null && Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
+            float mx = Gdx.input.getX();
+            float my = Gdx.graphics.getHeight() - Gdx.input.getY();
+            if (mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH) {
+                try { 
+                    // Hide the small tutorial overlay and show the full-screen overlay image
+                    lt.setShowOverlay(false);
+                    overlayFullVisible = true;
+                    overlaySuppressNextClick = true; // ignore the initiating click
+                } catch (Exception ignored) {}
+            }
+        }
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    // If the full-screen overlay is active, draw it on top of everything and allow dismissal
+    private void drawFullOverlayIfActive() {
+        if (!overlayFullVisible) return;
+        if (game == null || game.batch == null) return;
+
+        game.batch.begin();
+        if (overlayFullTex != null) {
+            game.batch.draw(overlayFullTex, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        }
+        game.batch.end();
+
+        // Dismiss on any click or ESC, but ignore the click that opened the overlay
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            overlayFullVisible = false;
+            overlaySuppressNextClick = false;
+        } else if (Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
+            if (overlaySuppressNextClick) {
+                // consume this click (it was the OK click that opened the overlay)
+                overlaySuppressNextClick = false;
+            } else {
+                overlayFullVisible = false;
+            }
         }
     }
 
@@ -442,5 +591,7 @@ public class GameScreen implements Screen {
         if (uiStage != null) uiStage.dispose();
         if (uiSkin != null) uiSkin.dispose();
         if (fixer != null) fixer.dispose();
+        if (overlayArrowTex != null) overlayArrowTex.dispose();
+        if (overlayFullTex != null) overlayFullTex.dispose();
     }
 }

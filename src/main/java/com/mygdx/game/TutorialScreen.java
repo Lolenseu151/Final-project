@@ -2,15 +2,15 @@ package com.mygdx.game;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.audio.Music;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.audio.Music;
 
 public class TutorialScreen implements Screen {
 
@@ -55,6 +55,51 @@ public class TutorialScreen implements Screen {
     private TextureRegion image6;
     private boolean ownsImg6 = false;
     private boolean transitionedTo6 = false;
+    // image7 (slides in after slide 6)
+    private Texture img7Texture;
+    private TextureRegion image7;
+    private boolean ownsImg7 = false;
+    private boolean image7Started = false;
+    private boolean transitionedTo7 = false;
+    private float image7X = 0f;
+    private float image7TargetX = 0f;
+    private float image7Y = 0f;
+    // overlay7 typed captions (shown on/after image7)
+    private boolean overlay7Started = false;
+    private boolean overlay7Done = false;
+    private float overlay7TypingTimer = 0f;
+    private boolean overlay7TypingDone = false;
+    private int overlay7Stage = 0;
+    private float overlay7PostPauseTimer = 0f;
+    // overlays after image7: image8 slides from top, image9 slides from bottom
+    private Texture img8Texture;
+    private TextureRegion image8;
+    private boolean ownsImg8 = false;
+    private boolean overlay8Started = false;
+    private boolean overlay8Done = false;
+    private float overlay8Y = 0f;
+    private float overlay8TargetY = 0f;
+
+    private Texture img9Texture;
+    private TextureRegion image9;
+    private boolean ownsImg9 = false;
+    private boolean overlay9Started = false;
+    private boolean overlay9Done = false;
+    private float overlay9Y = 0f;
+    private float overlay9TargetY = 0f;
+    // ensure we only launch the tutorial once after the slideshow completes
+    private boolean tutorialLaunched = false;
+    // finishing/pause/collapse transition state
+    private boolean finishing = false;
+    private float finishTimer = 0f;
+    private static final float FINISH_PAUSE = 5f; // 5 second pause before transition
+    private boolean collapsing = false;
+    private float collapseTimer = 0f;
+    private static final float COLLAPSE_DURATION = 1.2f; // collapse animation duration
+    // grid for pixel collapse (computed on first use)
+    private int collapseCols = 80;
+    private int collapseRows = 50;
+    private boolean collapseGridInitialized = false;
     // overlay6 typing state (messages shown on slide 6)
     private boolean overlay6Started = false;
     private boolean overlay6Done = false;
@@ -87,10 +132,12 @@ public class TutorialScreen implements Screen {
     private float overlay2PostPauseTimer = 0f;
     // text position (easy to edit): coordinates from bottom-left
     private float overlay2TextPosX = 20f;
-    private float overlay2TextPosY = 50f;
+    private float overlay2TextPosY = 80f;
 
     // Simple text buttons
     private BitmapFont font;
+    // caption font (black) used for overlay captions
+    private BitmapFont captionFont;
     private GlyphLayout layout = new GlyphLayout();
     private float btnW = 150f, btnH = 45f;
     private float btnContinueX, btnContinueY, btnSkipX, btnSkipY;
@@ -208,6 +255,50 @@ public class TutorialScreen implements Screen {
             }
         }
         if (img6Texture != null) image6 = new TextureRegion(img6Texture);
+        // load image7 if available (slide in after slide 6)
+        try {
+            img7Texture = new Texture(Gdx.files.internal("The Urgent Call/7.png"));
+            ownsImg7 = true;
+        } catch (Exception e) {
+            try {
+                img7Texture = new Texture(Gdx.files.absolute(System.getProperty("user.dir") + "/assets/The Urgent Call/7.png"));
+                ownsImg7 = true;
+            } catch (Exception ignored) {
+                img7Texture = null;
+                ownsImg7 = false;
+            }
+        }
+        if (img7Texture != null) image7 = new TextureRegion(img7Texture);
+
+        // load image8 if available (overlay after image7 - slide in from top)
+        try {
+            img8Texture = new Texture(Gdx.files.internal("The Urgent Call/8.png"));
+            ownsImg8 = true;
+        } catch (Exception e) {
+            try {
+                img8Texture = new Texture(Gdx.files.absolute(System.getProperty("user.dir") + "/assets/The Urgent Call/8.png"));
+                ownsImg8 = true;
+            } catch (Exception ignored) {
+                img8Texture = null;
+                ownsImg8 = false;
+            }
+        }
+        if (img8Texture != null) image8 = new TextureRegion(img8Texture);
+
+        // load image9 if available (overlay after image7 - slide in from bottom)
+        try {
+            img9Texture = new Texture(Gdx.files.internal("The Urgent Call/9.png"));
+            ownsImg9 = true;
+        } catch (Exception e) {
+            try {
+                img9Texture = new Texture(Gdx.files.absolute(System.getProperty("user.dir") + "/assets/The Urgent Call/9.png"));
+                ownsImg9 = true;
+            } catch (Exception ignored) {
+                img9Texture = null;
+                ownsImg9 = false;
+            }
+        }
+        if (img9Texture != null) image9 = new TextureRegion(img9Texture);
 
         screenW = Gdx.graphics.getWidth();
         screenH = Gdx.graphics.getHeight();
@@ -270,6 +361,42 @@ public class TutorialScreen implements Screen {
         try { font.getData().setScale(0.9f); } catch (Exception ignored) {}
         font.setColor(Color.WHITE);
         font.getRegion().getTexture().setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+
+        // Load caption font (black) for captions: prefer internal, else absolute
+        try {
+            com.badlogic.gdx.files.FileHandle fntB = Gdx.files.internal("fonts/black pexelify/black.fnt");
+            com.badlogic.gdx.files.FileHandle imgB = Gdx.files.internal("fonts/black pexelify/black.png");
+            if (fntB.exists() && imgB.exists()) {
+                captionFont = new BitmapFont(fntB, imgB, false);
+                Gdx.app.log("TutorialScreen", "Loaded internal caption black font");
+            } else {
+                String baseB = System.getProperty("user.dir") + "/assets/fonts/black pexelify/";
+                com.badlogic.gdx.files.FileHandle fntBA = Gdx.files.absolute(baseB + "black.fnt");
+                com.badlogic.gdx.files.FileHandle imgBA = Gdx.files.absolute(baseB + "black.png");
+                if (fntBA.exists() && imgBA.exists()) {
+                    captionFont = new BitmapFont(fntBA, imgBA, false);
+                    Gdx.app.log("TutorialScreen", "Loaded absolute caption black font: " + baseB);
+                } else {
+                    captionFont = null;
+                    Gdx.app.log("TutorialScreen", "Caption black font not found; using main font");
+                }
+            }
+        } catch (Exception e) {
+            captionFont = null;
+            Gdx.app.log("TutorialScreen", "Error loading caption font", e);
+        }
+        if (captionFont != null) {
+            try { captionFont.getRegion().getTexture().setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear); } catch (Exception ignored) {}
+            // set caption font base scale so its line height is ~28px
+            try {
+                float baseLine = captionFont.getData().lineHeight;
+                if (baseLine > 0f) {
+                    float desired = 36f;
+                    float s = desired / baseLine;
+                    captionFont.getData().setScale(s);
+                }
+            } catch (Exception ignored) {}
+        }
 
         // Compute button positions (bottom right)
         float paddingRight = 20f;
@@ -498,26 +625,15 @@ public class TutorialScreen implements Screen {
             batch.draw(image4, x4, overlayY, img4W, img4H);
             // draw prefix instantly once image4 has settled
             if (overlayDone && overlay2Prefix != null && overlay2Prefix.length() > 0) {
-                float prevScaleX = 1f; float prevScaleY = 1f;
-                try { prevScaleX = font.getData().scaleX; prevScaleY = font.getData().scaleY; } catch (Exception ignored) {}
-                float targetScale = 1.6f;
-                font.getData().setScale(targetScale);
-
-                layout.setText(font, overlay2Prefix);
+                BitmapFont cap = captionFont != null ? captionFont : font;
+                layout.setText(cap, overlay2Prefix);
                 float tx = overlay2TextPosX;
                 float ty = overlay2TextPosY + layout.height;
 
-                Color prevColor = font.getColor().cpy();
-                font.setColor(Color.BLACK);
-                font.draw(batch, overlay2Prefix, tx - 1f, ty);
-                font.draw(batch, overlay2Prefix, tx + 1f, ty);
-                font.draw(batch, overlay2Prefix, tx, ty - 1f);
-                font.draw(batch, overlay2Prefix, tx, ty + 1f);
-                font.setColor(Color.WHITE);
-                font.draw(batch, overlay2Prefix, tx, ty);
-                font.setColor(prevColor);
-
-                font.getData().setScale(prevScaleX, prevScaleY);
+                Color prevColor = cap.getColor().cpy();
+                cap.setColor(Color.BLACK);
+                cap.draw(batch, overlay2Prefix, tx, ty);
+                cap.setColor(prevColor);
             }
         }
 
@@ -617,11 +733,7 @@ public class TutorialScreen implements Screen {
                     }
                 }
 
-                // Make the text bigger and bold-looking at left-bottom (position editable)
-                float prevScaleX = 1f; float prevScaleY = 1f;
-                try { prevScaleX = font.getData().scaleX; prevScaleY = font.getData().scaleY; } catch (Exception ignored) {}
-                float targetScale = 1.6f;
-                font.getData().setScale(targetScale);
+                // Use caption font baseline (28px) for caption text; avoid additional scaling
 
                 // Fade out talking music over TALKING_FADE_DURATION when the final message finished
                 if (talkingStarted && !talkingStopped && !talkingFading) {
@@ -664,8 +776,9 @@ public class TutorialScreen implements Screen {
                 }
 
                 // draw prefix instantly
+                BitmapFont cap = captionFont != null ? captionFont : font;
                 float tx = overlay2TextPosX;
-                layout.setText(font, overlay2Prefix != null ? overlay2Prefix : "");
+                layout.setText(cap, overlay2Prefix != null ? overlay2Prefix : "");
                 float prefixWidth = layout.width;
                 float ty = overlay2TextPosY + layout.height;
 
@@ -673,45 +786,31 @@ public class TutorialScreen implements Screen {
                 if (typed.length() > 0) {
                     float gap = 8f;
                     float txMain = tx + prefixWidth + gap;
-                    Color prevColor2 = font.getColor().cpy();
-                    font.setColor(Color.BLACK);
-                    font.draw(batch, typed, txMain - 1f, ty);
-                    font.draw(batch, typed, txMain + 1f, ty);
-                    font.draw(batch, typed, txMain, ty - 1f);
-                    font.draw(batch, typed, txMain, ty + 1f);
-                    font.setColor(Color.WHITE);
-                    font.draw(batch, typed, txMain, ty);
-                    font.setColor(prevColor2);
+                    Color prevColor2 = cap.getColor().cpy();
+                    cap.setColor(Color.BLACK);
+                    cap.draw(batch, typed, txMain, ty);
+                    cap.setColor(prevColor2);
                 }
 
-                // restore font scale
-                font.getData().setScale(prevScaleX, prevScaleY);
+                // no scale restore needed for caption font
             }
         }
 
-        // Draw overlay6 typing on slide 6 (prefix + two messages) when transitioned
+            // Draw overlay6 typing on slide 6 (prefix + messages) when transitioned
         if (transitionedTo6 && overlay6Started) {
-            // scale font
-            float prevScaleX6 = 1f; float prevScaleY6 = 1f;
-            try { prevScaleX6 = font.getData().scaleX; prevScaleY6 = font.getData().scaleY; } catch (Exception ignored) {}
-            float targetScale6 = 1.6f;
-            font.getData().setScale(targetScale6);
+            // Use caption font baseline (28px) for overlay6 text
+            BitmapFont cap6 = captionFont != null ? captionFont : font;
 
             float tx6 = overlay2TextPosX;
-            layout.setText(font, overlay2Prefix != null ? overlay2Prefix : "");
+            layout.setText(cap6, overlay2Prefix != null ? overlay2Prefix : "");
             float prefixWidth6 = layout.width;
             float ty6 = overlay2TextPosY + layout.height;
 
             // draw prefix
-            Color prevC = font.getColor().cpy();
-            font.setColor(Color.BLACK);
-            font.draw(batch, overlay2Prefix, tx6 - 1f, ty6);
-            font.draw(batch, overlay2Prefix, tx6 + 1f, ty6);
-            font.draw(batch, overlay2Prefix, tx6, ty6 - 1f);
-            font.draw(batch, overlay2Prefix, tx6, ty6 + 1f);
-            font.setColor(Color.WHITE);
-            font.draw(batch, overlay2Prefix, tx6, ty6);
-            font.setColor(prevC);
+            Color prevC = cap6.getColor().cpy();
+            cap6.setColor(Color.BLACK);
+            cap6.draw(batch, overlay2Prefix, tx6, ty6);
+            cap6.setColor(prevC);
 
             final String[] STAGE6_TEXTS = new String[] {
                 "The auditors are here early!",
@@ -762,18 +861,182 @@ public class TutorialScreen implements Screen {
             if (typed6.length() > 0) {
                 float gap = 8f;
                 float txMain6 = tx6 + prefixWidth6 + gap;
-                Color prevColor6 = font.getColor().cpy();
-                font.setColor(Color.BLACK);
-                font.draw(batch, typed6, txMain6 - 1f, ty6);
-                font.draw(batch, typed6, txMain6 + 1f, ty6);
-                font.draw(batch, typed6, txMain6, ty6 - 1f);
-                font.draw(batch, typed6, txMain6, ty6 + 1f);
-                font.setColor(Color.WHITE);
-                font.draw(batch, typed6, txMain6, ty6);
-                font.setColor(prevColor6);
+                Color prevColor6 = cap6.getColor().cpy();
+                cap6.setColor(Color.BLACK);
+                cap6.draw(batch, typed6, txMain6, ty6);
+                cap6.setColor(prevColor6);
             }
 
-            font.getData().setScale(prevScaleX6, prevScaleY6);
+            // no scale restore needed for caption font
+        }
+
+        // After overlay6 finishes, slide in image7 as an overlay if available
+        if (overlay6Done && image7 != null && !image7Started && !transitionedTo7) {
+            image7Started = true;
+            image7X = screenW + 10f;
+            image7TargetX = (screenW - image7.getRegionWidth()) / 2f;
+            image7Y = (screenH - image7.getRegionHeight()) / 2f;
+            buttonsShown = false;
+        }
+
+        if (image7Started && image7 != null) {
+            image7X -= overlaySpeed * dt;
+            if (image7X <= image7TargetX) {
+                image7X = image7TargetX;
+                transitionedTo7 = true;
+                buttonsShown = true;
+            }
+            // draw the sliding image7 on top
+            float img7W = image7.getRegionWidth();
+            float img7H = image7.getRegionHeight();
+            batch.draw(image7, image7X, image7Y, img7W, img7H);
+        }
+
+        // Start overlay7 typed captions when image7 has settled
+        if (transitionedTo7 && !overlay7Started) {
+            overlay7Started = true;
+            overlay7Done = false;
+            overlay7Stage = 0;
+            overlay7TypingTimer = 0f;
+            overlay7TypingDone = false;
+            overlay7PostPauseTimer = 0f;
+            buttonsShown = false;
+        }
+
+        // Draw overlay7 typed captions (prefix + two messages)
+        if (overlay7Started && !overlay7Done) {
+            BitmapFont cap7 = captionFont != null ? captionFont : font;
+            float tx7 = overlay2TextPosX;
+            layout.setText(cap7, overlay2Prefix != null ? overlay2Prefix : "");
+            float prefixWidth7 = layout.width;
+            float ty7 = overlay2TextPosY + layout.height;
+
+            // draw prefix
+            Color prev7 = cap7.getColor().cpy();
+            cap7.setColor(Color.BLACK);
+            cap7.draw(batch, overlay2Prefix, tx7, ty7);
+            cap7.setColor(prev7);
+
+            final String[] STAGE7_TEXTS = new String[] {
+                "We start with the Archives. I need you to move now.",
+                "Straight ahead, near the obsolete property files."
+            };
+            final float[] STAGE7_DURATIONS = new float[] { 2f, 2f };
+            final float STAGE7_PAUSE = 1f;
+
+            String typed7 = "";
+            if (overlay7Stage >= STAGE7_TEXTS.length * 2) {
+                overlay7Done = true;
+                typed7 = STAGE7_TEXTS[STAGE7_TEXTS.length - 1];
+            } else if ((overlay7Stage % 2) == 1) {
+                overlay7PostPauseTimer += dt;
+                int lastTextIndex = (overlay7Stage - 1) / 2;
+                lastTextIndex = Math.min(lastTextIndex, STAGE7_TEXTS.length - 1);
+                typed7 = STAGE7_TEXTS[lastTextIndex];
+                if (overlay7PostPauseTimer >= STAGE7_PAUSE) {
+                    overlay7PostPauseTimer = 0f;
+                    overlay7Stage += 1;
+                    overlay7TypingTimer = 0f;
+                    overlay7TypingDone = false;
+                }
+            } else {
+                int textIndex = overlay7Stage / 2;
+                if (textIndex < 0) textIndex = 0;
+                if (textIndex >= STAGE7_TEXTS.length) textIndex = STAGE7_TEXTS.length - 1;
+                String current = STAGE7_TEXTS[textIndex];
+                float currentDuration = STAGE7_DURATIONS[textIndex];
+                if (!overlay7TypingDone) overlay7TypingTimer += dt;
+                int totalChars = current != null ? current.length() : 0;
+                float progress = Math.min(1f, overlay7TypingTimer / Math.max(0.0001f, currentDuration));
+                int chars = (int)Math.floor(progress * totalChars);
+                if (chars >= totalChars) {
+                    chars = totalChars;
+                    overlay7TypingDone = true;
+                }
+                typed7 = (current != null && chars > 0) ? current.substring(0, chars) : "";
+                if (overlay7TypingDone) {
+                    overlay7Stage += 1;
+                    overlay7TypingTimer = 0f;
+                    overlay7TypingDone = false;
+                }
+            }
+
+            if (typed7.length() > 0) {
+                float gap = 8f;
+                float txMain7 = tx7 + prefixWidth7 + gap;
+                Color prevColor7 = cap7.getColor().cpy();
+                cap7.setColor(Color.BLACK);
+                cap7.draw(batch, typed7, txMain7, ty7);
+                cap7.setColor(prevColor7);
+            }
+        }
+
+        // When image7 is settled, start overlay8 (from top) and overlay9 (from bottom)
+        if (transitionedTo7) {
+            if (!overlay8Started && image8 != null) {
+                overlay8Started = true;
+                overlay8Done = false;
+                overlay8Y = screenH + 10f;
+                overlay8TargetY = (screenH - image8.getRegionHeight()) / 2f;
+                buttonsShown = false;
+            }
+            if (!overlay9Started && image9 != null) {
+                overlay9Started = true;
+                overlay9Done = false;
+                overlay9Y = -image9.getRegionHeight() - 10f;
+                overlay9TargetY = (screenH - image9.getRegionHeight()) / 2f;
+                buttonsShown = false;
+            }
+        }
+
+        // animate overlay8 sliding down from top
+        if (overlay8Started && image8 != null && !overlay8Done) {
+            overlay8Y -= overlaySpeed * dt;
+            if (overlay8Y <= overlay8TargetY) {
+                overlay8Y = overlay8TargetY;
+                overlay8Done = true;
+            }
+            float img8W = image8.getRegionWidth();
+            float img8H = image8.getRegionHeight();
+            float img8X = (screenW - img8W) / 2f;
+            batch.draw(image8, img8X, overlay8Y, img8W, img8H);
+        } else if (overlay8Started && image8 != null && overlay8Done) {
+            float img8W = image8.getRegionWidth();
+            float img8H = image8.getRegionHeight();
+            float img8X = (screenW - img8W) / 2f;
+            batch.draw(image8, img8X, overlay8TargetY, img8W, img8H);
+        }
+
+        // animate overlay9 sliding up from bottom
+        if (overlay9Started && image9 != null && !overlay9Done) {
+            overlay9Y += overlaySpeed * dt;
+            if (overlay9Y >= overlay9TargetY) {
+                overlay9Y = overlay9TargetY;
+                overlay9Done = true;
+            }
+            float img9W = image9.getRegionWidth();
+            float img9H = image9.getRegionHeight();
+            float img9X = (screenW - img9W) / 2f;
+            batch.draw(image9, img9X, overlay9Y, img9W, img9H);
+        } else if (overlay9Started && image9 != null && overlay9Done) {
+            float img9W = image9.getRegionWidth();
+            float img9H = image9.getRegionHeight();
+            float img9X = (screenW - img9W) / 2f;
+            batch.draw(image9, img9X, overlay9TargetY, img9W, img9H);
+        }
+
+        // if both overlays finished, reveal buttons
+        if ((overlay8Started ? overlay8Done : true) && (overlay9Started ? overlay9Done : true)) {
+            if (overlay8Started || overlay9Started) buttonsShown = true;
+            // When image9 finished, begin the post-slideshow sequence: 5s pause then collapse animation
+            if (!tutorialLaunched && overlay9Started && overlay9Done) {
+                // mark launched to avoid starting multiple timers
+                tutorialLaunched = true;
+                finishing = true;
+                finishTimer = 0f;
+                collapsing = false;
+                collapseTimer = 0f;
+            }
         }
 
         batch.end();
@@ -847,7 +1110,92 @@ public class TutorialScreen implements Screen {
                         talkingStarted = false;
                         talkingStopped = false;
                     }
-                    game.setScreen(new MainMenuScreen(game));
+                    // immediately open the tutorial level (level 0)
+                    try {
+                        game.setScreen(new GameScreen(game, 0));
+                    } catch (Exception e) {
+                        Gdx.app.log("TutorialScreen", "Failed to switch to GameScreen(level 0)", e);
+                    }
+                    try { dispose(); } catch (Exception ignored) {}
+                    return;
+                }
+            }
+        }
+
+        // Handle finishing / pause / collapse transition after slideshow finishes
+        if (finishing) {
+            if (!collapsing) {
+                finishTimer += dt;
+                if (finishTimer >= FINISH_PAUSE) {
+                    collapsing = true;
+                    collapseTimer = 0f;
+                    // initialize grid count based on current screen size for consistent look
+                    collapseCols = Math.max(8, (int)(screenW / 16f));
+                    collapseRows = Math.max(6, (int)(screenH / 16f));
+                    collapseGridInitialized = true;
+                }
+            } else {
+                collapseTimer += dt;
+                float progress = Math.min(1f, collapseTimer / Math.max(0.0001f, COLLAPSE_DURATION));
+
+                // draw pixel collapse effect on top
+                Gdx.gl.glEnable(GL20.GL_BLEND);
+                shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+
+                float cellW = screenW / (float)collapseCols;
+                float cellH = screenH / (float)collapseRows;
+                float cx = screenW * 0.5f;
+                float cy = screenH * 0.5f;
+                float maxDist = (float)Math.hypot(cx, cy);
+
+                for (int r = 0; r < collapseRows; r++) {
+                    for (int c = 0; c < collapseCols; c++) {
+                        float x = c * cellW;
+                        float y = r * cellH;
+                        float cellCx = x + cellW * 0.5f;
+                        float cellCy = y + cellH * 0.5f;
+                        float dist = (float)Math.hypot(cellCx - cx, cellCy - cy);
+                        float delay = (dist / maxDist) * 0.6f; // outer cells start a bit later
+                        float localP = (progress - delay) / (1f - delay);
+                        localP = Math.max(0f, Math.min(1f, localP));
+                        // shrinking factor (1 -> full size, 0 -> collapsed)
+                        float s = 1f - localP;
+                        float w = cellW * s;
+                        float h = cellH * s;
+                        float px = x + (cellW - w) * 0.5f;
+                        float py = y + (cellH - h) * 0.5f;
+                        // fade to black while collapsing
+                        float alpha = 0.9f * (1f - s);
+                        shapeRenderer.setColor(0f, 0f, 0f, alpha);
+                        shapeRenderer.rect(px, py, Math.max(1f, w), Math.max(1f, h));
+                    }
+                }
+
+                shapeRenderer.end();
+                Gdx.gl.glDisable(GL20.GL_BLEND);
+
+                if (progress >= 1f) {
+                    // finalise: stop music and switch to map
+                    if (ringMusic != null) {
+                        try { ringMusic.stop(); ringMusic.dispose(); } catch (Exception ignored) {}
+                        ringMusic = null; musicStarted = false;
+                    }
+                    if (pickupMusic != null) {
+                        try { pickupMusic.stop(); pickupMusic.dispose(); } catch (Exception ignored) {}
+                        pickupMusic = null; pickupStarted = false;
+                    }
+                    if (talkingMusic != null) {
+                        try { talkingMusic.stop(); talkingMusic.dispose(); } catch (Exception ignored) {}
+                        talkingMusic = null; talkingStarted = false; talkingStopped = false; talkingFading = false;
+                    }
+
+                    try {
+                        game.setScreen(new GameScreen(game, 0));
+                    } catch (Exception e) {
+                        Gdx.app.log("TutorialScreen", "Failed to switch to GameScreen(level 0)", e);
+                    }
+                    try { dispose(); } catch (Exception ignored) {}
+                    return;
                 }
             }
         }
@@ -869,7 +1217,14 @@ public class TutorialScreen implements Screen {
         if (ownsImg4 && img4Texture != null) img4Texture.dispose();
         if (ownsImg5 && img5Texture != null) img5Texture.dispose();
         if (ownsImg6 && img6Texture != null) img6Texture.dispose();
+        if (ownsImg7 && img7Texture != null) img7Texture.dispose();
+        if (ownsImg8 && img8Texture != null) img8Texture.dispose();
+        if (ownsImg9 && img9Texture != null) img9Texture.dispose();
         font.dispose();
+        if (captionFont != null) {
+            try { captionFont.dispose(); } catch (Exception ignored) {}
+            captionFont = null;
+        }
         if (ringMusic != null) {
             try { ringMusic.stop(); ringMusic.dispose(); } catch (Exception ignored) {}
             ringMusic = null;
