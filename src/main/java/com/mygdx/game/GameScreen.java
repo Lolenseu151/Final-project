@@ -40,6 +40,10 @@ public class GameScreen implements Screen {
     private float accumulator = 0f;
     private boolean pKeyWasPressed = false;
         private com.badlogic.gdx.graphics.Texture overlayArrowTex;
+        private com.badlogic.gdx.graphics.Texture overlayFullTex;
+        private boolean overlayFullVisible = false;
+        // Prevent the same mouse click that opened the overlay from immediately closing it
+        private boolean overlaySuppressNextClick = false;
 
     // Level progression
     private int currentLevel = 1;
@@ -104,9 +108,11 @@ public class GameScreen implements Screen {
             if (currentLevel == 0) {
                 try { fixer.setScale(1.5f); } catch (Exception ignored) {}
                 fixer.reset(100, 50);
+                try { fixer.setJumpVelocity(900f); } catch (Exception ignored) {}
             } else {
                 try { fixer.setScale(1f); } catch (Exception ignored) {}
                 fixer.reset(100, 0);
+                try { fixer.setJumpVelocity(650f); } catch (Exception ignored) {}
             }
         }
         Gdx.app.log("GameScreen", "Loaded Level " + currentLevel);
@@ -117,6 +123,13 @@ public class GameScreen implements Screen {
             } catch (Exception e) {
                 try { overlayArrowTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("arrow.png")); }
                 catch (Exception ex) { overlayArrowTex = null; }
+            }
+            // Load the full-screen overlay image (shown after OK)
+            try {
+                overlayFullTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("assets/Overlay.png"));
+            } catch (Exception e) {
+                try { overlayFullTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("Overlay.png")); }
+                catch (Exception ex) { overlayFullTex = null; }
             }
     }
 
@@ -246,6 +259,9 @@ public class GameScreen implements Screen {
         if (currentLevel == 0) {
             drawTutorialOverlay();
         }
+
+        // Draw the full-screen overlay if activated by the tutorial OK button
+        drawFullOverlayIfActive();
     }
 
     /**
@@ -328,10 +344,40 @@ public class GameScreen implements Screen {
             float mx = Gdx.input.getX();
             float my = Gdx.graphics.getHeight() - Gdx.input.getY();
             if (mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH) {
-                try { lt.setShowOverlay(false); } catch (Exception ignored) {}
+                try { 
+                    // Hide the small tutorial overlay and show the full-screen overlay image
+                    lt.setShowOverlay(false);
+                    overlayFullVisible = true;
+                    overlaySuppressNextClick = true; // ignore the initiating click
+                } catch (Exception ignored) {}
             }
         }
         Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    // If the full-screen overlay is active, draw it on top of everything and allow dismissal
+    private void drawFullOverlayIfActive() {
+        if (!overlayFullVisible) return;
+        if (game == null || game.batch == null) return;
+
+        game.batch.begin();
+        if (overlayFullTex != null) {
+            game.batch.draw(overlayFullTex, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        }
+        game.batch.end();
+
+        // Dismiss on any click or ESC, but ignore the click that opened the overlay
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            overlayFullVisible = false;
+            overlaySuppressNextClick = false;
+        } else if (Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
+            if (overlaySuppressNextClick) {
+                // consume this click (it was the OK click that opened the overlay)
+                overlaySuppressNextClick = false;
+            } else {
+                overlayFullVisible = false;
+            }
+        }
     }
 
     private void drawText() {
@@ -550,5 +596,6 @@ public class GameScreen implements Screen {
         if (uiSkin != null) uiSkin.dispose();
         if (fixer != null) fixer.dispose();
         if (overlayArrowTex != null) overlayArrowTex.dispose();
+        if (overlayFullTex != null) overlayFullTex.dispose();
     }
 }
