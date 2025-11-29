@@ -63,7 +63,7 @@ public void init() {
 platforms.clear();
 
 // === FLOOR 1 (Bottom floor) ===
-platforms.add(new Rectangle(0, 105, 1280, 20));
+platforms.add(new Rectangle(0, 220, 620, 20));
 
 // === FLOOR 2 ===
 platforms.add(new Rectangle(0, 300, 1280, 20));

@@ -1110,7 +1110,14 @@ public class TutorialScreen implements Screen {
                         talkingStarted = false;
                         talkingStopped = false;
                     }
-                    game.setScreen(new MainMenuScreen(game));
+                    // immediately open the tutorial level (level 0)
+                    try {
+                        game.setScreen(new GameScreen(game, 0));
+                    } catch (Exception e) {
+                        Gdx.app.log("TutorialScreen", "Failed to switch to GameScreen(level 0)", e);
+                    }
+                    try { dispose(); } catch (Exception ignored) {}
+                    return;
                 }
             }
         }
