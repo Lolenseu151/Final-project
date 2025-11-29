@@ -330,6 +330,12 @@ public class LevelManager {
                 documentsCollected++;
                 Gdx.app.log("LevelManager", String.format("Document collected! (%d/%d)", 
                     documentsCollected, totalDocuments));
+                // If this is the tutorial level and this is the first document, trigger talking overlay
+                try {
+                    if (currentLevel instanceof LevelTutorial && documentsCollected == 1) {
+                        ((LevelTutorial) currentLevel).setTalkingOverlayVisible(true);
+                    }
+                } catch (Exception ignored) {}
             }
         }
 
@@ -524,6 +530,7 @@ public class LevelManager {
         if (documents.size > 0) {
             batch.begin();
             int docNum = 1;
+<<<<<<< HEAD
             // increase drawn size slightly so sprite padding looks right on-screen
             float drawDocSize = DOCUMENT_SIZE * 2.0f; // was 1.6f
 
@@ -542,10 +549,24 @@ public class LevelManager {
                     batch.draw(documentFrames[idx], doc.x, doc.y, drawDocSize, drawDocSize);
                 } else if (documentSheetTex != null) {
                     batch.draw(documentSheetTex, doc.x, doc.y, drawDocSize, drawDocSize);
+=======
+            // Use per-level document size if the level requests it (e.g., tutorial level)
+            float docSize = DOCUMENT_SIZE;
+            if (currentLevel instanceof LevelTutorial) {
+                try { docSize = ((LevelTutorial) currentLevel).getDocumentSize(); } catch (Exception ignored) {}
+            }
+            for (Rectangle doc : documents) {
+                if (documentTex != null) {
+                    batch.draw(documentTex, doc.x, doc.y, docSize, docSize);
+>>>>>>> bce8cf2a5ff53d9c0efdab9c69661de108485ba8
                 }
 
                 if (font != null) {
+<<<<<<< HEAD
                     font.draw(batch, "D" + docNum, doc.x + 5, doc.y + drawDocSize + 15);
+=======
+                    font.draw(batch, "D" + docNum, doc.x + 5, doc.y + docSize + 15);
+>>>>>>> bce8cf2a5ff53d9c0efdab9c69661de108485ba8
                 }
                 docNum++;
             }
@@ -647,6 +668,7 @@ public class LevelManager {
         }
     }
 
+<<<<<<< HEAD
     // Add a small utility to safely test overlap
     private boolean rectsOverlap(Rectangle a, Rectangle b) {
         return a != null && b != null && a.overlaps(b);
@@ -691,5 +713,82 @@ public class LevelManager {
                 Gdx.app.log("LevelManager", "LEVEL COMPLETE! All documents shredded!");
             }
         }
+=======
+    /**
+     * Dynamically add a number of documents to the current level.
+     * For `LevelTutorial` the documents will be placed near the property files light area;
+     * otherwise documents will be placed on or near existing platforms.
+     */
+    public void addDocuments(int count) {
+        if (count <= 0) return;
+        float screenWidth = Gdx.graphics.getWidth();
+        float screenHeight = Gdx.graphics.getHeight();
+        float size = DOCUMENT_SIZE;
+
+        // If the currentLevel is a tutorial, try to place documents around the propertyFilesLight
+        if (currentLevel instanceof LevelTutorial) {
+            try {
+                LevelTutorial lt = (LevelTutorial) currentLevel;
+                Rectangle light = lt.getPropertyFilesLight();
+                if (light != null) {
+                    // Spread documents in a small cluster around the light
+                    float startX = Math.max(10f, light.x - 20f);
+                    float startY = Math.max(PLATFORM_HEIGHT + 10f, light.y + light.height + 10f);
+                    for (int i = 0; i < count; i++) {
+                        float dx = startX + (i % 4) * (size + 6);
+                        float dy = startY + (i / 4) * (size + 6);
+                        documents.add(new Rectangle(dx, dy, size, size));
+                    }
+                    totalDocuments = Math.max(totalDocuments, documents.size);
+                    Gdx.app.log("LevelManager", "Added " + count + " tutorial documents near light.");
+                    return;
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // Fallback: place documents across platforms or near the top if no platforms found
+        if (platforms.size > 0) {
+            int placed = 0;
+            int pIdx = 0;
+            while (placed < count) {
+                Rectangle plat = platforms.get(pIdx % platforms.size);
+                float dx = Math.max(10f, plat.x + 20f + (placed * (size + 6)) % Math.max(1f, plat.width - size - 20f));
+                float dy = plat.y + plat.height + 6f;
+                documents.add(new Rectangle(dx, dy, size, size));
+                placed++; pIdx++;
+            }
+        } else {
+            // No platforms: scatter near top of screen
+            for (int i = 0; i < count; i++) {
+                float dx = 20f + i * (size + 8f);
+                float dy = screenHeight - 120f - (i / 8) * (size + 6f);
+                documents.add(new Rectangle(dx, dy, size, size));
+            }
+        }
+        totalDocuments = Math.max(totalDocuments, documents.size);
+        Gdx.app.log("LevelManager", "Added " + count + " documents dynamically. Total now: " + documents.size);
+    }
+
+    /**
+     * Add documents at explicit positions. Each entry in `positions` should be a float[2]
+     * where positions[i][0] is X and positions[i][1] is Y. Any invalid entries are skipped.
+     */
+    public void addDocumentsAtPositions(float[][] positions) {
+        if (positions == null || positions.length == 0) return;
+        float size = DOCUMENT_SIZE;
+        int added = 0;
+        for (int i = 0; i < positions.length; i++) {
+            float[] p = positions[i];
+            if (p == null || p.length < 2) continue;
+            float x = p[0];
+            float y = p[1];
+            documents.add(new Rectangle(x, y, size, size));
+            added++;
+        }
+        if (added > 0) {
+            totalDocuments = Math.max(totalDocuments, documents.size);
+            Gdx.app.log("LevelManager", "Added " + added + " documents at explicit positions.");
+        }
+>>>>>>> bce8cf2a5ff53d9c0efdab9c69661de108485ba8
     }
 }

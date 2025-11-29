@@ -31,6 +31,17 @@ public class LevelTutorial implements Level, BackgroundedLevel {
     private static final float DOC_SIZE = 36f;
     private static final float PLATFORM_H = 27f;
 
+    // Allow this level to request a different document draw size (only affects visuals)
+    private float documentScale = 1.5f; // 150% size for tutorial
+
+    /**
+     * Return the desired document pixel size for rendering in this level.
+     * LevelManager will prefer this when this level is active.
+     */
+    public float getDocumentSize() { return DOC_SIZE * documentScale; }
+
+    public void setDocumentScale(float scale) { if (scale > 0f) this.documentScale = scale; }
+
     @Override
     public void init() {
         documents.clear(); platforms.clear(); obstacles.clear(); beams.clear();
@@ -44,8 +55,8 @@ public class LevelTutorial implements Level, BackgroundedLevel {
         platforms.add(new Rectangle(0, 432, 588, PLATFORM_H));
         
         // Place a few sample documents
-        documents.add(new Rectangle(200, 400, DOC_SIZE, DOC_SIZE));
-        documents.add(new Rectangle(340, 140, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(200, 500, DOC_SIZE, DOC_SIZE));
+
 
         // Shredder off to the right
         shredder = new Rectangle(w - 80, 10, 50, 50);
@@ -86,6 +97,11 @@ public class LevelTutorial implements Level, BackgroundedLevel {
     // Overlay visibility
     public boolean isShowOverlay() { return showOverlay; }
     public void setShowOverlay(boolean show) { this.showOverlay = show; }
+
+    // Talking overlay (shown when the first document is collected)
+    private boolean talkingOverlayVisible = false;
+    public boolean isTalkingOverlayVisible() { return talkingOverlayVisible; }
+    public void setTalkingOverlayVisible(boolean v) { this.talkingOverlayVisible = v; }
 
     // Tutorial text getters/setters so the game or designer can customize the overlay
     public String getTutorialTitle() { return tutorialTitle; }
