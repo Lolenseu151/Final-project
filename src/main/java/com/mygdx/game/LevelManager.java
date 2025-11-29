@@ -278,6 +278,18 @@ public class LevelManager {
             }
         }
 
+        // If this is the tutorial level and at least 4 documents have been collected,
+        // request the LevelTutorial to show the final talking overlay image.
+        try {
+            if (currentLevel instanceof LevelTutorial && documentsCollected >= 4) {
+                LevelTutorial lt = (LevelTutorial) currentLevel;
+                // Only show the final overlay if it hasn't been consumed (dismissed) already
+                if (!lt.isFinalOverlayVisible() && !lt.isFinalOverlayConsumed()) {
+                    lt.setFinalOverlayVisible(true);
+                }
+            }
+        } catch (Exception ignored) {}
+
         // Check obstacle collision (Red Tape - slows player)
         boolean slowed = false;
         for (Rectangle obstacle : obstacles) {
