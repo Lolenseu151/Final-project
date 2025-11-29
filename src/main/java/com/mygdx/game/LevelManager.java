@@ -323,7 +323,6 @@ public class LevelManager {
     private void checkPlatformCollisions(Fixer player, float deltaTime) {
         Rectangle p = player.getBounds();
         player.setOnGround(false);
-<<<<<<< HEAD
         // Use previous-position checks to avoid jitter when hitting platform tops/undersides.
         // Also require a minimum horizontal overlap so corner/edge overlaps don't count as standing.
         float vy = player.getVelocity().y;
@@ -394,44 +393,6 @@ public class LevelManager {
                 p.x = platform.x + platform.width + H_EPS;
                 player.setVelocityX(0f);
                 return;
-=======
-        
-        // Minimum horizontal overlap required to land on a platform (prevent landing on tips)
-        final float MIN_OVERLAP = 20f;  // Player needs at least 20 pixels of horizontal overlap
-        
-        // Check all platforms for collisions
-        for (Rectangle platform : platforms) {
-            if (p.overlaps(platform)) {
-                float playerBottom = p.y;
-                float playerTop = p.y + p.height;
-                float platformTop = platform.y + platform.height;
-                float platformBottom = platform.y;
-                
-                // Check which side the player is colliding with
-                float overlapTop = playerBottom - platformTop;      // positive if player is above platform
-                float overlapBottom = platformBottom - playerTop;   // positive if player is below platform
-                
-                // Calculate horizontal overlap with platform
-                float playerLeft = p.x;
-                float playerRight = p.x + p.width;
-                float platformLeft = platform.x;
-                float platformRight = platform.x + platform.width;
-                float horizontalOverlap = Math.min(playerRight, platformRight) - Math.max(playerLeft, platformLeft);
-                
-                // Landing on top of platform (moving down or stationary)
-                if (player.getVelocity().y <= 0 && overlapTop >= overlapBottom && horizontalOverlap >= MIN_OVERLAP) {
-                    p.y = platformTop;
-                    player.setVelocityY(0);
-                    player.setOnGround(true);
-                    return;
-                }
-                // Bumping head on bottom of platform (moving up)
-                else if (player.getVelocity().y > 0 && overlapBottom >= overlapTop) {
-                    p.y = platformBottom - p.height;
-                    player.setVelocityY(0);  // Stop upward momentum, fall down
-                    return;
-                }
->>>>>>> aa223fd689ebe30e314c0624a0c1de35b0042c19
             }
         }
     }
