@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import java.util.List;
@@ -16,7 +17,6 @@ import java.util.ArrayList;
  * Responsible for level layout, collision detection, and objective tracking
  */
 public class LevelManager {
-
     // Level elements
     private final Array<Rectangle> documents;      // Incriminating documents to collect
     private final Array<Rectangle> obstacles;      // Red Tape obstacles (slow player)
@@ -79,7 +79,8 @@ public class LevelManager {
             }
             if (!loaded) {
                 Pixmap pm = new Pixmap((int)DOCUMENT_SIZE, (int)DOCUMENT_SIZE, Pixmap.Format.RGBA8888);
-                pm.setColor(1f, 1f, 1f, 1f);
+                // make placeholder fully transparent so it never covers sprites
+                pm.setColor(1f, 1f, 1f, 0f);
                 pm.fill();
                 documentTex = new Texture(pm);
                 pm.dispose();
@@ -88,7 +89,7 @@ public class LevelManager {
         } catch (Exception e) {
             Gdx.app.error("LevelManager", "Error loading documents.png", e);
             Pixmap pm = new Pixmap((int)DOCUMENT_SIZE, (int)DOCUMENT_SIZE, Pixmap.Format.RGBA8888);
-            pm.setColor(1f, 1f, 1f, 1f);
+            pm.setColor(1f, 1f, 1f, 0f); // transparent fallback
             pm.fill();
             documentTex = new Texture(pm);
             pm.dispose();
@@ -367,6 +368,9 @@ public class LevelManager {
         }
 
         // === PHASE 2: Draw platforms/obstacles/beams (ShapeRenderer) ===
+        // ensure alpha blending is enabled so any transparent draws are respected
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
         // Platforms (brown)
@@ -387,13 +391,18 @@ public class LevelManager {
             shapeRenderer.rect(beam.x, beam.y, beam.width, beam.height);
         }
 
-        // Shredder (green if ready, gray otherwise)
-        if (documentsCollected >= totalDocuments) {
-            shapeRenderer.setColor(0, 1, 0, 1);
-        } else {
-            shapeRenderer.setColor(0.5f, 0.5f, 0.5f, 1);
+        // Shredder (collision rect) — keep invisible so the sprite/animation shows through
+        if (shredder != null) {
+            // Use same RGB but zero alpha so it's not visible
+            if (documentsCollected >= totalDocuments) {
+                shapeRenderer.setColor(0f, 1f, 0f, 0f); // green but transparent
+            } else {
+                shapeRenderer.setColor(0.5f, 0.5f, 0.5f, 0f); // gray but transparent
+            }
+            shapeRenderer.rect(shredder.x, shredder.y, shredder.width, shredder.height);
+            // restore shape color to opaque white for subsequent draws
+            shapeRenderer.setColor(1f, 1f, 1f, 1f);
         }
-        shapeRenderer.rect(shredder.x, shredder.y, shredder.width, shredder.height);
 
         shapeRenderer.end();  // *** END SHAPES ***
 
@@ -503,5 +512,70 @@ public class LevelManager {
             backgroundTex.dispose();
             backgroundTex = null;
         }
+    }
+
+    // Add a small utility to safely test overlap
+    private boolean rectsOverlap(Rectangle a, Rectangle b) {
+        return a != null && b != null && a.overlaps(b);
+    }
+
+    public void update(float dt, Fixer player, Level level) {
+        // Update background state if level provides it
+        if (currentLevel instanceof BackgroundedLevel) {
+            ((BackgroundedLevel) currentLevel).updateBackground(dt, this, documents, obstacles, player);
+        }
+
+        // Check platform collisions (player standing on platforms)
+        checkPlatformCollisions(player, dt);
+
+        // Reset slowed state; will be set if overlapping any obstacle below
+        player.setSlowed(false);
+
+        // Check document collection
+        for (int i = documents.size - 1; i >= 0; i--) {
+            Rectangle doc = documents.get(i);
+            if (player.getBounds().overlaps(doc)) {
+                documents.removeIndex(i);
+                documentsCollected++;
+                Gdx.app.log("LevelManager", String.format("Document collected! (%d/%d)", 
+                    documentsCollected, totalDocuments));
+            }
+        }
+
+        // Check obstacle collision (Red Tape - slows player)
+        boolean slowed = false;
+        for (Rectangle obstacle : obstacles) {
+            if (player.getBounds().overlaps(obstacle)) {
+                slowed = true;
+                // Do not directly mutate velocity here; inform the player that they are slowed
+                Gdx.app.log("LevelManager", "Hit Red Tape! Player slowed.");
+                break; // one obstacle is enough to slow the player
+            }
+        }
+        player.setSlowed(slowed);
+
+
+
+        // Check if level is complete (all documents collected + reached shredder)
+        Rectangle playerBounds = player.getBounds();
+        Rectangle shredderRect = level.getShredder(); // may be null for levels that hide debug rect
+        if (rectsOverlap(playerBounds, shredderRect)) {
+            // handle collision
+        }
+
+        // Similarly, replace other direct calls like:
+        // if (someRect.overlaps(doc)) { ... }
+        // with:
+        // if (rectsOverlap(someRect, doc)) { ... }
+
+        // Check if level is complete (all documents collected + reached shredder)
+        if (documentsCollected >= totalDocuments && player.getBounds().overlaps(shredder)) {
+            if (!levelComplete) {
+                levelComplete = true;
+                Gdx.app.log("LevelManager", "LEVEL COMPLETE! All documents shredded!");
+            }
+        }
+
+        
     }
 }

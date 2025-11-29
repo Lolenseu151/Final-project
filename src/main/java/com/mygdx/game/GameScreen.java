@@ -176,47 +176,51 @@ public class GameScreen implements Screen {
     }
 
     private void renderGame() {
-        // Render level
+        // ensure camera/projection are set so batch/shapeRenderer use same world coords
+        if (camera != null) {
+            camera.update();
+            if (game != null && game.batch != null) game.batch.setProjectionMatrix(camera.combined);
+            if (shapeRenderer != null) shapeRenderer.setProjectionMatrix(camera.combined);
+        }
+
+        // Render level (background, level FX, etc.)
         if (levelManager != null) {
             levelManager.render(shapeRenderer, game.batch, game.font);
         }
 
-        // Draw sprites with dash smoke trail effect
+        // DIAGNOSTIC: draw a visible debug rectangle at the shredder location reported in logs
+        // (73,413, size 64x64) to verify ordering / occlusion. Remove after debugging.
+        if (shapeRenderer != null) {
+            shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Line);
+            shapeRenderer.setColor(1f, 0f, 0f, 1f); // bright red outline
+            shapeRenderer.rect(73f, 413f, 64f, 64f);
+            shapeRenderer.end();
+        }
+
+        // Draw dash smoke (existing logic) - unchanged
         if (game != null && game.batch != null) {
-            // Draw smoke trail BEHIND the player when dashing
             if (fixer != null && fixer.isDashing() && shapeRenderer != null) {
                 Rectangle playerBounds = fixer.getBounds();
                 float playerCenterX = playerBounds.x + playerBounds.width / 2;
                 float playerCenterY = playerBounds.y + playerBounds.height / 2;
-                
-                // Determine direction - smoke appears behind where player is moving from
                 float velocityX = fixer.getVelocity().x;
-                float smokeX = playerCenterX - (velocityX > 0 ? 40 : -40);  // Behind the movement direction
+                float smokeX = playerCenterX - (velocityX > 0 ? 40 : -40);
                 float smokeY = playerCenterY;
-                
-                // Draw multiple smoke puffs fading out
+
                 shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
-                
-                // Outer smoke layer (largest, most transparent - gray)
-                shapeRenderer.setColor(0.6f, 0.6f, 0.65f, 0.2f);  // Gray smoke
+                shapeRenderer.setColor(0.6f, 0.6f, 0.65f, 0.2f);
                 shapeRenderer.circle(smokeX, smokeY, 35);
-                
-                // Middle smoke layer
-                shapeRenderer.setColor(0.5f, 0.5f, 0.55f, 0.3f);  // Darker gray
+                shapeRenderer.setColor(0.5f, 0.5f, 0.55f, 0.3f);
                 shapeRenderer.circle(smokeX + 15, smokeY + 10, 25);
-                
-                // Inner smoke puff (closer to player)
-                shapeRenderer.setColor(0.4f, 0.4f, 0.45f, 0.4f);  // Darkest gray
+                shapeRenderer.setColor(0.4f, 0.4f, 0.45f, 0.4f);
                 shapeRenderer.circle(smokeX - 10, smokeY - 10, 18);
-                
-                // Additional puffs to the side for swirling effect
                 shapeRenderer.setColor(0.55f, 0.55f, 0.6f, 0.15f);
                 shapeRenderer.circle(smokeX + 20, smokeY - 15, 20);
                 shapeRenderer.circle(smokeX - 15, smokeY + 15, 20);
-                
                 shapeRenderer.end();
             }
-            
+
+            // Draw player sprite(s)
             game.batch.begin();
             if (fixer != null) fixer.draw(game.batch);
             game.batch.end();
