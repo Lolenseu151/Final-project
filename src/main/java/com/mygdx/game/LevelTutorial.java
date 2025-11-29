@@ -25,6 +25,8 @@ public class LevelTutorial implements Level, BackgroundedLevel {
     private String tutorialTitle = "MOVEMENT:";
     private String tutorialDetail = "Use [W], [A], [S], [D] to navigate the Archive floor.";
     private String tutorialHint = "Try moving into the light near the property files.";
+    // Should the tutorial overlay box be shown? Allows the player to dismiss it with OK.
+    private boolean showOverlay = true;
 
     private static final float DOC_SIZE = 36f;
     private static final float PLATFORM_H = 27f;
@@ -80,6 +82,10 @@ public class LevelTutorial implements Level, BackgroundedLevel {
 
     // expose light area for overlay logic
     public Rectangle getPropertyFilesLight() { return propertyFilesLight; }
+
+    // Overlay visibility
+    public boolean isShowOverlay() { return showOverlay; }
+    public void setShowOverlay(boolean show) { this.showOverlay = show; }
 
     // Tutorial text getters/setters so the game or designer can customize the overlay
     public String getTutorialTitle() { return tutorialTitle; }
