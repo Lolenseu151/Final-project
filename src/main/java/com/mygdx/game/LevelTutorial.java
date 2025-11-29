@@ -16,6 +16,12 @@ public class LevelTutorial implements Level, BackgroundedLevel {
     private final Array<Rectangle> obstacles = new Array<>();
     private final Array<Rectangle> beams = new Array<>();
     private Rectangle shredder;
+    // centralized shredder visual
+    private Shredder shredderVisual = null;
+    private static final int SHREDDER_FRAME_COUNT = 9;
+    private static final float SHREDDER_FRAME_DURATION = 0.08f;
+    // scale factor to enlarge the shredder visual in this level
+    public static float SHREDDER_SCALE = 2f;
     private int totalDocs = 0;
 
     
@@ -72,7 +78,34 @@ public class LevelTutorial implements Level, BackgroundedLevel {
 
 
         // Shredder off to the right
-        shredder = new Rectangle(w - 80, 10, 50, 50);
+        shredder = new Rectangle(w - 80, 65, 50, 50);
+        // initialize centralized shredder visual
+        shredderVisual = new Shredder(shredder);
+        shredderVisual.setFrameDuration(SHREDDER_FRAME_DURATION);
+        shredderVisual.loadFromFolder("shredderFx", SHREDDER_FRAME_COUNT);
+        // if no animation frames found, try a single-image fallback
+        try {
+            if (!shredderVisual.hasVisual()) {
+                shredderVisual.loadSingle("shredder.png");
+                if (!shredderVisual.hasVisual()) {
+                    shredderVisual.loadSingle("assets/shredder.png");
+                }
+            }
+        } catch (Exception ignored) {}
+        // Enforce a scale-up of the shredder collision/visual rect for visibility.
+        try {
+            if (SHREDDER_SCALE > 0f && shredder != null) {
+                float cx = shredder.x + shredder.width * 0.5f;
+                float cy = shredder.y + shredder.height * 0.5f;
+                float newW = shredder.width * SHREDDER_SCALE;
+                float newH = shredder.height * SHREDDER_SCALE;
+                float newX = cx - newW * 0.5f;
+                float newY = cy - newH * 0.5f;
+                shredder.set(newX, newY, newW, newH);
+                // enforce on visual as well
+                try { shredderVisual.setRect(shredder); } catch (Exception ignored2) {}
+            }
+        } catch (Exception ignored) {}
 
         // Property files light area (player should move into this light)
         float lightW = 160f, lightH = 120f;
@@ -100,9 +133,23 @@ public class LevelTutorial implements Level, BackgroundedLevel {
         if (backgroundTex != null) {
             batch.draw(backgroundTex, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         }
+        // Always advance and draw the shredder visual (so it's visible even when overlay is hidden)
+        try {
+            if (shredderVisual != null) {
+                // ensure shredderVisual is positioned at the gameplay shredder rect
+                try { shredderVisual.setRect(shredder); } catch (Exception ignored) {}
+                shredderVisual.update(Gdx.graphics.getDeltaTime());
+                shredderVisual.render(batch);
+            }
+        } catch (Exception ignored) {}
+        // Debug: log visibility and shredder state each time background is rendered
+        try {
+            Gdx.app.log("LevelTutorial", "renderBackground called; finalOverlayVisible=" + finalOverlayVisible + " shredder=" + shredder);
+        } catch (Exception ignored) {}
         // the actual light highlight will be drawn by the LevelManager or GameScreen overlay logic
-        // Draw the final tutorial overlay image full-screen when requested
-        if (finalOverlayVisible) {
+        // Draw the final tutorial overlay image full-screen when requested (or forced by debug)
+        boolean effectiveFinalOverlayVisible = finalOverlayVisible || DEBUG_FORCE_SHOW_FINAL_OVERLAY;
+        if (effectiveFinalOverlayVisible) {
             if (finalTalkingTex == null) {
                 try {
                     finalTalkingTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("assets/Loloy talk.png"));
@@ -121,9 +168,18 @@ public class LevelTutorial implements Level, BackgroundedLevel {
                 batch.draw(finalTalkingTex, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
             }
 
-            // Draw a subtle shredder highlight so the shredder location remains visible
+            // advance centralized shredder visual and draw frame
+            try {
+                if (shredderVisual != null && shredder != null) {
+                    shredderVisual.update(Gdx.graphics.getDeltaTime());
+                    shredderVisual.render(batch);
+                }
+            } catch (Exception ignored) {}
+
+            // (Removed debug marker rendering for shredder — keep visual animation only.)
             try {
                 if (shredder != null) {
+                    // ensure pixelTex exists for other overlay UI (e.g., Continue underline)
                     if (pixelTex == null) {
                         com.badlogic.gdx.graphics.Pixmap pm = new com.badlogic.gdx.graphics.Pixmap(1, 1, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
                         pm.setColor(1f, 1f, 1f, 1f);
@@ -131,52 +187,6 @@ public class LevelTutorial implements Level, BackgroundedLevel {
                         pixelTex = new com.badlogic.gdx.graphics.Texture(pm);
                         pm.dispose();
                     }
-                    // outline thickness and color
-                    float t = 3f;
-                    float sx = shredder.x;
-                    float sy = shredder.y;
-                    float sw = shredder.width;
-                    float sh = shredder.height;
-                    // Draw a large filled marker at the shredder center (bright yellow) for higher visibility
-                    float markerSize = Math.max(48f, Math.min(160f, Math.max(sw, sh) * 1.5f));
-                    float mx = sx + (sw - markerSize) * 0.5f;
-                    float my = sy + (sh - markerSize) * 0.5f;
-                    batch.setColor(1f, 1f, 0f, 0.98f);
-                    batch.draw(pixelTex, mx, my, markerSize, markerSize);
-                    // crosshair lines through the center
-                    float cx = sx + sw * 0.5f;
-                    float cy = sy + sh * 0.5f;
-                    float lineW = 4f;
-                    batch.setColor(1f, 0f, 0f, 0.95f);
-                    // horizontal
-                    batch.draw(pixelTex, sx - markerSize * 0.2f, cy - lineW * 0.5f, sw + markerSize * 0.4f, lineW);
-                    // vertical
-                    batch.draw(pixelTex, cx - lineW * 0.5f, sy - markerSize * 0.2f, lineW, sh + markerSize * 0.4f);
-                    
-                    Gdx.app.log("LevelTutorial", "Drawing shredder marker at " + sx + "," + sy + " size " + sw + "x" + sh + " markerSize=" + markerSize);
-                    // Draw a contrasting red outline around the shredder rect
-                    batch.setColor(1f, 0.2f, 0.2f, 0.95f);
-                    // top
-                    batch.draw(pixelTex, sx - t, sy + sh, sw + 2f * t, t);
-                    // bottom
-                    batch.draw(pixelTex, sx - t, sy - t, sw + 2f * t, t);
-                    // left
-                    batch.draw(pixelTex, sx - t, sy - t, t, sh + 2f * t);
-                    // right
-                    batch.draw(pixelTex, sx + sw, sy - t, t, sh + 2f * t);
-                    // Draw a small label above the shredder
-                    try {
-                        if (finalOverlayFont != null) {
-                            String label = "SHREDDER";
-                            com.badlogic.gdx.graphics.g2d.GlyphLayout lbl = new com.badlogic.gdx.graphics.g2d.GlyphLayout(finalOverlayFont, label);
-                            float lx = sx + (sw - lbl.width) * 0.5f;
-                            float ly = sy + sh + lbl.height + 6f;
-                            finalOverlayFont.setColor(1f, 1f, 1f, 0.95f);
-                            finalOverlayFont.draw(batch, lbl, lx, ly);
-                        }
-                    } catch (Exception ignored) {}
-                    // restore batch tint
-                    batch.setColor(1f, 1f, 1f, 1f);
                 }
             } catch (Exception ignored) {}
 
@@ -308,6 +318,8 @@ public class LevelTutorial implements Level, BackgroundedLevel {
     public static float FINAL_BUTTON_Y_OFFSET = 100;
     // Final overlay stages: 0 = first sentence, 1 = follow-up instruction
     private int finalOverlayStage = 0;
+    // DEBUG: force-show final overlay for testing
+    public static boolean DEBUG_FORCE_SHOW_FINAL_OVERLAY = false;
     public static String FINAL_OVERLAY_FIRST_TEXT = "Good! Now look right. See the shredder? That's our holy grail.";
     public static String FINAL_OVERLAY_SECOND_TEXT = "I need you to destroy it, Fixer. Make it disappear.";
     // If true, the final overlay has been dismissed and should not re-open automatically
@@ -356,6 +368,10 @@ public class LevelTutorial implements Level, BackgroundedLevel {
         if (pixelTex != null) {
             pixelTex.dispose();
             pixelTex = null;
+        }
+        if (shredderVisual != null) {
+            try { shredderVisual.dispose(); } catch (Exception ignored) {}
+            shredderVisual = null;
         }
     }
 }
