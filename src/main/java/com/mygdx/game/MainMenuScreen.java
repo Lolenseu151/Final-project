@@ -55,8 +55,20 @@ public class MainMenuScreen implements Screen {
     private float catScaleMultiplier = 1.75f;  // make cat smaller than main character (tweakable)
     private float catX = Float.NaN;            // current x for cat (init on first draw)
     private float catYOffset = -130f;            // align cat baseline with runner (adjust if needed)
+
     // NEW: main menu background texture
     private Texture backgroundTex;
+
+    // NEW: bird flying effect (top of screen)
+    private Texture birdTexture;
+    private Animation<TextureRegion> birdAnimation; // NEW: sprite-sheet animation
+    private float birdAnimTime = 0f;                // NEW: animation timer
+    private int birdColumns = 6;                    // try 6 columns by default (fallback handled at load)
+    private int birdFrameW = 0;                     // actual frame width after split
+    private int birdFrameH = 0;                     // actual frame height after split
+    private float birdX = Float.NaN;
+    private float birdY = Float.NaN;
+    private float birdSpeed = 45f; // pixels/sec
     // NEW: horizontal runner state — moves left->right, then resets after a delay
     private float runX = Float.NaN;            // current x position (initialised on first draw)
     private float runSpeed = 260f;             // pixels per second
@@ -296,7 +308,7 @@ public class MainMenuScreen implements Screen {
             } else {
                 // fallback to absolute path under project assets
                 String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + internalName;
+                String abs = userDir + "/assets/MainScreenfx/" + internalName;
                 if (Gdx.files.absolute(abs).exists()) runHandle = Gdx.files.absolute(abs);
             }
 
@@ -328,7 +340,7 @@ public class MainMenuScreen implements Screen {
                 catHandle = Gdx.files.internal(catName);
             } else {
                 String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + catName;
+                String abs = userDir + "/assets/MainScreenfx/" + catName; 
                 if (Gdx.files.absolute(abs).exists()) catHandle = Gdx.files.absolute(abs);
             }
             if (catHandle != null) {
@@ -369,7 +381,7 @@ public class MainMenuScreen implements Screen {
                 Gdx.app.log("MainMenuScreen", "Loaded background (internal): " + bgName);
             } else {
                 String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + bgName;
+                String abs = userDir + "/assets/MainScreenfx/" + bgName;
                 if (Gdx.files.absolute(abs).exists()) {
                     backgroundTex = new Texture(Gdx.files.absolute(abs));
                     Gdx.app.log("MainMenuScreen", "Loaded background (absolute): " + abs);
@@ -382,6 +394,167 @@ public class MainMenuScreen implements Screen {
         } catch (Exception e) {
             Gdx.app.error("MainMenuScreen", "Error loading MainMenuBG.png", e);
             backgroundTex = null;
+        }
+
+        // NEW: load bird sprite (try even-split first using birdColumns; fallback to auto-detect)
+        try {
+            String birdName = "birdfly.png";
+            FileHandle birdHandle = null;
+            if (Gdx.files.internal(birdName).exists()) {
+                birdHandle = Gdx.files.internal(birdName);
+            } else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/MainScreenfx/" + birdName;
+                if (Gdx.files.absolute(abs).exists()) birdHandle = Gdx.files.absolute(abs);
+            }
+
+            if (birdHandle != null) {
+                com.badlogic.gdx.graphics.Pixmap pm = null;
+                try {
+                    pm = new com.badlogic.gdx.graphics.Pixmap(birdHandle);
+                    birdTexture = new Texture(birdHandle);
+                    birdTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+
+                    int texW = birdTexture.getWidth();
+                    int texH = birdTexture.getHeight();
+
+                    // Attempt #1: even split by birdColumns (user adjusted sheet spacing)
+                    boolean usedEvenSplit = false;
+                    if (birdColumns > 0 && texW >= birdColumns) {
+                        int frameW = texW / birdColumns;
+                        if (frameW > 0) {
+                            TextureRegion[][] tmp = TextureRegion.split(birdTexture, frameW, texH);
+                            if (tmp.length > 0 && tmp[0].length > 0) {
+                                // Validate that frames contain non-empty pixels (ensures correct split)
+                                int validFrames = 0;
+                                for (int i = 0; i < tmp[0].length; i++) {
+                                    TextureRegion r = tmp[0][i];
+                                    // sample region in Pixmap to check for opacity
+                                    int sx = r.getRegionX();
+                                    int sw = r.getRegionWidth();
+                                    int sy = r.getRegionY();
+                                    int sh = r.getRegionHeight();
+                                    boolean any = false;
+                                    outer:
+                                    for (int cx = Math.max(0, sx); cx < Math.min(texW, sx + sw); cx++) {
+                                        for (int cy = Math.max(0, sy); cy < Math.min(texH, sy + sh); cy++) {
+                                            int px = pm.getPixel(cx, cy);
+                                            int alpha = (px >>> 24) & 0xff;
+                                            if (alpha > 12) { any = true; break outer; }
+                                        }
+                                    }
+                                    if (any) validFrames++;
+                                }
+                                // if at least half the split frames contain content, accept even split
+                                if (validFrames >= Math.max(1, tmp[0].length / 2)) {
+                                    int available = tmp[0].length;
+                                    TextureRegion[] fa = new TextureRegion[available];
+                                    for (int i = 0; i < available; i++) fa[i] = tmp[0][i];
+                                    birdAnimation = new Animation<TextureRegion>(0.10f, fa);
+                                    int maxW = 0, maxH = 0;
+                                    for (TextureRegion r : fa) {
+                                        if (r.getRegionWidth() > maxW) maxW = r.getRegionWidth();
+                                        if (r.getRegionHeight() > maxH) maxH = r.getRegionHeight();
+                                    }
+                                    birdFrameW = maxW;
+                                    birdFrameH = maxH;
+                                    usedEvenSplit = true;
+                                    Gdx.app.log("MainMenuScreen", "birdfly: used even split frames=" + fa.length + " frameW=" + frameW);
+                                }
+                            }
+                        }
+                    }
+
+                    // Attempt #2: auto-detect columns if even-split wasn't suitable
+                    if (!usedEvenSplit) {
+                        // Per-column alpha count (ignore near-transparent pixels)
+                        int[] colCount = new int[texW];
+                        for (int x = 0; x < texW; x++) {
+                            int count = 0;
+                            for (int y = 0; y < texH; y++) {
+                                int px = pm.getPixel(x, y);
+                                int alpha = (px >>> 24) & 0xff;
+                                if (alpha > 8) count++;
+                            }
+                            colCount[x] = count;
+                        }
+
+                        int minOpaque = Math.max(1, (int)(texH * 0.01f)); // 1% of height
+                        boolean[] occupied = new boolean[texW];
+                        for (int x = 0; x < texW; x++) occupied[x] = colCount[x] >= minOpaque;
+
+                        // Use a small separator width because the sheet was adjusted for proper spacing
+                        int separatorWidth = 2;
+                        List<TextureRegion> frames = new ArrayList<>();
+                        int x = 0;
+                        while (x < texW) {
+                            while (x < texW && !occupied[x]) x++;
+                            if (x >= texW) break;
+                            int start = x;
+                            int lastOccupied = x;
+                            x++;
+                            while (x < texW) {
+                                if (occupied[x]) {
+                                    lastOccupied = x;
+                                    x++;
+                                    continue;
+                                }
+                                int run = 0;
+                                int j = x;
+                                while (j < texW && !occupied[j] && run <= separatorWidth) { run++; j++; }
+                                if (run > separatorWidth) break;
+                                x = j;
+                            }
+                            int end = lastOccupied;
+                            int fw = end - start + 1;
+                            if (fw > 0) {
+                                int top = texH - 1;
+                                int bottom = 0;
+                                boolean any = false;
+                                for (int cx = start; cx <= end; cx++) {
+                                    for (int yRow = 0; yRow < texH; yRow++) {
+                                        int px = pm.getPixel(cx, yRow);
+                                        int alpha = (px >>> 24) & 0xff;
+                                        if (alpha > 8) {
+                                            any = true;
+                                            if (yRow < top) top = yRow;
+                                            if (yRow > bottom) bottom = yRow;
+                                        }
+                                    }
+                                }
+                                if (!any) { top = 0; bottom = texH - 1; }
+                                int fh = bottom - top + 1;
+                                frames.add(new TextureRegion(birdTexture, start, top, fw, fh));
+                            }
+                            x = end + 1;
+                        }
+
+                        // Fallback to single full texture if detection failed
+                        if (frames.isEmpty()) frames.add(new TextureRegion(birdTexture));
+
+                        TextureRegion[] fa = frames.toArray(new TextureRegion[0]);
+                        birdAnimation = new Animation<TextureRegion>(0.10f, fa);
+                        int maxW = 0, maxH = 0;
+                        for (TextureRegion r : fa) {
+                            if (r.getRegionWidth() > maxW) maxW = r.getRegionWidth();
+                            if (r.getRegionHeight() > maxH) maxH = r.getRegionHeight();
+                        }
+                        birdFrameW = maxW;
+                        birdFrameH = maxH;
+                        Gdx.app.log("MainMenuScreen", "birdfly: auto-detected frames=" + fa.length + " maxW=" + birdFrameW + " maxH=" + birdFrameH);
+                    }
+                } finally {
+                    if (pm != null) pm.dispose();
+                }
+            } else {
+                birdTexture = null;
+                birdAnimation = null;
+                Gdx.app.log("MainMenuScreen", "birdfly.png not found (internal or absolute).");
+            }
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Failed to load birdfly.png", e);
+            birdTexture = null;
+            birdAnimation = null;
         }
     }
 
@@ -685,6 +858,66 @@ public class MainMenuScreen implements Screen {
             }
         }
         
+        // NEW: bird drawing (top of screen) — use current frame's bounds and explicit target width
+        if (birdTexture != null) {
+            float dt = Gdx.graphics.getDeltaTime();
+            if (birdAnimation != null) birdAnimTime += dt;
+
+            TextureRegion currentFrame = (birdAnimation != null) ? birdAnimation.getKeyFrame(birdAnimTime, true) : null;
+
+            // get frame dims (per-frame preferred)
+            float frameW = currentFrame != null ? currentFrame.getRegionWidth() : (birdFrameW > 0 ? birdFrameW : birdTexture.getWidth());
+            float frameH = currentFrame != null ? currentFrame.getRegionHeight() : (birdFrameH > 0 ? birdFrameH : birdTexture.getHeight());
+
+            // Option B: explicit on-screen width (preferred to avoid including neighbor frames)
+            float targetWidthPx = 16f; // tweak to make bird larger/smaller on screen
+            float drawScale = targetWidthPx / frameW;
+
+            // Bounds derived from the user-drawn line:
+            // leftPercent/rightPercent define the horizontal start/end of the line (0..1 of screen width).
+            // lineYPercent defines vertical position (0..1 from bottom); increase to move bird closer to top.
+            final float leftPercent = 0.06f;   // start of line ~6% from left
+            final float rightPercent = 0.88f;  // end of line ~88% from left
+            final float lineYPercent = 0.92f;  // line vertical position (0 = bottom, 1 = top)
+
+            float screenW = Gdx.graphics.getWidth();
+            float screenH = Gdx.graphics.getHeight();
+            float leftBound = screenW * leftPercent;
+            float rightBound = screenW * rightPercent;
+            // Fallback to full width if computed bounds are invalid
+            if (rightBound <= leftBound + 2f) {
+                leftBound = -frameW * drawScale - 10f;
+                rightBound = screenW + 10f;
+            }
+
+            // vertical placement aligned with line
+            float lineY = screenH * lineYPercent;
+            // offset slightly down so bird sits on/under the line depending on sprite origin
+            float verticalOffset = -4f; // tweak if needed
+            float targetBirdY = lineY + verticalOffset - (frameH * drawScale * 0.5f);
+
+            if (Float.isNaN(birdX) || Float.isNaN(birdY)) {
+                birdX = leftBound - frameW * drawScale - 10f; // start just left of the line start
+                birdY = targetBirdY;
+            }
+
+            birdX += birdSpeed * dt;
+            // wrap when passing rightBound
+            if (birdX > rightBound + 10f) {
+                birdX = leftBound - frameW * drawScale - 10f;
+                // keep vertical in case window resized
+                birdY = targetBirdY;
+            }
+
+            try {
+                if (currentFrame != null) {
+                    game.batch.draw(currentFrame, birdX, birdY, frameW * drawScale, frameH * drawScale);
+                } else {
+                    game.batch.draw(birdTexture, birdX, birdY, frameW * drawScale, frameH * drawScale);
+                }
+            } catch (Exception ignored) {}
+        }
+        
         
         // Menu options (center text inside each rounded box)
         drawMenuOptionText("START GAME", centerX, centerY + MENU_TOP_OFFSET, MenuOption.START_GAME);
@@ -799,5 +1032,12 @@ public class MainMenuScreen implements Screen {
             backgroundTex.dispose();
             backgroundTex = null;
         }
+        // dispose bird texture if loaded
+        if (birdTexture != null) {
+            birdTexture.dispose();
+            birdTexture = null;
+        }
+        // clear animation reference
+        birdAnimation = null;
     }
 }
