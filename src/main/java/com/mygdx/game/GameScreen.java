@@ -16,6 +16,12 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.mygdx.game.Levels.Level;
+import com.mygdx.game.Levels.Level1;
+import com.mygdx.game.Levels.Level2;
+import com.mygdx.game.Levels.Level3;
+import com.mygdx.game.Levels.Level4;
+import com.mygdx.game.Levels.Level5;
 
 /**
  * GameScreen with Level progression (1-5), level select, and completion notifications
@@ -39,6 +45,14 @@ public class GameScreen implements Screen {
     private float remainingTime = 180f;
     private float accumulator = 0f;
     private boolean pKeyWasPressed = false;
+    
+    // Floating UI icons (timer and document counter)
+    private Texture timerIconTexture;
+    private Texture documentIconTexture;
+    private float timerIconY;
+    private float docIconY;
+    private float floatTimer = 0f;  // Track time for floating animation
+    private BitmapFont uiFont;  // Font for timer and doc counter text
         private com.badlogic.gdx.graphics.Texture overlayArrowTex;
         private com.badlogic.gdx.graphics.Texture overlayFullTex;
         private boolean overlayFullVisible = false;
@@ -211,6 +225,38 @@ public class GameScreen implements Screen {
                     Gdx.app.log("GameScreen", "Small_white font not found; using default font");
                 }
             }
+            
+            // Load UI font for timer and document counter
+            try {
+                uiFont = new BitmapFont(
+                        Gdx.files.internal("assets/smallwhite/Small_white.fnt"),
+                        Gdx.files.internal("assets/smallwhite/Small_white.png"),
+                        false);
+                uiFont.getData().setScale(1.2f);  // Slightly larger for readability
+            } catch (Exception e) {
+                uiFont = new BitmapFont();  // Use default if loading fails
+            }
+            
+            // Load timer and document icons
+            try {
+                timerIconTexture = new Texture(Gdx.files.internal("assets/timer.png"));
+                Gdx.app.log("GameScreen", "Loaded timer icon");
+            } catch (Exception e) {
+                timerIconTexture = null;
+                Gdx.app.log("GameScreen", "Timer icon not found");
+            }
+            
+            try {
+                documentIconTexture = new Texture(Gdx.files.internal("assets/documents.png"));
+                Gdx.app.log("GameScreen", "Loaded document icon");
+            } catch (Exception e) {
+                documentIconTexture = null;
+                Gdx.app.log("GameScreen", "Document icon not found");
+            }
+            
+            // Initialize icon positions (top-right corner)
+            timerIconY = Gdx.graphics.getHeight() - 60f;
+            docIconY = Gdx.graphics.getHeight() - 120f;
     }
 
     @Override
@@ -259,6 +305,9 @@ public class GameScreen implements Screen {
     }
 
     private void update(float deltaTime) {
+        // Update floating animation timer
+        floatTimer += deltaTime;
+        
         // Player physics FIRST
         if (fixer != null) fixer.update(deltaTime);
         
@@ -328,6 +377,10 @@ public class GameScreen implements Screen {
             // Draw player sprite(s)
             game.batch.begin();
             if (fixer != null) fixer.draw(game.batch);
+            
+            // Draw floating timer and document counter icons in top-right corner
+            drawFloatingUI(game.batch);
+            
             game.batch.end();
         }
 
@@ -431,6 +484,48 @@ public class GameScreen implements Screen {
             }
         }
         Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    /**
+     * Draws floating timer and document counter in the top-right corner
+     */
+    private void drawFloatingUI(com.badlogic.gdx.graphics.g2d.SpriteBatch batch) {
+        if (batch == null || uiFont == null) return;
+        
+        // Calculate floating offset using sine wave (smooth up/down movement)
+        float floatOffset = (float) Math.sin(floatTimer * 2.0f) * 8f;  // +/- 8 pixels
+        
+        int screenWidth = Gdx.graphics.getWidth();
+        int iconSize = 40;
+        int rightMargin = 20;
+        
+        // Timer icon and text (top-right)
+        float timerX = screenWidth - iconSize - rightMargin;
+        float currentTimerY = timerIconY + floatOffset;
+        
+        if (timerIconTexture != null) {
+            batch.draw(timerIconTexture, timerX, currentTimerY, iconSize, iconSize);
+        }
+        
+        // Timer text next to icon
+        int minutes = (int) (remainingTime / 60);
+        int seconds = (int) (remainingTime % 60);
+        String timeText = String.format("%d:%02d", minutes, seconds);
+        uiFont.draw(batch, timeText, timerX - 80, currentTimerY + iconSize / 2 + 8);
+        
+        // Document counter icon and text (below timer)
+        float docX = screenWidth - iconSize - rightMargin;
+        float currentDocY = docIconY + floatOffset;
+        
+        if (documentIconTexture != null) {
+            batch.draw(documentIconTexture, docX, currentDocY, iconSize, iconSize);
+        }
+        
+        // Document count text next to icon
+        if (levelManager != null) {
+            String docText = levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments();
+            uiFont.draw(batch, docText, docX - 60, currentDocY + iconSize / 2 + 8);
+        }
     }
 
     // If the full-screen overlay is active, draw it on top of everything and allow dismissal
@@ -601,6 +696,7 @@ public class GameScreen implements Screen {
                                 try {
                                     if (levelManager != null) {
                                         if (LevelTutorial.TUTORIAL_DOC_POSITIONS != null && LevelTutorial.TUTORIAL_DOC_POSITIONS.length > 0) {
+<<<<<<< HEAD
                                             // Try to invoke addDocumentsAtPositions via reflection so this code
                                             // compiles even if LevelManager doesn't declare that method.
                                             try {
@@ -611,6 +707,14 @@ public class GameScreen implements Screen {
                                                 levelManager.addDocuments(LevelTutorial.TUTORIAL_DOC_POSITIONS.length);
                                             } catch (Exception ex) {
                                                 // Any other reflection error: fallback to adding documents
+=======
+                                            try {
+                                                levelManager.addDocumentsAtPositions(LevelTutorial.TUTORIAL_DOC_POSITIONS);
+                                            } catch (NoSuchMethodError nsme) {
+                                                // fallback if LevelManager older version doesn't have the method
+                                                levelManager.addDocuments(LevelTutorial.TUTORIAL_DOC_POSITIONS.length);
+                                            } catch (Exception ex) {
+>>>>>>> a8b57d714e01d0a21525279a866756d003475ea7
                                                 try { levelManager.addDocuments(LevelTutorial.TUTORIAL_DOC_POSITIONS.length); } catch (Exception ignored2) {}
                                             }
                                         } else {

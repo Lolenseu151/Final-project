@@ -1,4 +1,4 @@
-package com.mygdx.game;
+package com.mygdx.game.Levels;
 
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;

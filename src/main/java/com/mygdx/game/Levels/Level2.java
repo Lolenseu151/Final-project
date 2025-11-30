@@ -1,25 +1,28 @@
+<<<<<<< HEAD:src/main/java/com/mygdx/game/Level2.java
 package com.mygdx.game;
  
+=======
+package com.mygdx.game.Levels;
+
+>>>>>>> a8b57d714e01d0a21525279a866756d003475ea7:src/main/java/com/mygdx/game/Levels/Level2.java
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.graphics.g2d.Animation;
 
 /**
- * Level1 - edit positions to design
+ * Level2 - edit positions to design
  */
 
-public class Level1 implements Level, BackgroundedLevel {
+public class Level2 implements Level, BackgroundedLevel {
     private final Array<Rectangle> documents = new Array<>();
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
     private final Array<Rectangle> beams = new Array<>();
     private Rectangle shredder;
     // use explicit position/size for visual shredder (no rectangle placeholder)
-    private float shredderX = 80f;
+    private float shredderX = 1000f;
     private float shredderY = 415f;
     private float shredderW = 36f; // was 50f
     private float shredderH = 36f; // was 50f
@@ -50,20 +53,20 @@ public class Level1 implements Level, BackgroundedLevel {
         platforms.clear();
 
         // === FLOOR 1 (Bottom floor) ===
-        platforms.add(new Rectangle(0, 7, 525, 20)); // LEFT SIDE
-        platforms.add(new Rectangle(525, 22, 385, 20));   // MIDDLE SECTION
-        platforms.add(new Rectangle(960, 0, 265, 4));  // RIGHT SIDE
+        platforms.add(new Rectangle(50, 7, 1190, 20)); // LEFT SIDE
+        
+       
 
         // === FLOOR 2 ===
-        platforms.add(new Rectangle(0, 225, 620, 20));  // Left section
-        platforms.add(new Rectangle(730, 225, 495, 20)); // Right section
+        platforms.add(new Rectangle(46, 225, 1074, 20));  // Left section
+       
 
         // === FLOOR 3 ===
-        platforms.add(new Rectangle(0, 400, 925, 20));
-         platforms.add(new Rectangle(1030, 400, 200, 20));
+        platforms.add(new Rectangle(45, 400, 260, 20));
+         platforms.add(new Rectangle(375, 400, 872, 20));
 
         // === FLOOR 4 (Roof inside section) ===
-        platforms.add(new Rectangle(525, 540, 705, 20));
+        platforms.add(new Rectangle(662, 583, 497, 20));
 
 
         // === Your existing items ===
@@ -102,6 +105,7 @@ public class Level1 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
     @Override public Array<Rectangle> getAuditorBeams() { return beams; }
 
+<<<<<<< HEAD:src/main/java/com/mygdx/game/Level2.java
     // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
     // If your collision code relies on getShredder(), update it to call getShredderCollisionRect().
     @Override public Rectangle getShredder() { return null; }
@@ -119,9 +123,11 @@ public class Level1 implements Level, BackgroundedLevel {
         }
     }
 
+=======
+>>>>>>> a8b57d714e01d0a21525279a866756d003475ea7:src/main/java/com/mygdx/game/Levels/Level2.java
     @Override
     public String getBackgroundPath() {
-        return "Level1Map.png";
+        return "Level2Map.png";
     }
 
     @Override
