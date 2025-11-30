@@ -8,11 +8,11 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
@@ -46,6 +46,12 @@ public class LevelSelectScreen implements Screen {
     // TextureAtlas containing all UI sprites
     private TextureAtlas uiAtlas;
     private BitmapFont buttonFont;  // Font for "Level 1", "Level 2", etc.
+    // Animated background frames
+    private com.badlogic.gdx.graphics.Texture[] bgTextures = null;
+    private com.badlogic.gdx.graphics.g2d.TextureRegion[] bgRegions = null;
+    private com.badlogic.gdx.scenes.scene2d.ui.Image animatedBg = null;
+    private float bgAnimTime = 0f;
+    private static final float BG_FRAME_DURATION = 0.5f; // slower animation (0.5s per frame)
 
     public LevelSelectScreen(MyGdxGame game) {
         this.game = game;
@@ -116,16 +122,52 @@ public class LevelSelectScreen implements Screen {
      * This ensures ONLY the hovered button highlights, while others remain normal.
      */
     private void initializeUI() {
-        // 1. Add level_bg (1280x800) as background
-        TextureRegion bgRegion = uiAtlas.findRegion("level_bg");
-        if (bgRegion != null) {
-            Image background = new Image(bgRegion);
-            background.setSize(1280, 800);  // Stretch to full screen
-            background.setPosition(0, 0);
-            stage.addActor(background);
-            Gdx.app.log("[LevelSelectScreen]", "✓ Background (level_bg) added at 1280x800");
+        // 1. Add animated background (try loading frames from assets/Level BG/2.png..13.png)
+        String[] framePaths = new String[] {
+            "Level BG/2.png","Level BG/3.png","Level BG/4.png","Level BG/5.png",
+            "Level BG/6.png","Level BG/7.png","Level BG/8.png","Level BG/9.png",
+            "Level BG/10.png","Level BG/11.png","Level BG/12.png","Level BG/13.png"
+        };
+        java.util.List<com.badlogic.gdx.graphics.Texture> loaded = new java.util.ArrayList<>();
+        String userDir = System.getProperty("user.dir");
+        for (String p : framePaths) {
+            try {
+                com.badlogic.gdx.files.FileHandle fh = null;
+                if (Gdx.files.internal(p).exists()) fh = Gdx.files.internal(p);
+                else if (Gdx.files.absolute(userDir + "/assets/" + p).exists()) fh = Gdx.files.absolute(userDir + "/assets/" + p);
+                if (fh != null) {
+                    com.badlogic.gdx.graphics.Texture t = new com.badlogic.gdx.graphics.Texture(fh);
+                    t.setFilter(com.badlogic.gdx.graphics.Texture.TextureFilter.Linear, com.badlogic.gdx.graphics.Texture.TextureFilter.Linear);
+                    loaded.add(t);
+                    Gdx.app.log("[LevelSelectScreen]", "Loaded bg frame: " + p);
+                } else {
+                    Gdx.app.log("[LevelSelectScreen]", "bg frame not found: " + p);
+                }
+            } catch (Exception e) {
+                Gdx.app.error("[LevelSelectScreen]", "Error loading bg frame: " + p, e);
+            }
+        }
+        if (!loaded.isEmpty()) {
+            bgTextures = loaded.toArray(new com.badlogic.gdx.graphics.Texture[0]);
+            bgRegions = new com.badlogic.gdx.graphics.g2d.TextureRegion[bgTextures.length];
+            for (int i = 0; i < bgTextures.length; i++) bgRegions[i] = new com.badlogic.gdx.graphics.g2d.TextureRegion(bgTextures[i]);
+            animatedBg = new Image(bgRegions[0]);
+            // Make the animated background fill the stage/viewport
+            animatedBg.setFillParent(true);
+            stage.addActor(animatedBg);
+            Gdx.app.log("[LevelSelectScreen]", "✓ Animated background added with " + bgRegions.length + " frames");
         } else {
-            Gdx.app.error("[LevelSelectScreen]", "✗ level_bg not found in atlas");
+            // fallback to atlas region
+            TextureRegion bgRegion = uiAtlas.findRegion("level_bg");
+            if (bgRegion != null) {
+                Image background = new Image(bgRegion);
+                // Ensure fallback also fills the screen
+                background.setFillParent(true);
+                stage.addActor(background);
+                Gdx.app.log("[LevelSelectScreen]", "✓ Background (level_bg) added (fallback, fill parent)");
+            } else {
+                Gdx.app.error("[LevelSelectScreen]", "✗ No animated bg frames found and level_bg not in atlas");
+            }
         }
         
         // 2. Add title_selectlevel centered at top
@@ -314,6 +356,13 @@ public class LevelSelectScreen implements Screen {
         // Handle keyboard navigation
         handleKeyboardInput();
         
+        // Advance background animation (if available)
+        if (animatedBg != null && bgRegions != null && bgRegions.length > 0) {
+            bgAnimTime += delta;
+            int frame = (int)(bgAnimTime / BG_FRAME_DURATION) % bgRegions.length;
+            animatedBg.setDrawable(new TextureRegionDrawable(bgRegions[frame]));
+        }
+
         // Update and draw stage
         stage.act(delta);
         stage.draw();
@@ -365,6 +414,12 @@ public class LevelSelectScreen implements Screen {
         }
         if (buttonFont != null) {
             buttonFont.dispose();
+        }
+        if (bgTextures != null) {
+            for (com.badlogic.gdx.graphics.Texture t : bgTextures) {
+                if (t != null) t.dispose();
+            }
+            bgTextures = null;
         }
     }
 }
