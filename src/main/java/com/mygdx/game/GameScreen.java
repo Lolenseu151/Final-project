@@ -16,6 +16,12 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.mygdx.game.Levels.Level;
+import com.mygdx.game.Levels.Level1;
+import com.mygdx.game.Levels.Level2;
+import com.mygdx.game.Levels.Level3;
+import com.mygdx.game.Levels.Level4;
+import com.mygdx.game.Levels.Level5;
 
 /**
  * GameScreen with Level progression (1-5), level select, and completion notifications

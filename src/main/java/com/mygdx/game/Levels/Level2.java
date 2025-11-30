@@ -1,4 +1,4 @@
-package com.mygdx.game;
+package com.mygdx.game.Levels;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.math.Rectangle;
@@ -7,7 +7,7 @@ import com.badlogic.gdx.utils.Array;
 /**
  * Level2 - edit positions to design
  */
-public class Level4 implements Level {
+public class Level2 implements Level {
     private final Array<Rectangle> documents = new Array<>();
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
@@ -53,9 +53,8 @@ public class Level4 implements Level {
     @Override public int getTotalDocuments() { return totalDocs; }
     @Override public void dispose() {}
 
-    // ADD THIS ↓↓↓
     @Override
     public String getBackgroundPath() {
-        return "level4.png"; // <-- change if needed
+        return "level2.png"; // <-- change if needed
     }
 }

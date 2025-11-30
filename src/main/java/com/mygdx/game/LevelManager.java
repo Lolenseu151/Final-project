@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.lang.reflect.Method; // added
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g2d.Animation;
+import com.mygdx.game.Levels.Level;
 
 /**
  * LevelManager - Manages all level elements including obstacles, documents, and shredders
