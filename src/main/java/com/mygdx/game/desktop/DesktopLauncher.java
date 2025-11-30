@@ -9,6 +9,9 @@ public class DesktopLauncher {
         Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
         config.setTitle("Papertrail GDX");
         config.setWindowedMode(1280, 800);
+        config.setFullscreenMode(null); // Disable fullscreen
+        config.setDecorated(true); // Show window border
+        config.setResizable(false); // Prevent resizing
         config.useVsync(true);
         
         // Enable debug logging

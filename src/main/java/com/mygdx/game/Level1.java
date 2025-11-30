@@ -25,13 +25,13 @@ public class Level1 implements Level, BackgroundedLevel {
     private float shredderH = 36f; // was 50f
     private int totalDocs = 0;
 
+    // centralized shredder visual
+    private Shredder shredderVisual = null;
+
     private static final float DOC_SIZE = 36f;
     private static final float PLATFORM_H = 15f;
 
-    // --- Shredder visuals ---
-    private Texture[] shredderTextures = null;
-    private Animation<TextureRegion> shredderAnim = null;
-    private float shredderStateTime = 0f;
+    // legacy constants preserved for loading
     private static final int SHREDDER_FRAME_COUNT = 9;
     private static final float SHREDDER_FRAME_DURATION = 0.08f; // tweak speed if needed
 
@@ -84,96 +84,17 @@ public class Level1 implements Level, BackgroundedLevel {
         shredder = new Rectangle(shredderX, shredderY, shredderW, shredderH);
         totalDocs = documents.size;
 
-        // --- Load shredder frames from assets/shredderFx/1..9 (png/jpg fallback) ---
-        Gdx.app.log("Level1", "Loading shredder frames from 'shredderFx/1..9'");
-
-        if (shredderTextures != null) {
-            for (Texture t : shredderTextures) if (t != null) t.dispose();
-            shredderTextures = null;
-            shredderAnim = null;
-        }
-
-        Array<Texture> temp = new Array<>();
-        for (int i = 1; i <= SHREDDER_FRAME_COUNT; i++) {
-            String[] candidates = new String[] {
-                    "shredderFx/" + i + ".png",
-                    "shredderFx/" + i + ".PNG",
-                    "shredderFx/" + i + ".jpg",
-                    "shredderFx/" + i + ".jpeg",
-                    // try with assets/ prefix in case your working dir expects it
-                    "assets/shredderFx/" + i + ".png",
-                    "assets/shredderFx/" + i + ".PNG"
-            };
-            Texture tex = null;
-            for (String c : candidates) {
-                try {
-                    if (Gdx.files.internal(c).exists()) {
-                        Gdx.app.log("Level1", "Found frame: " + c);
-                        tex = new Texture(Gdx.files.internal(c));
-                        break;
-                    }
-                } catch (Exception e) {
-                    Gdx.app.error("Level1", "Error checking/loading " + c + " : " + e.getMessage());
-                }
+        // initialize centralized shredder visual
+        shredderVisual = new Shredder(shredder);
+        shredderVisual.setFrameDuration(SHREDDER_FRAME_DURATION);
+        shredderVisual.loadFromFolder("shredderFx", SHREDDER_FRAME_COUNT);
+        // if no frames were loaded, try a single-image fallback
+        try {
+            if (!shredderVisual.hasVisual()) {
+                shredderVisual.loadSingle("shredder.png");
+                if (!shredderVisual.hasVisual()) shredderVisual.loadSingle("assets/shredder.png");
             }
-            if (tex == null) {
-                Gdx.app.log("Level1", "Frame " + i + " not found, stopping load sequence.");
-                break;
-            }
-            temp.add(tex);
-        }
-
-        if (temp.size == 0) {
-            // nothing loaded — list directory to help debug
-            try {
-                com.badlogic.gdx.files.FileHandle dir = Gdx.files.internal("shredderFx");
-                if (dir.exists() && dir.isDirectory()) {
-                    com.badlogic.gdx.files.FileHandle[] listing = dir.list();
-                    StringBuilder sb = new StringBuilder();
-                    for (com.badlogic.gdx.files.FileHandle fh : listing) {
-                        sb.append(fh.name()).append(", ");
-                    }
-                    Gdx.app.log("Level1", "Contents of shredderFx: " + sb.toString());
-                } else {
-                    Gdx.app.log("Level1", "shredderFx directory not found at internal path. Check assets folder.");
-                }
-            } catch (Exception e) {
-                Gdx.app.error("Level1", "Error listing shredderFx directory: " + e.getMessage());
-            }
-        }
-
-        if (temp.size > 0) {
-            shredderTextures = new Texture[temp.size];
-            TextureRegion[] regions = new TextureRegion[temp.size];
-            for (int i = 0; i < temp.size; i++) {
-                shredderTextures[i] = temp.get(i);
-                regions[i] = new TextureRegion(shredderTextures[i]);
-            }
-            shredderAnim = new Animation<TextureRegion>(SHREDDER_FRAME_DURATION, regions);
-            shredderStateTime = 0f;
-
-            // resize visual shredder size to match texture (keeps bottom-left at shredderX/Y)
-            Texture first = shredderTextures[0];
-            if (first != null) {
-                float texW = first.getWidth();
-                float texH = first.getHeight();
-                float scale = 1.0f;
-                if (texW > 128 || texH > 128) scale = 0.5f;
-                float newW = texW * scale;
-                float newH = texH * scale;
-                shredderW = newW;
-                shredderH = newH;
-                // update collision rectangle to match visual size
-                if (shredder == null) {
-                    shredder = new Rectangle(shredderX, shredderY, shredderW, shredderH);
-                } else {
-                    shredder.set(shredderX, shredderY, shredderW, shredderH);
-                }
-                Gdx.app.log("Level1", "Shredder visual resized to " + newW + "x" + newH + " at " + shredderX + "," + shredderY);
-            }
-        } else {
-            Gdx.app.log("Level1", "No shredder frames loaded — shredderAnim is null.");
-        }
+        } catch (Exception ignored) {}
     }
 
     @Override public Array<Rectangle> getDocuments() { return documents; }
@@ -191,10 +112,10 @@ public class Level1 implements Level, BackgroundedLevel {
     @Override public int getTotalDocuments() { return totalDocs; }
 
     @Override public void dispose() {
-        // dispose shredder textures if loaded
-        if (shredderTextures != null) {
-            for (Texture t : shredderTextures) if (t != null) t.dispose();
-            shredderTextures = null;
+        // dispose shredder visual if present
+        if (shredderVisual != null) {
+            try { shredderVisual.dispose(); } catch (Exception ignored) {}
+            shredderVisual = null;
         }
     }
 
@@ -207,44 +128,28 @@ public class Level1 implements Level, BackgroundedLevel {
     public void updateBackground(float deltaTime, LevelManager levelMgr, Array<Rectangle> documents,
                                  Array<Rectangle> obstacles, Fixer player) {
         // Advance shredder animation state time
-        if (shredderAnim != null) {
-            shredderStateTime += deltaTime;
+        if (shredderVisual != null) {
+            shredderVisual.update(deltaTime);
         }
         // Example: track documents collected and adjust visual state
     }
 
     @Override
     public void renderBackground(SpriteBatch batch, Texture backgroundTex) {
-        Gdx.app.log("Level1", "renderBackground called; shredderAnim=" + (shredderAnim != null) + " shredderRect=" + shredder);
+        // Render background; debug logging removed for shredder visuals.
 
         // draw background first (if any)
         if (backgroundTex != null) {
             batch.draw(backgroundTex, 0, 0, 1280, 800);
         }
 
-        // draw shredder animation on top (make it bigger so it's obvious)
-        if (shredderAnim != null) {
-            TextureRegion frame = shredderAnim.getKeyFrame(shredderStateTime, true);
-            if (frame == null) {
-                Gdx.app.log("Level1", "shredder frame is null");
-                return;
-            }
-
-            // scale up for visibility while debugging
-            float scaleDebug = 0.9f; // reduce visual scale so shredder appears smaller
-            float drawW = shredderW * scaleDebug;
-            float drawH = shredderH * scaleDebug;
-            // center the scaled draw on the visual bottom-left shredderX/Y
-            float drawX = shredderX - (drawW - shredderW) * 0.5f;
-            float drawY = shredderY - (drawH - shredderH) * 0.5f;
-
-            // ensure full opacity
-            batch.setColor(1f, 1f, 1f, 1f);
-            batch.draw(frame, drawX, drawY, drawW, drawH);
-
-            Gdx.app.log("Level1", "Drew shredder frame at " + drawX + "," + drawY + " size " + drawW + "x" + drawH);
+        // draw shredder animation on top using centralized Shredder
+        if (shredderVisual != null) {
+            // ensure visual updates are reflected
+            try { shredderVisual.update(Gdx.graphics.getDeltaTime()); } catch (Exception ignored) {}
+            shredderVisual.render(batch);
         } else {
-            Gdx.app.log("Level1", "No shredderAnim or shredder rect to draw");
+            // No shredder visual to draw.
         }
     }
 
