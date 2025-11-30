@@ -29,6 +29,7 @@ public class MainMenuScreen implements Screen {
     private final ShapeRenderer shapeRenderer;
         private BitmapFont titleFont;
         private BitmapFont buttonFont;
+        private Texture titleFontTexture;
         // Fixed title font size for pixel look
         private String foundTtfPath = null;
         private final int titleFontSize = 64;
@@ -125,6 +126,37 @@ public class MainMenuScreen implements Screen {
         }
 
         boolean generated = false;
+
+        // PRIORITY: try the Gradient Pexilify bitmap font first so it overrides other fallbacks
+        try {
+            String gradFnt = "fonts/Gradient/Gradient pexilify.fnt";
+            String gradPng = "fonts/Gradient/Gradient pexilify.png";
+            FileHandle fntHandle = null;
+            FileHandle pngHandle = null;
+            if (Gdx.files.internal(gradFnt).exists() && Gdx.files.internal(gradPng).exists()) {
+                fntHandle = Gdx.files.internal(gradFnt);
+                pngHandle = Gdx.files.internal(gradPng);
+            } else {
+                String userDir = System.getProperty("user.dir");
+                String absFnt = userDir + "/assets/" + gradFnt;
+                String absPng = userDir + "/assets/" + gradPng;
+                if (Gdx.files.absolute(absFnt).exists() && Gdx.files.absolute(absPng).exists()) {
+                    fntHandle = Gdx.files.absolute(absFnt);
+                    pngHandle = Gdx.files.absolute(absPng);
+                }
+            }
+            if (fntHandle != null && pngHandle != null) {
+                if (titleFont != null) { try { titleFont.dispose(); } catch (Exception ignored) {} titleFont = null; }
+                if (titleFontTexture != null) { try { titleFontTexture.dispose(); } catch (Exception ignored) {} titleFontTexture = null; }
+                titleFontTexture = new Texture(pngHandle);
+                titleFontTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                titleFont = new BitmapFont(fntHandle, new TextureRegion(titleFontTexture), false);
+                generated = true;
+                Gdx.app.log("MainMenuScreen", "Loaded Gradient title font (priority) from: " + gradFnt);
+            }
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Error while attempting to load Gradient title font (priority)", e);
+        }
         for (String ttfPath : candidates) {
             Gdx.app.log("MainMenuScreen", "Checking for TTF at: " + ttfPath);
             if (Gdx.files.internal(ttfPath).exists()) {
@@ -236,6 +268,32 @@ public class MainMenuScreen implements Screen {
             } catch (Exception e) {
                 Gdx.app.error("MainMenuScreen", "Exception loading explicit .fnt", e);
                 titleFont = null;
+            }
+        }
+        // Try loading the Gradient Pexilify font (.fnt + .png) from assets/fonts/Gradient
+        if (!generated) {
+            String gradFnt = "fonts/Gradient/Gradient pexilify.fnt";
+            String gradPng = "fonts/Gradient/Gradient pexilify.png";
+            try {
+                boolean fntExists = Gdx.files.internal(gradFnt).exists() || Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradFnt).exists();
+                boolean pngExists = Gdx.files.internal(gradPng).exists() || Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradPng).exists();
+                if (fntExists && pngExists) {
+                    // prefer internal if available
+                    FileHandle fntHandle = Gdx.files.internal(gradFnt).exists() ? Gdx.files.internal(gradFnt) : Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradFnt);
+                    FileHandle pngHandle = Gdx.files.internal(gradPng).exists() ? Gdx.files.internal(gradPng) : Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradPng);
+                    titleFontTexture = new Texture(pngHandle);
+                    titleFontTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                    titleFont = new BitmapFont(fntHandle, new TextureRegion(titleFontTexture), false);
+                    generated = true;
+                    Gdx.app.log("MainMenuScreen", "Loaded Gradient title font from: " + gradFnt);
+                } else {
+                    Gdx.app.log("MainMenuScreen", "Gradient font files not found at: " + gradFnt + " / " + gradPng);
+                }
+            } catch (Exception e) {
+                Gdx.app.error("MainMenuScreen", "Failed to load Gradient title font", e);
+                // ensure titleFont null so fallback continues
+                titleFont = null;
+                if (titleFontTexture != null) { try { titleFontTexture.dispose(); } catch (Exception ignored) {} titleFontTexture = null; }
             }
         }
         // If no pixel font was created, force the default font to nearest filtering so scaled text appears pixelated
@@ -789,6 +847,7 @@ public class MainMenuScreen implements Screen {
     public void dispose() {
         shapeRenderer.dispose();
         if (titleFont != null) titleFont.dispose();
+        if (titleFontTexture != null) { titleFontTexture.dispose(); titleFontTexture = null; }
         if (buttonFont != null) buttonFont.dispose();
         if (runTexture != null) runTexture.dispose();
         if (catTexture != null) {
