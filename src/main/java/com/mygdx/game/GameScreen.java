@@ -95,16 +95,7 @@ public class GameScreen implements Screen {
         // Third caption to display after second Continue click
         public static String TALKING_OVERLAY_THIRD_TEXT = "See that other document on the other floors? You must collect them all";
 
-        // Optional explicit positions for the documents that appear after the final caption.
-        // Edit this array to specify exact X/Y pixel positions for each spawned document.
-        // Example:
-        // public static float[][] TUTORIAL_DOC_POSITIONS = new float[][] { {400f,300f}, {480f,300f}, {560f,300f}, {640f,300f} };
-        public static float[][] TUTORIAL_DOC_POSITIONS = new float[][] {
-            { 200f, 260f },
-            { 700f, 260f },
-            { 580f, 850f },
-            { 100, 20f }
-        };
+        // Tutorial document positions have been moved to `LevelTutorial.TUTORIAL_DOC_POSITIONS`.
 
     // Level progression
     private int currentLevel = 1;
@@ -165,15 +156,11 @@ public class GameScreen implements Screen {
         levelCompleteTimer = 0f;
         
         if (fixer != null) {
-            // For tutorial (level 0) make the player larger and spawn slightly higher
+            // For tutorial (level 0) spawn player slightly higher
             if (currentLevel == 0) {
-                try { fixer.setScale(1.5f); } catch (Exception ignored) {}
                 fixer.reset(100, 50);
-                try { fixer.setJumpVelocity(900f); } catch (Exception ignored) {}
             } else {
-                try { fixer.setScale(1f); } catch (Exception ignored) {}
                 fixer.reset(100, 0);
-                try { fixer.setJumpVelocity(650f); } catch (Exception ignored) {}
             }
         }
         Gdx.app.log("GameScreen", "Loaded Level " + currentLevel);
@@ -613,6 +600,7 @@ public class GameScreen implements Screen {
                                 // After final talking caption, spawn tutorial documents.
                                 try {
                                     if (levelManager != null) {
+<<<<<<< HEAD
                                         if (TUTORIAL_DOC_POSITIONS != null && TUTORIAL_DOC_POSITIONS.length > 0) {
                                             // Try to invoke addDocumentsAtPositions via reflection so this code
                                             // compiles even if LevelManager doesn't declare that method.
@@ -626,6 +614,10 @@ public class GameScreen implements Screen {
                                                 // Any other reflection error: fallback to adding documents
                                                 try { levelManager.addDocuments(TUTORIAL_DOC_POSITIONS.length); } catch (Exception ignored2) {}
                                             }
+=======
+                                        if (LevelTutorial.TUTORIAL_DOC_POSITIONS != null && LevelTutorial.TUTORIAL_DOC_POSITIONS.length > 0) {
+                                            levelManager.addDocumentsAtPositions(LevelTutorial.TUTORIAL_DOC_POSITIONS);
+>>>>>>> fea7067b59fa245176b68f451f77aab1a39606ab
                                         } else {
                                             levelManager.addDocuments(4);
                                         }
