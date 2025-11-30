@@ -11,7 +11,7 @@ public class DesktopLauncher {
         config.setWindowedMode(1280, 800);
         config.setFullscreenMode(null); // Disable fullscreen
         config.setDecorated(true); // Show window border
-        config.setResizable(false); // Prevent resizing
+        config.setResizable(true); // Allow window resizing
         config.useVsync(true);
         
         // Enable debug logging
