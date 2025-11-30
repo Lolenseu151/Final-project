@@ -15,6 +15,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
 /**
@@ -53,18 +54,27 @@ public class LevelSelectScreen implements Screen {
     private float bgAnimTime = 0f;
     private static final float BG_FRAME_DURATION = 0.5f; // slower animation (0.5s per frame)
 
+    // Layout tuning constants - based on new atlas sprite sizes (level_button: 210x100, level_button_hover: 218x108)
+    private static final float BUTTON_WIDTH = 180f;
+    private static final float BUTTON_HEIGHT = 100f;
+    private static final float BUTTON_SPACING = 12f;
+    private static final float BUTTON_BOTTOM_MARGIN = 60f;
+    private static final float TITLE_TOP_MARGIN = 30f;
+    private static final float LABEL_FONT_SCALE = 1.5f;
+    private static final float BUTTON_COLUMN_TOP_MARGIN = 250f;
+
     public LevelSelectScreen(MyGdxGame game) {
         this.game = game;
         
         // Create Stage with ScreenViewport (matches screen size 1280x800)
         this.stage = new Stage(new ScreenViewport());
         
-        // Load TextureAtlas from assets/ui select level/ui1.atlas
-        // Atlas regions used: background_full, title_selectlevel, arrow_back,
-        // btn_level1-5, btn_level1_hover-5_hover
+        // Load TextureAtlas from assets/ui select original/ui.atlas
+        // Atlas regions: level_bg, title_selectlevel, arrow_back, arrow_back_hover,
+        // level_button, level_button_hover
         try {
             com.badlogic.gdx.files.FileHandle atlasHandle = null;
-            String atlasPath = "ui select level/ui1.atlas";
+            String atlasPath = "ui select original/ui.atlas";
             
             // Try internal path first (works when bundled)
             if (Gdx.files.internal(atlasPath).exists()) {
@@ -84,12 +94,12 @@ public class LevelSelectScreen implements Screen {
                 uiAtlas = new TextureAtlas(atlasHandle);
                 Gdx.app.log("[LevelSelectScreen]", "✓ TextureAtlas loaded successfully");
             } else {
-                throw new RuntimeException("ui1.atlas not found in assets/ui select level/");
+                throw new RuntimeException("ui.atlas not found in assets/ui select original/");
             }
         } catch (Exception e) {
-            Gdx.app.error("[LevelSelectScreen]", "✗ Failed to load ui1.atlas: " + e.getMessage());
+            Gdx.app.error("[LevelSelectScreen]", "✗ Failed to load ui.atlas: " + e.getMessage());
             e.printStackTrace();
-            throw new RuntimeException("Cannot load ui1.atlas", e);
+            throw new RuntimeException("Cannot load ui.atlas", e);
         }
         
         // Create font for button labels (Level 1, Level 2, etc.)
@@ -111,17 +121,18 @@ public class LevelSelectScreen implements Screen {
      * 1. level_bg (1280x800 stretched to fill screen)
      * 2. title_selectlevel (centered at top)
      * 3. arrow_back (top-left corner with hover)
-     * 4. Five level buttons (level_btn_orig with level_btn_orig_hover on mouseover)
+     * 4. Five level buttons (level_button with level_button_hover on mouseover)
      * 5. Text labels ("Level 1" through "Level 5") centered on each button
      * 
      * Each ImageButton uses:
-     * - up drawable = normal button sprite (level_btn_orig)
-     * - over drawable = hover sprite (level_btn_orig_hover)
-     * - down drawable = hover sprite (level_btn_orig_hover)
+     * - up drawable = normal button sprite (level_button)
+     * - over drawable = hover sprite (level_button_hover)
+     * - down drawable = hover sprite (level_button_hover)
      * 
      * This ensures ONLY the hovered button highlights, while others remain normal.
      */
     private void initializeUI() {
+<<<<<<< HEAD
         // 1. Add animated background (try loading frames from assets/Level BG/2.png..13.png)
         String[] framePaths = new String[] {
             "Level BG/2.png","Level BG/3.png","Level BG/4.png","Level BG/5.png",
@@ -156,6 +167,19 @@ public class LevelSelectScreen implements Screen {
             animatedBg.setFillParent(true);
             stage.addActor(animatedBg);
             Gdx.app.log("[LevelSelectScreen]", "✓ Animated background added with " + bgRegions.length + " frames");
+=======
+        float screenWidth = stage.getViewport().getWorldWidth();
+        float screenHeight = stage.getViewport().getWorldHeight();
+
+        // 1. Add level_bg (scaled to viewport size)
+        TextureRegion bgRegion = uiAtlas.findRegion("level_bg (1)");
+        if (bgRegion != null) {
+            Image background = new Image(bgRegion);
+            background.setSize(screenWidth, screenHeight);  // Stretch to full screen
+            background.setPosition(0, 0);
+            stage.addActor(background);
+            Gdx.app.log("[LevelSelectScreen]", "✓ Background (level_bg) added at 1280x800");
+>>>>>>> a8b57d714e01d0a21525279a866756d003475ea7
         } else {
             // fallback to atlas region
             TextureRegion bgRegion = uiAtlas.findRegion("level_bg");
@@ -171,14 +195,15 @@ public class LevelSelectScreen implements Screen {
         }
         
         // 2. Add title_selectlevel centered at top
-        TextureRegion titleRegion = uiAtlas.findRegion("title_selectlevel");
+        TextureRegion titleRegion = uiAtlas.findRegion("title_selectlevel (1)");
         if (titleRegion != null) {
             Image title = new Image(titleRegion);
             float titleWidth = titleRegion.getRegionWidth();
             float titleHeight = titleRegion.getRegionHeight();
             title.setSize(titleWidth, titleHeight);
-            // Center horizontally, position near top (y=720)
-            title.setPosition((1280 - titleWidth) / 2, 720);
+            // Center horizontally, position near top with margin
+            float titleY = screenHeight - titleHeight - TITLE_TOP_MARGIN;
+            title.setPosition((screenWidth - titleWidth) / 2f, titleY);
             stage.addActor(title);
             Gdx.app.log("[LevelSelectScreen]", "✓ Title (title_selectlevel) added");
         } else {
@@ -186,11 +211,12 @@ public class LevelSelectScreen implements Screen {
         }
         
         // 3. Add arrow_back button at top-left with hover support
-        TextureRegion arrowRegion = uiAtlas.findRegion("arrow_back");
+        TextureRegion arrowRegion = uiAtlas.findRegion("arrow_back (1)");
+        TextureRegion arrowHoverRegion = uiAtlas.findRegion("arrow_back_hover");
         if (arrowRegion != null) {
-            ImageButton backButton = createBackButton(arrowRegion);
+            ImageButton backButton = createBackButton(arrowRegion, arrowHoverRegion, screenHeight);
             stage.addActor(backButton);
-            Gdx.app.log("[LevelSelectScreen]", "✓ Back arrow (arrow_back) added");
+            Gdx.app.log("[LevelSelectScreen]", "✓ Back arrow (arrow_back) added with hover");
         } else {
             Gdx.app.error("[LevelSelectScreen]", "✗ arrow_back not found in atlas");
         }
@@ -198,21 +224,28 @@ public class LevelSelectScreen implements Screen {
         // 4. Create 5 level buttons using level_btn_orig sprites
         // Each button uses the same sprite but with individual text labels
         for (int i = 1; i <= 5; i++) {
-            createLevelButton(i);
+            createLevelButton(i, screenWidth, screenHeight);
         }
     }
     
     /**
-     * Create back button using arrow_back sprite
+     * Create back button using arrow_back sprite with hover support
      * 
-     * Positioned at top-left (20, 720) with 60x60 size.
+     * Positioned at top-left with proper size from atlas.
      * Clicking returns to MainMenuScreen.
      */
-    private ImageButton createBackButton(TextureRegion arrowRegion) {
-        TextureRegionDrawable drawable = new TextureRegionDrawable(arrowRegion);
-        ImageButton backButton = new ImageButton(drawable);
-        backButton.setSize(60, 60);
-        backButton.setPosition(20, 720);  // Top-left corner
+    private ImageButton createBackButton(TextureRegion arrowRegion, TextureRegion arrowHoverRegion, float screenHeight) {
+        TextureRegionDrawable upDrawable = new TextureRegionDrawable(arrowRegion);
+        TextureRegionDrawable overDrawable = (arrowHoverRegion != null) 
+            ? new TextureRegionDrawable(arrowHoverRegion) 
+            : upDrawable;
+        
+        ImageButton backButton = new ImageButton(upDrawable, overDrawable, overDrawable);
+        // Use original sprite size (102x69)
+        float btnWidth = arrowRegion.getRegionWidth();
+        float btnHeight = arrowRegion.getRegionHeight();
+        backButton.setSize(btnWidth, btnHeight);
+        backButton.setPosition(20, screenHeight - btnHeight - 20);  // Top-left corner with margin
         
         backButton.addListener(new ClickListener() {
             @Override
@@ -230,8 +263,8 @@ public class LevelSelectScreen implements Screen {
      * Create a level button using sprites from atlas
      * 
      * All levels use the same button sprites:
-     * - Normal state: level_btn_orig
-     * - Hover state: level_btn_orig_hover
+     * - Normal state: level_button
+     * - Hover state: level_button_hover
      * 
      * Text labels ("Level 1" through "Level 5") are added on top of buttons
      * to differentiate them visually.
@@ -250,19 +283,19 @@ public class LevelSelectScreen implements Screen {
      * 
      * @param levelNum Level number (1-5)
      */
-    private void createLevelButton(int levelNum) {
+    private void createLevelButton(int levelNum, float screenWidth, float screenHeight) {
         // Load the shared button sprites (same for all levels)
-        TextureRegion btnRegion = uiAtlas.findRegion("level_btn_orig");
-        TextureRegion btnHoverRegion = uiAtlas.findRegion("level_btn_orig_hover");
+        TextureRegion btnRegion = uiAtlas.findRegion("level_button");
+        TextureRegion btnHoverRegion = uiAtlas.findRegion("level_button_hover");
         
         if (btnRegion == null) {
-            Gdx.app.error("[LevelSelectScreen]", "✗ level_btn_orig not found in atlas");
+            Gdx.app.error("[LevelSelectScreen]", "✗ level_button not found in atlas");
             return;
         }
         
         // Use normal sprite as fallback if hover sprite missing
         if (btnHoverRegion == null) {
-            Gdx.app.log("[LevelSelectScreen]", "⚠ level_btn_orig_hover not found, using normal sprite");
+            Gdx.app.log("[LevelSelectScreen]", "⚠ level_button_hover not found, using normal sprite");
             btnHoverRegion = btnRegion;
         }
         
@@ -274,15 +307,22 @@ public class LevelSelectScreen implements Screen {
         final ImageButton levelButton = new ImageButton(upDrawable, overDrawable, overDrawable);
         
         // Get button size from sprite dimensions (preserves original artwork size)
-        final float buttonWidth = btnRegion.getRegionWidth();
-        final float buttonHeight = btnRegion.getRegionHeight();
+        final float buttonWidth = BUTTON_WIDTH;
+        final float buttonHeight = BUTTON_HEIGHT;
         levelButton.setSize(buttonWidth, buttonHeight);
         
-        // Position buttons vertically centered with equal spacing
-        float spacing = 20;
-        float totalHeight = (buttonHeight * 5) + (spacing * 4);
-        float startY = (800 - totalHeight) / 2;
-        float buttonX = (1280 - buttonWidth) / 2;  // Horizontally centered
+        // Position buttons vertically with generous spacing and lower placement
+        float spacing = BUTTON_SPACING;
+        float totalHeight = (buttonHeight * 5f) + (spacing * 4f);
+        // Center the button column vertically, but ensure it doesn't go above title area
+        float centerY = (screenHeight - totalHeight) / 2f;
+        float maxStartY = screenHeight - BUTTON_COLUMN_TOP_MARGIN - totalHeight;
+        float startY = Math.min(centerY, maxStartY);
+        if (startY < BUTTON_BOTTOM_MARGIN) {
+            startY = BUTTON_BOTTOM_MARGIN;
+        }
+        float buttonX = (screenWidth - buttonWidth) / 2f;  // Horizontally centered
+        // Level 1 at top, Level 5 at bottom
         float buttonY = startY + (5 - levelNum) * (buttonHeight + spacing);  // Bottom-to-top ordering
         
         levelButton.setPosition(buttonX, buttonY);
@@ -294,20 +334,21 @@ public class LevelSelectScreen implements Screen {
         final Label levelLabel = new Label("Level " + levelNum, labelStyle);
         
         // Set font scale for readable size
-        levelLabel.setFontScale(1.2f);
+        levelLabel.setFontScale(LABEL_FONT_SCALE);
         
-        // Calculate centered position on button
-        // We need to position the label after setting scale
-        float labelWidth = levelLabel.getPrefWidth() * 1.2f;  // Account for scale
-        float labelHeight = levelLabel.getPrefHeight() * 1.2f;
+        // Calculate centered position on button using label bounds
+        float labelHeight = levelLabel.getPrefHeight() * LABEL_FONT_SCALE;
+        float labelY = buttonY + (buttonHeight - labelHeight) / 2f;
         
-        float labelX = buttonX + (buttonWidth - labelWidth) / 2;
-        float labelY = buttonY + (buttonHeight - labelHeight) / 2;
-        
-        levelLabel.setPosition(labelX, labelY);
+        levelLabel.setSize(buttonWidth, labelHeight);
+        levelLabel.setAlignment(Align.center);
+        levelLabel.setPosition(buttonX, labelY);
         levelLabel.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);  // Let clicks pass through to button
-        stage.addActor(levelLabel);
         
+        // Add label as a child of the button so it moves/scales with the button
+        // and doesn't interfere with button hover detection
+        levelButton.addActor(levelLabel);
+        levelLabel.setPosition(0, (buttonHeight - labelHeight) / 2f);  // Position relative to button
         // Add unified listener for both click and hover
         final int level = levelNum;
         levelButton.addListener(new ClickListener() {
