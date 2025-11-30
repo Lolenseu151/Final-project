@@ -614,7 +614,18 @@ public class GameScreen implements Screen {
                                 try {
                                     if (levelManager != null) {
                                         if (TUTORIAL_DOC_POSITIONS != null && TUTORIAL_DOC_POSITIONS.length > 0) {
-                                            levelManager.addDocumentsAtPositions(TUTORIAL_DOC_POSITIONS);
+                                            // Try to invoke addDocumentsAtPositions via reflection so this code
+                                            // compiles even if LevelManager doesn't declare that method.
+                                            try {
+                                                java.lang.reflect.Method m = LevelManager.class.getMethod("addDocumentsAtPositions", float[][].class);
+                                                m.invoke(levelManager, (Object) TUTORIAL_DOC_POSITIONS);
+                                            } catch (NoSuchMethodException nsme) {
+                                                // Method not present: fallback to adding documents without explicit positions
+                                                levelManager.addDocuments(TUTORIAL_DOC_POSITIONS.length);
+                                            } catch (Exception ex) {
+                                                // Any other reflection error: fallback to adding documents
+                                                try { levelManager.addDocuments(TUTORIAL_DOC_POSITIONS.length); } catch (Exception ignored2) {}
+                                            }
                                         } else {
                                             levelManager.addDocuments(4);
                                         }

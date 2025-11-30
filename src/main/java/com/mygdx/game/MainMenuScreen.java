@@ -47,6 +47,22 @@ public class MainMenuScreen implements Screen {
     private float runAnimTime = 0f;
     // number of columns in the loaded run sprite sheet (detected at runtime)
     private int runColumns = 8;
+
+    // NEW: cat runner
+    private Texture catTexture;
+    private Animation<TextureRegion> catAnimation;
+    private int catColumns = 4;                // Catrun.png uses 4 frames
+    private float catScaleMultiplier = 1.75f;  // make cat smaller than main character (tweakable)
+    private float catX = Float.NaN;            // current x for cat (init on first draw)
+    private float catYOffset = -130f;            // align cat baseline with runner (adjust if needed)
+    // NEW: main menu background texture
+    private Texture backgroundTex;
+    // NEW: horizontal runner state — moves left->right, then resets after a delay
+    private float runX = Float.NaN;            // current x position (initialised on first draw)
+    private float runSpeed = 260f;             // pixels per second
+    private float runRestartDelay = 0.9f;      // seconds to wait after reaching end before restarting
+    private float runPauseTimer = 0f;          // countdown when paused
+    private boolean runPaused = false;         // true while waiting to restart
     // Menu animation tuning (slower motion for main menu)
     private final float MENU_RUN_FRAME_DURATION = 0.16f; // longer frame -> slower animation
     private final float MENU_RUN_SPEED_FACTOR = 0.6f;    // scale applied to delta when advancing time
@@ -68,7 +84,7 @@ public class MainMenuScreen implements Screen {
     // desired height in pixels (used when RUN_SIZE_MODE_DESIRED_H)
     private final float RUN_DESIRED_HEIGHT = 96f;
     // screen-relative height (fraction of screen height) used when RUN_SIZE_MODE_SCREEN_REL
-    private final float RUN_SCREEN_HEIGHT_RATIO = 0.30f; // 25% of screen height (increased)
+    private final float RUN_SCREEN_HEIGHT_RATIO = 0.23f; // reduced so character is smaller on the menu
     // Button font scale (1.0 = normal). Set to 0.9 as requested.
     private final float BUTTON_FONT_SCALE = 0.7f;
     
@@ -303,6 +319,70 @@ public class MainMenuScreen implements Screen {
             runAnimation = null;
             runTexture = null;
         }
+
+        // NEW: Load cat runner sprite sheet (Catrun.png)
+        try {
+            FileHandle catHandle = null;
+            String catName = "Catrun.png";
+            if (Gdx.files.internal(catName).exists()) {
+                catHandle = Gdx.files.internal(catName);
+            } else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/" + catName;
+                if (Gdx.files.absolute(abs).exists()) catHandle = Gdx.files.absolute(abs);
+            }
+            if (catHandle != null) {
+                catTexture = new Texture(catHandle);
+                catTexture.setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
+                // try 4 columns (fallback to 3 if width doesn't divide evenly)
+                int ccols = catColumns;
+                int cfw = Math.max(1, catTexture.getWidth() / ccols);
+                int cfh = catTexture.getHeight();
+                TextureRegion[][] ctmp = TextureRegion.split(catTexture, cfw, cfh);
+                // if split produced fewer frames than expected, try fallback column count 3
+                if (ctmp.length == 0 || ctmp[0].length < ccols) {
+                    ccols = 3;
+                    cfw = Math.max(1, catTexture.getWidth() / ccols);
+                    ctmp = TextureRegion.split(catTexture, cfw, cfh);
+                }
+                int available = (ctmp.length > 0) ? Math.min(ctmp[0].length, ccols) : 0;
+                TextureRegion[] cframes = new TextureRegion[Math.max(1, available)];
+                for (int i = 0; i < cframes.length; i++) cframes[i] = ctmp[0][i];
+                catAnimation = new Animation<TextureRegion>(MENU_RUN_FRAME_DURATION, cframes);
+                Gdx.app.log("MainMenuScreen", "Loaded cat animation (Catrun.png) with " + cframes.length + " frames");
+            } else {
+                catAnimation = null;
+                catTexture = null;
+                Gdx.app.log("MainMenuScreen", "Catrun.png not found (internal or absolute).");
+            }
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Failed to load Catrun.png animation", e);
+            catAnimation = null;
+            catTexture = null;
+        }
+
+        // Load main menu background (try internal then project assets/)
+        try {
+            String bgName = "MainMenuBG.png";
+            if (Gdx.files.internal(bgName).exists()) {
+                backgroundTex = new Texture(Gdx.files.internal(bgName));
+                Gdx.app.log("MainMenuScreen", "Loaded background (internal): " + bgName);
+            } else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/" + bgName;
+                if (Gdx.files.absolute(abs).exists()) {
+                    backgroundTex = new Texture(Gdx.files.absolute(abs));
+                    Gdx.app.log("MainMenuScreen", "Loaded background (absolute): " + abs);
+                } else {
+                    backgroundTex = null;
+                    Gdx.app.log("MainMenuScreen", "MainMenuBG.png not found (internal or absolute).");
+                }
+            }
+            if (backgroundTex != null) backgroundTex.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Error loading MainMenuBG.png", e);
+            backgroundTex = null;
+        }
     }
 
     private void generateTitleFontWithSize(int size) {
@@ -352,6 +432,13 @@ public class MainMenuScreen implements Screen {
         // Clear screen
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        // Draw background if available (stretched to fill window)
+        if (backgroundTex != null) {
+            game.batch.begin();
+            game.batch.draw(backgroundTex, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+            game.batch.end();
+        }
         
         drawMenu();
     }
@@ -513,14 +600,13 @@ public class MainMenuScreen implements Screen {
         }
         // Draw running character animation between the title and the buttons, scaled with a small bounce
         if (runAnimation != null) {
-            // apply a slowed menu time so the animation appears slower in the menu
+            // compute animation time (we pause advancing the runner's animation while in the restart delay)
+            if (!runPaused) runAnimTime += Gdx.graphics.getDeltaTime();
             float menuTime = runAnimTime * MENU_RUN_SPEED_FACTOR;
             TextureRegion frame = runAnimation.getKeyFrame(menuTime, true);
             float fw = frame.getRegionWidth();
             float fh = frame.getRegionHeight();
-            // fixed base Y (centerY + RUN_Y_OFFSET) and small sinusoidal bounce
-            float bounce = (float)Math.sin(menuTime * RUN_BOUNCE_SPEED) * RUN_BOUNCE_AMPLITUDE;
-
+            // determine draw size preserving existing sizing modes
             float drawW;
             float drawH;
             switch (RUN_SIZE_MODE) {
@@ -542,11 +628,61 @@ public class MainMenuScreen implements Screen {
                     drawH = fh * RUN_SCALE;
                     break;
             }
-            // Center horizontally, but position vertically using a fixed offset (bottom aligned)
-            float drawX = centerX - (drawW / 2f);
-            // place sprite bottom at centerY + RUN_Y_OFFSET plus bounce
-            float drawY = centerY + RUN_Y_OFFSET + bounce;
-            game.batch.draw(frame, drawX, drawY, drawW, drawH);
+
+            // prepare cat draw sizes using the same sizing mode but scaled down
+            float catDrawW = drawW * catScaleMultiplier;
+            float catDrawH = drawH * catScaleMultiplier;
+            float catGap = -15f; // smaller horizontal gap so cat runs closer to the runner
+
+            // initialize runX and catX on first draw so we know draw sizes
+            if (Float.isNaN(runX)) {
+                runX = -drawW - 5f; // start a little off-screen left
+                catX = runX - (catDrawW + catGap);
+                runPaused = false;
+                runPauseTimer = 0f;
+            }
+
+            // handle pause / restart timer
+            if (runPaused) {
+                runPauseTimer -= Gdx.graphics.getDeltaTime();
+                if (runPauseTimer <= 0f) {
+                    // restart from left
+                    runX = -drawW - 10f;
+                    catX = runX - (catDrawW + catGap);
+                    runPaused = false;
+                    // reset animation time so motion looks consistent
+                    runAnimTime = 0f;
+                }
+            } else {
+                // advance horizontal position
+                float delta = Gdx.graphics.getDeltaTime();
+                runX += runSpeed * delta;
+                // keep cat locked to a fixed offset behind the runX (so it follows exactly)
+                catX = runX - (catDrawW + catGap);
+
+                // bounce and vertical placement as before (bounce uses menuTime so it's synced to animation)
+                float bounce = (float)Math.sin(menuTime * RUN_BOUNCE_SPEED) * RUN_BOUNCE_AMPLITUDE;
+                float drawY = centerY + RUN_Y_OFFSET + bounce;
+
+                // draw cat behind runner if available
+                if (catAnimation != null) {
+                    TextureRegion cframe = catAnimation.getKeyFrame(menuTime, true);
+                    // use drawY (runner bottom) as the cat baseline so feet line up;
+                    // catYOffset remains available for fine tuning if required
+                    float catDrawY = drawY + catYOffset;
+                    game.batch.draw(cframe, catX, catDrawY, catDrawW, catDrawH);
+                }
+
+                // draw main runner
+                game.batch.draw(frame, runX, drawY, drawW, drawH);
+
+                // when the runner fully passes the right edge, start pause before restart
+                float rightEdge = Gdx.graphics.getWidth();
+                if (runX > rightEdge + 10f) {
+                    runPaused = true;
+                    runPauseTimer = runRestartDelay;
+                }
+            }
         }
         
         
@@ -632,7 +768,6 @@ public class MainMenuScreen implements Screen {
     }
     
     
-    
     @Override
     public void resize(int width, int height) {
         // Update SpriteBatch and ShapeRenderer projection so UI scales with window
@@ -656,5 +791,13 @@ public class MainMenuScreen implements Screen {
         if (titleFont != null) titleFont.dispose();
         if (buttonFont != null) buttonFont.dispose();
         if (runTexture != null) runTexture.dispose();
+        if (catTexture != null) {
+            catTexture.dispose();
+            catTexture = null;
+        }
+        if (backgroundTex != null) {
+            backgroundTex.dispose();
+            backgroundTex = null;
+        }
     }
 }
