@@ -1,0 +1,18 @@
+ui.png
+size: 1484, 995
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+pma: false
+arrow_back (1)
+  bounds: 0, 0, 102, 69
+arrow_back_hover
+  bounds: 102, 0, 102, 69
+level_bg (1)
+  bounds: 204, 0, 1280, 800
+level_button
+  bounds: 0, 800, 210, 100
+level_button_hover
+  bounds: 210, 800, 218, 108
+title_selectlevel (1)
+  bounds: 428, 800, 875, 195
