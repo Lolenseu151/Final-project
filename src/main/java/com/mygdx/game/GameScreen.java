@@ -16,6 +16,12 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.mygdx.game.Levels.Level;
+import com.mygdx.game.Levels.Level1;
+import com.mygdx.game.Levels.Level2;
+import com.mygdx.game.Levels.Level3;
+import com.mygdx.game.Levels.Level4;
+import com.mygdx.game.Levels.Level5;
 
 /**
  * GameScreen with Level progression (1-5), level select, and completion notifications
@@ -690,7 +696,14 @@ public class GameScreen implements Screen {
                                 try {
                                     if (levelManager != null) {
                                         if (LevelTutorial.TUTORIAL_DOC_POSITIONS != null && LevelTutorial.TUTORIAL_DOC_POSITIONS.length > 0) {
-                                            levelManager.addDocumentsAtPositions(LevelTutorial.TUTORIAL_DOC_POSITIONS);
+                                            try {
+                                                levelManager.addDocumentsAtPositions(LevelTutorial.TUTORIAL_DOC_POSITIONS);
+                                            } catch (NoSuchMethodError nsme) {
+                                                // fallback if LevelManager older version doesn't have the method
+                                                levelManager.addDocuments(LevelTutorial.TUTORIAL_DOC_POSITIONS.length);
+                                            } catch (Exception ex) {
+                                                try { levelManager.addDocuments(LevelTutorial.TUTORIAL_DOC_POSITIONS.length); } catch (Exception ignored2) {}
+                                            }
                                         } else {
                                             levelManager.addDocuments(4);
                                         }
