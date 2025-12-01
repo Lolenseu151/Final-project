@@ -58,6 +58,15 @@ public class MainMenuScreen implements Screen {
     private float catYOffset = -130f;            // align cat baseline with runner (adjust if needed)
     // NEW: main menu background texture
     private Texture backgroundTex;
+    // Custom Start button textures (base and hover)
+    private Texture startButtonTexture;
+    private Texture startButtonHoverTexture;
+    // Custom Tutorial button textures (base and hover)
+    private Texture tutorialButtonTexture;
+    private Texture tutorialButtonHoverTexture;
+    // Custom Settings button textures (base and hover)
+    private Texture settingsButtonTexture;
+    private Texture settingsButtonHoverTexture;
     // NEW: horizontal runner state — moves left->right, then resets after a delay
     private float runX = Float.NaN;            // current x position (initialised on first draw)
     private float runSpeed = 260f;             // pixels per second
@@ -88,6 +97,8 @@ public class MainMenuScreen implements Screen {
     private final float RUN_SCREEN_HEIGHT_RATIO = 0.23f; // reduced so character is smaller on the menu
     // Button font scale (1.0 = normal). Set to 0.9 as requested.
     private final float BUTTON_FONT_SCALE = 0.7f;
+    // Scale multiplier for the custom Start button image
+    private final float START_BUTTON_SCALE = 2;
     
     private enum MenuOption {
         START_GAME,
@@ -441,6 +452,108 @@ public class MainMenuScreen implements Screen {
             Gdx.app.error("MainMenuScreen", "Error loading MainMenuBG.png", e);
             backgroundTex = null;
         }
+
+        // Load custom Start button images (internal first, then absolute project assets)
+        try {
+            String startBase = "Start/3.png"; // base button image
+            String startHover = "Start/4.png"; // hover image
+            FileHandle sBase = null;
+            FileHandle sHover = null;
+            if (Gdx.files.internal(startBase).exists()) sBase = Gdx.files.internal(startBase);
+            else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/" + startBase;
+                if (Gdx.files.absolute(abs).exists()) sBase = Gdx.files.absolute(abs);
+            }
+            if (Gdx.files.internal(startHover).exists()) sHover = Gdx.files.internal(startHover);
+            else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/" + startHover;
+                if (Gdx.files.absolute(abs).exists()) sHover = Gdx.files.absolute(abs);
+            }
+            if (sBase != null) {
+                startButtonTexture = new Texture(sBase);
+                startButtonTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                Gdx.app.log("MainMenuScreen", "Loaded Start button image: " + startBase);
+            }
+            if (sHover != null) {
+                startButtonHoverTexture = new Texture(sHover);
+                startButtonHoverTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                Gdx.app.log("MainMenuScreen", "Loaded Start hover image: " + startHover);
+            }
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Failed to load Start button images", e);
+            startButtonTexture = null;
+            startButtonHoverTexture = null;
+        }
+
+        // Load custom Tutorial button images (Start/1.png base, Start/2.png hover)
+        try {
+            String tutBase = "Start/1.png";
+            String tutHover = "Start/2.png";
+            FileHandle tBase = null;
+            FileHandle tHover = null;
+            if (Gdx.files.internal(tutBase).exists()) tBase = Gdx.files.internal(tutBase);
+            else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/" + tutBase;
+                if (Gdx.files.absolute(abs).exists()) tBase = Gdx.files.absolute(abs);
+            }
+            if (Gdx.files.internal(tutHover).exists()) tHover = Gdx.files.internal(tutHover);
+            else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/" + tutHover;
+                if (Gdx.files.absolute(abs).exists()) tHover = Gdx.files.absolute(abs);
+            }
+            if (tBase != null) {
+                tutorialButtonTexture = new Texture(tBase);
+                tutorialButtonTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                Gdx.app.log("MainMenuScreen", "Loaded Tutorial button image: " + tutBase);
+            }
+            if (tHover != null) {
+                tutorialButtonHoverTexture = new Texture(tHover);
+                tutorialButtonHoverTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                Gdx.app.log("MainMenuScreen", "Loaded Tutorial hover image: " + tutHover);
+            }
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Failed to load Tutorial button images", e);
+            tutorialButtonTexture = null;
+            tutorialButtonHoverTexture = null;
+        }
+
+        // Load custom Settings button images (Start/5.png base, Start/6.png hover)
+        try {
+            String setBase = "Start/5.png";
+            String setHover = "Start/6.png";
+            FileHandle sB = null;
+            FileHandle sH = null;
+            if (Gdx.files.internal(setBase).exists()) sB = Gdx.files.internal(setBase);
+            else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/" + setBase;
+                if (Gdx.files.absolute(abs).exists()) sB = Gdx.files.absolute(abs);
+            }
+            if (Gdx.files.internal(setHover).exists()) sH = Gdx.files.internal(setHover);
+            else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/" + setHover;
+                if (Gdx.files.absolute(abs).exists()) sH = Gdx.files.absolute(abs);
+            }
+            if (sB != null) {
+                settingsButtonTexture = new Texture(sB);
+                settingsButtonTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                Gdx.app.log("MainMenuScreen", "Loaded Settings button image: " + setBase);
+            }
+            if (sH != null) {
+                settingsButtonHoverTexture = new Texture(sH);
+                settingsButtonHoverTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                Gdx.app.log("MainMenuScreen", "Loaded Settings hover image: " + setHover);
+            }
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Failed to load Settings button images", e);
+            settingsButtonTexture = null;
+            settingsButtonHoverTexture = null;
+        }
     }
 
     private void generateTitleFontWithSize(int size) {
@@ -761,6 +874,15 @@ public class MainMenuScreen implements Screen {
     }
     
     private void drawMenuOptionBox(float centerX, float y, MenuOption option) {
+        // If the START_GAME/TUTORIAL/SETTINGS option has a custom image, skip drawing the rounded background
+        // but keep ShapeRenderer state consistent by ending and re-beginning.
+        if ((option == MenuOption.START_GAME && startButtonTexture != null) ||
+            (option == MenuOption.TUTORIAL && tutorialButtonTexture != null) ||
+            (option == MenuOption.SETTINGS && settingsButtonTexture != null)) {
+            shapeRenderer.end();
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            return;
+        }
         // Visual selection is controlled by hover only
         boolean isSelected = (hoveredOption == option);
         float boxW = BOX_W;
@@ -801,6 +923,60 @@ public class MainMenuScreen implements Screen {
         boolean isSelected = (hoveredOption == option);
         // Choose the button font if available, otherwise fall back to the game's default font
         BitmapFont font = (buttonFont != null) ? buttonFont : game.font;
+        // If user provided Start button textures, draw them for the START_GAME option
+        if (option == MenuOption.START_GAME && startButtonTexture != null) {
+            Texture tex = isSelected && startButtonHoverTexture != null ? startButtonHoverTexture : startButtonTexture;
+            float texW = tex.getWidth();
+            float texH = tex.getHeight();
+            float pad = 6f;
+            float maxW = BOX_W - pad * 2f;
+            float maxH = BOX_H - pad * 2f;
+            float scale = Math.min(maxW / texW, maxH / texH);
+            if (scale <= 0) scale = 1f;
+            scale *= START_BUTTON_SCALE; // apply user-requested increase
+            float drawW = texW * scale;
+            float drawH = texH * scale;
+            float drawX = x - (drawW / 2f);
+            float drawY = y - (drawH / 2f);
+            game.batch.draw(tex, drawX, drawY, drawW, drawH);
+            return;
+        }
+        // Tutorial option uses Start/1.png (base) and Start/2.png (hover)
+        if (option == MenuOption.TUTORIAL && tutorialButtonTexture != null) {
+            Texture tex = isSelected && tutorialButtonHoverTexture != null ? tutorialButtonHoverTexture : tutorialButtonTexture;
+            float texW = tex.getWidth();
+            float texH = tex.getHeight();
+            float pad = 6f;
+            float maxW = BOX_W - pad * 2f;
+            float maxH = BOX_H - pad * 2f;
+            float scale = Math.min(maxW / texW, maxH / texH);
+            if (scale <= 0) scale = 1f;
+            scale *= START_BUTTON_SCALE;
+            float drawW = texW * scale;
+            float drawH = texH * scale;
+            float drawX = x - (drawW / 2f);
+            float drawY = y - (drawH / 2f);
+            game.batch.draw(tex, drawX, drawY, drawW, drawH);
+            return;
+        }
+        // Settings option uses Start/5.png (base) and Start/6.png (hover)
+        if (option == MenuOption.SETTINGS && settingsButtonTexture != null) {
+            Texture tex = isSelected && settingsButtonHoverTexture != null ? settingsButtonHoverTexture : settingsButtonTexture;
+            float texW = tex.getWidth();
+            float texH = tex.getHeight();
+            float pad = 6f;
+            float maxW = BOX_W - pad * 2f;
+            float maxH = BOX_H - pad * 2f;
+            float scale = Math.min(maxW / texW, maxH / texH);
+            if (scale <= 0) scale = 1f;
+            scale *= START_BUTTON_SCALE;
+            float drawW = texW * scale;
+            float drawH = texH * scale;
+            float drawX = x - (drawW / 2f);
+            float drawY = y - (drawH / 2f);
+            game.batch.draw(tex, drawX, drawY, drawW, drawH);
+            return;
+        }
         // apply requested scale while measuring and drawing, then restore previous scale
         float prevScaleX = font.getData().scaleX;
         float prevScaleY = font.getData().scaleY;
@@ -857,6 +1033,30 @@ public class MainMenuScreen implements Screen {
         if (backgroundTex != null) {
             backgroundTex.dispose();
             backgroundTex = null;
+        }
+        if (startButtonTexture != null) {
+            startButtonTexture.dispose();
+            startButtonTexture = null;
+        }
+        if (startButtonHoverTexture != null) {
+            startButtonHoverTexture.dispose();
+            startButtonHoverTexture = null;
+        }
+        if (tutorialButtonTexture != null) {
+            tutorialButtonTexture.dispose();
+            tutorialButtonTexture = null;
+        }
+        if (tutorialButtonHoverTexture != null) {
+            tutorialButtonHoverTexture.dispose();
+            tutorialButtonHoverTexture = null;
+        }
+        if (settingsButtonTexture != null) {
+            settingsButtonTexture.dispose();
+            settingsButtonTexture = null;
+        }
+        if (settingsButtonHoverTexture != null) {
+            settingsButtonHoverTexture.dispose();
+            settingsButtonHoverTexture = null;
         }
     }
 }
