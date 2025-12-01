@@ -375,7 +375,7 @@ public class LevelSelectScreen implements Screen {
     }
 
     private void createLevelButton(int levelNum, float x, float y) {
-        ImageButton ib;
+        final ImageButton ib;
         // If this is Level 1 and custom textures were loaded, use them
         if (levelNum == 1 && level1ButtonTexture != null) {
             TextureRegion norm = new TextureRegion(level1ButtonTexture);
