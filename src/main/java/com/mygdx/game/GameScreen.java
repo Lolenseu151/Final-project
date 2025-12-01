@@ -307,21 +307,25 @@ public class GameScreen implements Screen {
 
             // Load a smaller font for the document counter so it doesn't share the large uiFont scale
             try {
+                // Primary: use Pixeloid Sans for document count
                 docFont = new BitmapFont(
-                        Gdx.files.internal("assets/smallwhite/Small_white.fnt"),
-                        Gdx.files.internal("assets/smallwhite/Small_white.png"),
+                        Gdx.files.internal("assets/fonts/pixeloid/Sans.fnt"),
+                        Gdx.files.internal("assets/fonts/pixeloid/Sans.png"),
                         false);
-                docFont.getData().setScale(1.3f); // smaller than uiFont
+                // Make the document count a bit smaller than before
+                docFont.getData().setScale(.9f);
             } catch (Exception e) {
                 try {
+                    // Fallback to alternate relative path
                     docFont = new BitmapFont(
-                            Gdx.files.internal("smallwhite/Small_white.fnt"),
-                            Gdx.files.internal("smallwhite/Small_white.png"),
+                            Gdx.files.internal("fonts/pixeloid/Sans.fnt"),
+                            Gdx.files.internal("fonts/pixeloid/Sans.png"),
                             false);
-                    docFont.getData().setScale(1.05f);
+                    docFont.getData().setScale(.9f);
                 } catch (Exception ex) {
+                    // Last resort: default font
                     docFont = new BitmapFont();
-                    docFont.getData().setScale(0.9f);
+                    docFont.getData().setScale(0.95f);
                 }
             }
             
