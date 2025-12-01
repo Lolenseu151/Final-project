@@ -1239,6 +1239,7 @@ public class GameScreen implements Screen {
         } else {
             // Load next level
             currentLevel++;
+            initialized = false;  // Allow show() to reinitialize for the new level
             show();  // reinit for next level
             showLevelComplete = false;
             levelCompleteTimer = 0f;
