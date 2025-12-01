@@ -1,7 +1,9 @@
-package com.mygdx.game;
+package com.mygdx.game.Levels;
 
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.utils.Array;
+import com.mygdx.game.Fixer;
+import com.mygdx.game.LevelManager;
 import com.badlogic.gdx.math.Rectangle;
 
 /**

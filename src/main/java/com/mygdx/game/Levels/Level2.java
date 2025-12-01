@@ -1,13 +1,10 @@
-<<<<<<< HEAD:src/main/java/com/mygdx/game/Level2.java
-package com.mygdx.game;
- 
-=======
 package com.mygdx.game.Levels;
-
->>>>>>> a8b57d714e01d0a21525279a866756d003475ea7:src/main/java/com/mygdx/game/Levels/Level2.java
+ 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
+import com.mygdx.game.Fixer;
+import com.mygdx.game.LevelManager;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
@@ -105,7 +102,6 @@ public class Level2 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
     @Override public Array<Rectangle> getAuditorBeams() { return beams; }
 
-<<<<<<< HEAD:src/main/java/com/mygdx/game/Level2.java
     // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
     // If your collision code relies on getShredder(), update it to call getShredderCollisionRect().
     @Override public Rectangle getShredder() { return null; }
@@ -123,8 +119,6 @@ public class Level2 implements Level, BackgroundedLevel {
         }
     }
 
-=======
->>>>>>> a8b57d714e01d0a21525279a866756d003475ea7:src/main/java/com/mygdx/game/Levels/Level2.java
     @Override
     public String getBackgroundPath() {
         return "Level2Map.png";
