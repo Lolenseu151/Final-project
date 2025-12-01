@@ -1,4 +1,4 @@
-﻿package com.mygdx.game;
+package com.mygdx.game;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -476,7 +476,7 @@ public class MainMenuScreen implements Screen {
         // Draw menu background panels
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         
-        // Title background removed ΓÇö text will be drawn without a panel
+        // Title background removed — text will be drawn without a panel
         
         // Menu options backgrounds
         drawMenuOptionBox(centerX, centerY + MENU_TOP_OFFSET, MenuOption.START_GAME);
