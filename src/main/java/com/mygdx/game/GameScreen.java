@@ -64,10 +64,14 @@ public class GameScreen implements Screen {
     private Texture btnMenuTex;    // assets/buttons/12.png
     private boolean pauseOverlayVisible = false;
     private float docIconY;
+    // Scale for the overlay stat font (adjust to increase/decrease stat text size)
+    public static float STAT_FONT_SCALE = 2.0f;
     private float floatTimer = 0f;  // Track time for floating animation
     private BitmapFont uiFont;  // Font for timer and doc counter text
     private BitmapFont docFont; // Smaller font for document count only
     private BitmapFont timeFont; // Font specifically for the audit time
+    // Font used for overlay stat text (documents/time)
+    private BitmapFont  statFont;
         private com.badlogic.gdx.graphics.Texture overlayArrowTex;
         private com.badlogic.gdx.graphics.Texture overlayFullTex;
         private boolean overlayFullVisible = false;
@@ -105,6 +109,13 @@ public class GameScreen implements Screen {
         public static float TALKING_BUTTON_HEIGHT = 28f;
         // Vertical offset for the audit time relative to the document baseline (pixels)
         public static float AUDIT_TIME_VERTICAL_OFFSET = 14f;
+        // Vertical gap (pixels) between the two stat lines shown on overlays (documents / time)
+        public static float STAT_LINE_GAP = 140f;
+        // Horizontal spacing between Win overlay action buttons
+        public static float WIN_BUTTON_SPACING = 48f;
+        // Per-button scale multipliers for the Win overlay (allows shrinking specific buttons)
+        public static float WIN_RETRY_SCALE = 0.75f; // retry (btn 10)
+        public static float WIN_MENU_SCALE  = 0.75f; // menu  (btn 12)
         // If false, do not draw the filled background rectangle (transparent button)
         public static boolean TALKING_BUTTON_DRAW_BG = false;
         // If false, do not draw the button border/stroke (transparent border)
@@ -182,6 +193,28 @@ public class GameScreen implements Screen {
         
         if (level != null) {
             levelManager.loadLevel(level);
+            // Register for direct level-complete callbacks so the overlay can be shown
+            try {
+                levelManager.setLevelCompleteListener(new com.mygdx.game.LevelManager.LevelCompleteListener() {
+                    @Override
+                    public void onLevelComplete() {
+                        // Ensure overlay state is updated on the main thread
+                        try {
+                            Gdx.app.postRunnable(new Runnable() {
+                                @Override
+                                public void run() {
+                                    try {
+                                        levelComplete();
+                                    } catch (Exception ignored) {}
+                                }
+                            });
+                        } catch (Exception e) {
+                            // Fallback: call directly if postRunnable is unavailable
+                            try { levelComplete(); } catch (Exception ignored) {}
+                        }
+                    }
+                });
+            } catch (Exception ignored) {}
         }
 
         // Ensure raw keyboard input is delivered to Fixer (prevents UI stage or other processors
@@ -298,6 +331,29 @@ public class GameScreen implements Screen {
                 }
             }
 
+            // Load the Pexelify font for overlay stats (documents/time)
+            try {
+                statFont = new BitmapFont(
+                        Gdx.files.internal("assets/fonts/pixeloid/Sans.fnt"),
+                        Gdx.files.internal("assets/fonts/pixeloid/Sans.png"),
+                        false);
+                // Slightly larger so the stats pop on the overlay
+                statFont.getData().setScale(STAT_FONT_SCALE);
+                Gdx.app.log("GameScreen", "Loaded stat font: assets/fonts/Pexelify_Sans.fnt");
+            } catch (Exception e) {
+                try {
+                    statFont = new BitmapFont(
+                            Gdx.files.internal("assets/fonts/pixeloid/Sans.fnt"),
+                            Gdx.files.internal("assets/fonts/pixeloid/Sans.png"),
+                            false);
+                    statFont.getData().setScale(STAT_FONT_SCALE);
+                    Gdx.app.log("GameScreen", "Loaded stat font fallback: fonts/Pexelify_Sans.fnt");
+                } catch (Exception ex) {
+                    statFont = null;
+                    Gdx.app.log("GameScreen", "Stat font Pexelify not found; using default font");
+                }
+            }
+
             // Load a smaller font for the document counter so it doesn't share the large uiFont scale
             try {
                 // Primary: use Pixeloid Sans for document count
@@ -407,11 +463,33 @@ public class GameScreen implements Screen {
 
     @Override
     public void render(float delta) {
-        Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1);
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+        // If the win overlay is visible we prefer not to introduce an opaque
+        // background color that could show through transparent parts of the
+        // overlay. Clear to transparent when showing the level-complete overlay
+        // so the already-rendered game appears as the backdrop for the overlay.
+        if (showLevelComplete) {
+            Gdx.gl.glClearColor(0f, 0f, 0f, 0f);
+            Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+        } else {
+            Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1f);
+            Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+        }
 
         // If level complete, still render the game underneath and then draw overlay on top
         if (showLevelComplete) {
+            // Debug log to help diagnose blank/cleared-overlay issues
+            try {
+                String bgInfo = (levelManager != null) ? "hasLevelManager" : "noLevelManager";
+                boolean hasBg = false;
+                try {
+                    java.lang.reflect.Field f = LevelManager.class.getDeclaredField("backgroundTex");
+                    f.setAccessible(true);
+                    Object o = (levelManager != null) ? f.get(levelManager) : null;
+                    hasBg = (o != null);
+                } catch (Exception ignored) {}
+                Gdx.app.log("GameScreen", "showLevelComplete triggered - winOverlayVisible=" + winOverlayVisible + ", overlayWinTex=" + (overlayWinTex!=null) + ", levelBgPresent=" + hasBg + ", currentLevel=" + currentLevel);
+            } catch (Exception ignored) {}
+
             // Do not call update (freeze game state); just render current frame
             renderGame();
             // Draw the win overlay on top of the currently rendered game
@@ -427,6 +505,21 @@ public class GameScreen implements Screen {
         }
         
         renderGame();
+        // If LevelManager reports completion, ensure the win overlay is shown on top
+        try {
+            if (levelManager != null && levelManager.isLevelComplete()) {
+                if (!showLevelComplete) {
+                    Gdx.app.log("GameScreen", "Forcing showLevelComplete=true because LevelManager reports completion");
+                    // Only suppress the initiating click once when the overlay first appears
+                    overlaySuppressNextClick = true;
+                }
+                showLevelComplete = true;
+                winOverlayVisible = true;
+                // Draw the overlay immediately so it appears over the rendered game
+                drawWinOverlay();
+                return;
+            }
+        } catch (Exception ignored) {}
         
         // If game over, draw the GameOver overlay on top
         if (currentState == GameState.GAMEOVER) {
@@ -1199,38 +1292,119 @@ public class GameScreen implements Screen {
 
         float w = Gdx.graphics.getWidth();
         float h = Gdx.graphics.getHeight();
-
+        // Compute button and stat layout similar to win overlay but only two buttons: Restart and Menu
+        // Draw background (texture if available, otherwise dark quad)
         game.batch.begin();
         if (overlayGameOverTex != null) {
             game.batch.draw(overlayGameOverTex, 0, 0, w, h);
-        } else {
-            // fallback darkened background
-            game.batch.end();
+        }
+        game.batch.end();
+
+        if (overlayGameOverTex == null) {
             Gdx.gl.glEnable(GL20.GL_BLEND);
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
             shapeRenderer.setColor(0f, 0f, 0f, 0.6f);
             shapeRenderer.rect(0, 0, w, h);
             shapeRenderer.end();
             Gdx.gl.glDisable(GL20.GL_BLEND);
-            game.batch.begin();
         }
 
-        // Draw stats: documents collected and time at event
+        // Draw stats centered (documents / time) using same layout as win overlay
+        String docsStr = "     " + lastEventDocs + "/" + (levelManager != null ? levelManager.getTotalDocuments() : 0);
+        int minutes = (int) (lastEventTime / 60);
+        int seconds = (int) (lastEventTime % 60);
+        String timeStr = String.format("     %d:%02d", minutes, seconds);
+        com.badlogic.gdx.graphics.g2d.BitmapFont fontToUse = (statFont != null) ? statFont : game.font;
         try {
-            String docs = "Documents: " + lastEventDocs + "/" + (levelManager != null ? levelManager.getTotalDocuments() : 0);
-            int minutes = (int) (lastEventTime / 60);
-            int seconds = (int) (lastEventTime % 60);
-            String time = String.format("Time: %d:%02d", minutes, seconds);
-
-            com.badlogic.gdx.graphics.g2d.GlyphLayout g1 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, docs);
-            com.badlogic.gdx.graphics.g2d.GlyphLayout g2 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, time);
+            com.badlogic.gdx.graphics.g2d.GlyphLayout g1 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(fontToUse, docsStr);
+            com.badlogic.gdx.graphics.g2d.GlyphLayout g2 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(fontToUse, timeStr);
             float cx = w * 0.5f;
-            float baseY = h * 0.5f - 20f;
-            game.font.draw(game.batch, g1, cx - g1.width * 0.5f, baseY + 20f + g1.height);
-            game.font.draw(game.batch, g2, cx - g2.width * 0.5f, baseY - 10f + g2.height);
+            float baseY = h * 0.5f - 40f;
+            float gap = STAT_LINE_GAP;
+            float g1Y = baseY + gap * 0.5f + g1.height;
+            float g2Y = baseY - gap * 0.5f + g2.height;
+            game.batch.begin();
+            fontToUse.draw(game.batch, g1, cx - g1.width * 0.5f, g1Y);
+            fontToUse.draw(game.batch, g2, cx - g2.width * 0.5f, g2Y);
+            game.batch.end();
         } catch (Exception ignored) {}
 
+        // Buttons: Restart (left) and Menu (right)
+        float btnMaxW = 300f;
+        float btnMaxH = 112f;
+        float rW = btnMaxW, rH = btnMaxH, mW = btnMaxW, mH = btnMaxH;
+        if (btnRestartTex != null) {
+            float tw = btnRestartTex.getWidth();
+            float th = btnRestartTex.getHeight();
+            float scale = Math.min(btnMaxW / tw, btnMaxH / th);
+            rW = tw * scale; rH = th * scale;
+        }
+        if (btnMenuTex != null) {
+            float tw = btnMenuTex.getWidth();
+            float th = btnMenuTex.getHeight();
+            float scale = Math.min(btnMaxW / tw, btnMaxH / th);
+            mW = tw * scale; mH = th * scale;
+        }
+
+        rW *= WIN_RETRY_SCALE; rH *= WIN_RETRY_SCALE;
+        mW *= WIN_MENU_SCALE;  mH *= WIN_MENU_SCALE;
+
+        float spacing = WIN_BUTTON_SPACING;
+        float totalW = rW + spacing + mW;
+        float baseX = w * 0.5f - totalW * 0.5f;
+        float btnY = Math.max(h * 0.22f, 120f) - 60f;
+        float rx = baseX;
+        float mx = rx + rW + spacing;
+
+        float mouseX = Gdx.input.getX();
+        float mouseY = Gdx.graphics.getHeight() - Gdx.input.getY();
+
+        boolean hoverR = (mouseX >= rx && mouseX <= rx + rW && mouseY >= btnY && mouseY <= btnY + rH);
+        boolean hoverM = (mouseX >= mx && mouseX <= mx + mW && mouseY >= btnY && mouseY <= btnY + mH);
+
+        float hoverScale = 1.08f;
+
+        float drawRW = rW * (hoverR ? hoverScale : 1f);
+        float drawRH = rH * (hoverR ? hoverScale : 1f);
+        float drawRX = rx - (drawRW - rW) * 0.5f;
+
+        float drawMW = mW * (hoverM ? hoverScale : 1f);
+        float drawMH = mH * (hoverM ? hoverScale : 1f);
+        float drawMX = mx - (drawMW - mW) * 0.5f;
+
+        // Draw buttons
+        game.batch.begin();
+        if (btnRestartTex != null) game.batch.draw(btnRestartTex, drawRX, btnY - (drawRH - rH) * 0.5f, drawRW, drawRH);
+        if (btnMenuTex != null)    game.batch.draw(btnMenuTex, drawMX, btnY - (drawMH - mH) * 0.5f, drawMW, drawMH);
         game.batch.end();
+
+        // Handle clicks on the buttons AFTER ending the batch
+        try {
+            if (Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
+                float mxIn = Gdx.input.getX();
+                float myIn = Gdx.graphics.getHeight() - Gdx.input.getY();
+                if (overlaySuppressNextClick) {
+                    boolean insideRestart = (mxIn >= drawRX && mxIn <= drawRX + drawRW && myIn >= btnY - (drawRH - rH) * 0.5f && myIn <= btnY - (drawRH - rH) * 0.5f + drawRH);
+                    boolean insideMenu    = (mxIn >= drawMX && mxIn <= drawMX + drawMW && myIn >= btnY - (drawMH - mH) * 0.5f && myIn <= btnY - (drawMH - mH) * 0.5f + drawMH);
+                    overlaySuppressNextClick = false;
+                    if (!insideRestart && !insideMenu) {
+                        return;
+                    }
+                    // fall-through to process click
+                }
+
+                if (mxIn >= drawRX && mxIn <= drawRX + drawRW && myIn >= btnY - (drawRH - rH) * 0.5f && myIn <= btnY - (drawRH - rH) * 0.5f + drawRH) {
+                    // retry current level
+                    currentState = GameState.RUNNING;
+                    show();
+                    return;
+                }
+                if (mxIn >= drawMX && mxIn <= drawMX + drawMW && myIn >= btnY - (drawMH - mH) * 0.5f && myIn <= btnY - (drawMH - mH) * 0.5f + drawMH) {
+                    try { game.setScreen(new LevelSelectScreen(game)); dispose(); } catch (Exception ignored) {}
+                    return;
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     /**
@@ -1241,7 +1415,65 @@ public class GameScreen implements Screen {
 
         float w = Gdx.graphics.getWidth();
         float h = Gdx.graphics.getHeight();
+        // Precompute button geometry and hover state so drawing and clicks use
+        // identical coordinates. We'll draw first, end the batch, then handle
+        // input to avoid early returns leaving the SpriteBatch in a begun state.
+        float btnMaxW = 300f;
+        float btnMaxH = 112f;
+        float rW = btnMaxW, rH = btnMaxH, sW = btnMaxW, sH = btnMaxH, mW = btnMaxW, mH = btnMaxH;
+        if (btnRestartTex != null) {
+            float tw = btnRestartTex.getWidth();
+            float th = btnRestartTex.getHeight();
+            float scale = Math.min(btnMaxW / tw, btnMaxH / th);
+            rW = tw * scale; rH = th * scale;
+        }
+        if (btnResumeTex != null) {
+            float tw = btnResumeTex.getWidth();
+            float th = btnResumeTex.getHeight();
+            float scale = Math.min(btnMaxW / tw, btnMaxH / th);
+            sW = tw * scale; sH = th * scale;
+        }
+        if (btnMenuTex != null) {
+            float tw = btnMenuTex.getWidth();
+            float th = btnMenuTex.getHeight();
+            float scale = Math.min(btnMaxW / tw, btnMaxH / th);
+            mW = tw * scale; mH = th * scale;
+        }
 
+        rW *= WIN_RETRY_SCALE; rH *= WIN_RETRY_SCALE;
+        mW *= WIN_MENU_SCALE;  mH *= WIN_MENU_SCALE;
+
+        float spacing = WIN_BUTTON_SPACING;
+        float totalW = rW + spacing + sW + spacing + mW;
+        float baseX = w * 0.5f - totalW * 0.5f;
+        float btnY = Math.max(h * 0.22f, 120f) - 60f;
+
+        float rx = baseX;
+        float sx = rx + rW + spacing;
+        float mx = sx + sW + spacing;
+
+        float mouseX = Gdx.input.getX();
+        float mouseY = Gdx.graphics.getHeight() - Gdx.input.getY();
+
+        boolean hoverR = (mouseX >= rx && mouseX <= rx + rW && mouseY >= btnY && mouseY <= btnY + rH);
+        boolean hoverS = (mouseX >= sx && mouseX <= sx + sW && mouseY >= btnY && mouseY <= btnY + sH);
+        boolean hoverM = (mouseX >= mx && mouseX <= mx + mW && mouseY >= btnY && mouseY <= btnY + mH);
+
+        float hoverScale = 1.08f;
+
+        float drawRW = rW * (hoverR ? hoverScale : 1f);
+        float drawRH = rH * (hoverR ? hoverScale : 1f);
+        float drawRX = rx - (drawRW - rW) * 0.5f;
+
+        float drawSW = sW * (hoverS ? hoverScale : 1f);
+        float drawSH = sH * (hoverS ? hoverScale : 1f);
+        float drawSX = sx - (drawSW - sW) * 0.5f;
+
+        float drawMW = mW * (hoverM ? hoverScale : 1f);
+        float drawMH = mH * (hoverM ? hoverScale : 1f);
+        float drawMX = mx - (drawMW - mW) * 0.5f;
+
+        // Draw everything
         game.batch.begin();
         if (overlayWinTex != null) {
             game.batch.draw(overlayWinTex, 0, 0, w, h);
@@ -1249,17 +1481,21 @@ public class GameScreen implements Screen {
 
         // Draw stats: documents collected and time at win
         try {
-            String docs = "Documents: " + lastEventDocs + "/" + (levelManager != null ? levelManager.getTotalDocuments() : 0);
+            String docs = "     "+lastEventDocs + "/" + (levelManager != null ? levelManager.getTotalDocuments() : 0);
             int minutes = (int) (lastEventTime / 60);
             int seconds = (int) (lastEventTime % 60);
-            String time = String.format("Time: %d:%02d", minutes, seconds);
+            String time = String.format("     %d:%02d", minutes, seconds);
 
-            com.badlogic.gdx.graphics.g2d.GlyphLayout g1 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, docs);
-            com.badlogic.gdx.graphics.g2d.GlyphLayout g2 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, time);
+            com.badlogic.gdx.graphics.g2d.BitmapFont fontToUse = (statFont != null) ? statFont : game.font;
+            com.badlogic.gdx.graphics.g2d.GlyphLayout g1 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(fontToUse, docs);
+            com.badlogic.gdx.graphics.g2d.GlyphLayout g2 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(fontToUse, time);
             float cx = w * 0.5f;
-            float baseY = h * 0.5f - 20f;
-            game.font.draw(game.batch, g1, cx - g1.width * 0.5f, baseY + 20f + g1.height);
-            game.font.draw(game.batch, g2, cx - g2.width * 0.5f, baseY - 10f + g2.height);
+            float baseY = h * 0.5f - 40f;
+            float gap = STAT_LINE_GAP;
+            float g1Y = baseY + gap * 0.5f + g1.height;
+            float g2Y = baseY - gap * 0.5f + g2.height;
+            fontToUse.draw(game.batch, g1, cx - g1.width * 0.5f, g1Y);
+            fontToUse.draw(game.batch, g2, cx - g2.width * 0.5f, g2Y);
         } catch (Exception ignored) {}
 
         // Draw hint
@@ -1270,7 +1506,44 @@ public class GameScreen implements Screen {
             game.font.draw(game.batch, hintGL, hx, hy);
         } catch (Exception ignored) {}
 
+        if (btnRestartTex != null) game.batch.draw(btnRestartTex, drawRX, btnY - (drawRH - rH) * 0.5f, drawRW, drawRH);
+        if (btnResumeTex != null)  game.batch.draw(btnResumeTex, drawSX, btnY - (drawSH - sH) * 0.5f, drawSW, drawSH);
+        if (btnMenuTex != null)    game.batch.draw(btnMenuTex, drawMX, btnY - (drawMH - mH) * 0.5f, drawMW, drawMH);
+
         game.batch.end();
+
+        // Handle clicks on the buttons AFTER ending the batch so we never return
+        // while a begin() is active (which would break the SpriteBatch state).
+        try {
+            if (Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
+                float mxIn = Gdx.input.getX();
+                float myIn = Gdx.graphics.getHeight() - Gdx.input.getY();
+                // If suppression is active, allow the click to pass through if it
+                // actually targets one of the overlay buttons. Otherwise consume
+                // the click (it likely opened the overlay) and ignore it.
+                if (overlaySuppressNextClick) {
+                    boolean insideRestart = (mxIn >= drawRX && mxIn <= drawRX + drawRW && myIn >= btnY - (drawRH - rH) * 0.5f && myIn <= btnY - (drawRH - rH) * 0.5f + drawRH);
+                    boolean insideResume  = (mxIn >= drawSX && mxIn <= drawSX + drawSW && myIn >= btnY - (drawSH - sH) * 0.5f && myIn <= btnY - (drawSH - sH) * 0.5f + drawSH);
+                    boolean insideMenu    = (mxIn >= drawMX && mxIn <= drawMX + drawMW && myIn >= btnY - (drawMH - mH) * 0.5f && myIn <= btnY - (drawMH - mH) * 0.5f + drawMH);
+                    overlaySuppressNextClick = false;
+                    if (!insideRestart && !insideResume && !insideMenu) {
+                        // Click didn't target any button — consume it.
+                        return;
+                    }
+                    // Otherwise fall-through and handle the button click normally.
+                }
+
+                if (mxIn >= drawRX && mxIn <= drawRX + drawRW && myIn >= btnY - (drawRH - rH) * 0.5f && myIn <= btnY - (drawRH - rH) * 0.5f + drawRH) {
+                    winOverlayVisible = false; showLevelComplete = false; currentState = GameState.RUNNING; show(); return;
+                }
+                if (mxIn >= drawSX && mxIn <= drawSX + drawSW && myIn >= btnY - (drawSH - sH) * 0.5f && myIn <= btnY - (drawSH - sH) * 0.5f + drawSH) {
+                    winOverlayVisible = false; showLevelComplete = false; proceedToNextLevel(); return;
+                }
+                if (mxIn >= drawMX && mxIn <= drawMX + drawMW && myIn >= btnY - (drawMH - mH) * 0.5f && myIn <= btnY - (drawMH - mH) * 0.5f + drawMH) {
+                    try { game.setScreen(new LevelSelectScreen(game)); dispose(); } catch (Exception ignored) {} return;
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     private void levelComplete() {
@@ -1289,40 +1562,16 @@ public class GameScreen implements Screen {
     }
 
     private void renderLevelCompleteScreen() {
-        Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1);
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-        float w = Gdx.graphics.getWidth();
-        float h = Gdx.graphics.getHeight();
-
-        game.batch.begin();
-        if (overlayWinTex != null) {
-            game.batch.draw(overlayWinTex, 0, 0, w, h);
-        }
-
-        // Draw stats: documents collected and time at win
+        // Render the current game frame underneath, then draw the win overlay on top.
+        // This ensures the overlay appears over the level itself instead of on a cleared/new screen.
         try {
-            String docs = "Documents: " + lastEventDocs + "/" + (levelManager != null ? levelManager.getTotalDocuments() : 0);
-            int minutes = (int) (lastEventTime / 60);
-            int seconds = (int) (lastEventTime % 60);
-            String time = String.format("Time: %d:%02d", minutes, seconds);
-
-            com.badlogic.gdx.graphics.g2d.GlyphLayout g1 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, docs);
-            com.badlogic.gdx.graphics.g2d.GlyphLayout g2 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, time);
-            float cx = w * 0.5f;
-            float baseY = h * 0.5f - 20f;
-            game.font.draw(game.batch, g1, cx - g1.width * 0.5f, baseY + 20f + g1.height);
-            game.font.draw(game.batch, g2, cx - g2.width * 0.5f, baseY - 10f + g2.height);
+            renderGame();
+            if (winOverlayVisible) {
+                drawWinOverlay();
+            } else if (currentState == GameState.GAMEOVER) {
+                drawGameOverOverlay();
+            }
         } catch (Exception ignored) {}
-
-        // Draw a small hint telling the player how to continue
-        try {
-            com.badlogic.gdx.graphics.g2d.GlyphLayout hintGL = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, "Click or press Enter/Space to continue");
-            float hx = w * 0.5f - hintGL.width * 0.5f;
-            float hy = 48f + hintGL.height;
-            game.font.draw(game.batch, hintGL, hx, hy);
-        } catch (Exception ignored) {}
-
-        game.batch.end();
     }
 
     private void proceedToNextLevel() {
@@ -1410,5 +1659,6 @@ public class GameScreen implements Screen {
         if (btnMenuTex != null) btnMenuTex.dispose();
         if (docFont != null) docFont.dispose();
         if (timeFont != null) timeFont.dispose();
+        if (statFont != null) statFont.dispose();
     }
 }
