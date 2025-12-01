@@ -696,7 +696,6 @@ public class GameScreen implements Screen {
                                 try {
                                     if (levelManager != null) {
                                         if (LevelTutorial.TUTORIAL_DOC_POSITIONS != null && LevelTutorial.TUTORIAL_DOC_POSITIONS.length > 0) {
-<<<<<<< HEAD
                                             // Try to invoke addDocumentsAtPositions via reflection so this code
                                             // compiles even if LevelManager doesn't declare that method.
                                             try {
@@ -707,14 +706,6 @@ public class GameScreen implements Screen {
                                                 levelManager.addDocuments(LevelTutorial.TUTORIAL_DOC_POSITIONS.length);
                                             } catch (Exception ex) {
                                                 // Any other reflection error: fallback to adding documents
-=======
-                                            try {
-                                                levelManager.addDocumentsAtPositions(LevelTutorial.TUTORIAL_DOC_POSITIONS);
-                                            } catch (NoSuchMethodError nsme) {
-                                                // fallback if LevelManager older version doesn't have the method
-                                                levelManager.addDocuments(LevelTutorial.TUTORIAL_DOC_POSITIONS.length);
-                                            } catch (Exception ex) {
->>>>>>> a8b57d714e01d0a21525279a866756d003475ea7
                                                 try { levelManager.addDocuments(LevelTutorial.TUTORIAL_DOC_POSITIONS.length); } catch (Exception ignored2) {}
                                             }
                                         } else {
