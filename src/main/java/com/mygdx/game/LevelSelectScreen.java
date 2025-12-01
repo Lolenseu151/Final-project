@@ -99,8 +99,8 @@ public class LevelSelectScreen implements Screen {
     private static final float TITLE_TOP_MARGIN = 30f;
     private static final float LABEL_FONT_SCALE = 1.5f;
     private static final float BUTTON_VERTICAL_OFFSET = 70f;
-    private static final float LEVELS_FONT_SCALE = 6.0f;
-    private static final float LEVELS_TOP_MARGIN = 25f;
+    private static final float LEVELS_FONT_SCALE = 4.0f;
+    private static final float LEVELS_TOP_MARGIN = 180f;
     private static final float BACK_BUTTON_SCALE = 0.09f;
 
     public LevelSelectScreen(MyGdxGame game) {
