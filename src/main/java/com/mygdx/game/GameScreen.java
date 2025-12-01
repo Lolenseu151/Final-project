@@ -39,6 +39,38 @@ public class GameScreen implements Screen {
     private float remainingTime = 180f;
     private float accumulator = 0f;
     private boolean pKeyWasPressed = false;
+<<<<<<< HEAD
+=======
+
+    // --- pause/resume/freeze helpers ---
+    private boolean initialized = false;                 // prevent re-init on show() after minimize
+    private float savedX = Float.NaN, savedY = Float.NaN;
+    private float savedVelX = 0f, savedVelY = 0f;
+    private boolean wasPaused = false;                  // true when pause() was called (used to avoid unintended resets)
+    
+    // Floating UI icons (document counter)
+    // Documents spritesheet (2 cols x 3 rows = 6 frames)
+    private Texture documentSheetTexture;
+    private com.badlogic.gdx.graphics.g2d.TextureRegion[] documentFrames;
+    private float docAnimTime = 0f;
+    private float docFrameDuration = 0.12f; // seconds per frame
+    // Background image for the audit timer (centered above the timer)
+    private Texture auditBgTexture;
+    // Small clock icon to display beside the time (replaces the audit background)
+    private Texture clockTexture;
+    // Pause UI
+    private Texture pauseButtonTexture;
+    private Texture overlayPauseTex;
+    private Texture btnRestartTex; // assets/buttons/10.png
+    private Texture btnResumeTex;  // assets/buttons/11.png
+    private Texture btnMenuTex;    // assets/buttons/12.png
+    private boolean pauseOverlayVisible = false;
+    private float docIconY;
+    private float floatTimer = 0f;  // Track time for floating animation
+    private BitmapFont uiFont;  // Font for timer and doc counter text
+    private BitmapFont docFont; // Smaller font for document count only
+    private BitmapFont timeFont; // Font specifically for the audit time
+>>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
         private com.badlogic.gdx.graphics.Texture overlayArrowTex;
         private com.badlogic.gdx.graphics.Texture overlayFullTex;
         private boolean overlayFullVisible = false;
@@ -126,7 +158,12 @@ public class GameScreen implements Screen {
 
     @Override
     public void show() {
-        levelManager = new LevelManager();
+        // Avoid re-initializing everything if show() is called again (e.g. on minimize/restore)
+        if (initialized) {
+            Gdx.app.log("GameScreen", "show() called but already initialized - skipping re-init");
+            return;
+        }
+         levelManager = new LevelManager();
         
         // Load level based on currentLevel
         Level level = null;
@@ -156,14 +193,34 @@ public class GameScreen implements Screen {
         levelCompleteTimer = 0f;
         
         if (fixer != null) {
-            // For tutorial (level 0) spawn player slightly higher
-            if (currentLevel == 0) {
-                fixer.reset(100, 50);
+            // If we are here because the app was paused (minimized), avoid calling reset()
+            // which moves the player to a spawn. Instead restore the saved position if available.
+            if (wasPaused && !Float.isNaN(savedX)) {
+                try {
+                    fixer.getBounds().setPosition(savedX, savedY);
+                    com.badlogic.gdx.math.Vector2 vel = fixer.getVelocity();
+                    if (vel != null) vel.set(savedVelX, savedVelY);
+                } catch (Exception ignored) {}
             } else {
-                fixer.reset(100, 0);
+                // Normal initial spawn behavior (only when not resuming from pause)
+                if (currentLevel == 0) {
+                    fixer.reset(100, 50);
+                } else if (currentLevel == 3 && level instanceof Level3) {
+                    try {
+                        float[] sp = ((Level3)level).getEntranceSpawn();
+                        if (sp != null && sp.length >= 2) fixer.reset(sp[0], sp[1]);
+                        else fixer.reset(100, 0);
+                    } catch (Exception e) {
+                        fixer.reset(100, 0);
+                    }
+                } else {
+                    fixer.reset(100, 0);
+                }
             }
         }
         Gdx.app.log("GameScreen", "Loaded Level " + currentLevel);
+        // mark as initialized so future show() calls (from minimize/restore) do not reload/reset
+        initialized = true;
         
             // Load overlay arrow texture (optional)
             try {
@@ -211,6 +268,146 @@ public class GameScreen implements Screen {
                     Gdx.app.log("GameScreen", "Small_white font not found; using default font");
                 }
             }
+<<<<<<< HEAD
+=======
+            
+            // Load UI font for timer and document counter
+            try {
+                uiFont = new BitmapFont(
+                        Gdx.files.internal("assets/smallwhite/Small_white.fnt"),
+                        Gdx.files.internal("assets/smallwhite/Small_white.png"),
+                        false);
+                uiFont.getData().setScale(1.9f);  // Slightly larger for readability
+            } catch (Exception e) {
+                uiFont = new BitmapFont();  // Use default if loading fails
+            }
+
+            // Load a dedicated font for the audit time (prefer pixeloid Sans)
+            try {
+                timeFont = new BitmapFont(
+                        Gdx.files.internal("assets/fonts/pixeloid/Sans.fnt"),
+                        Gdx.files.internal("assets/fonts/pixeloid/Sans.png"),
+                        false);
+                Gdx.app.log("GameScreen", "Loaded time font: assets/fonts/pixeloid/Sans.fnt");
+            } catch (Exception e) {
+                try {
+                    timeFont = new BitmapFont(
+                            Gdx.files.internal("fonts/pixeloid/Sans.fnt"),
+                            Gdx.files.internal("fonts/pixeloid/Sans.png"),
+                            false);
+                    Gdx.app.log("GameScreen", "Loaded time font from fallback: fonts/pixeloid/Sans.fnt");
+                } catch (Exception ex) {
+                    timeFont = null; // will fall back to uiFont when drawing
+                    Gdx.app.log("GameScreen", "Time font not found; using uiFont as fallback");
+                }
+            }
+
+            // Load a smaller font for the document counter so it doesn't share the large uiFont scale
+            try {
+                // Primary: use Pixeloid Sans for document count
+                docFont = new BitmapFont(
+                        Gdx.files.internal("assets/fonts/pixeloid/Sans.fnt"),
+                        Gdx.files.internal("assets/fonts/pixeloid/Sans.png"),
+                        false);
+                // Make the document count a bit smaller than before
+                docFont.getData().setScale(.9f);
+            } catch (Exception e) {
+                try {
+                    // Fallback to alternate relative path
+                    docFont = new BitmapFont(
+                            Gdx.files.internal("fonts/pixeloid/Sans.fnt"),
+                            Gdx.files.internal("fonts/pixeloid/Sans.png"),
+                            false);
+                    docFont.getData().setScale(.9f);
+                } catch (Exception ex) {
+                    // Last resort: default font
+                    docFont = new BitmapFont();
+                    docFont.getData().setScale(0.95f);
+                }
+            }
+            
+            // (Removed) timer icon - we now render the audit timer centered using the audit background image
+            
+            try {
+                documentSheetTexture = new Texture(Gdx.files.internal("assets/documents.png"));
+                // Split into 2 columns x 3 rows
+                int cols = 2, rows = 3;
+                int frameW = documentSheetTexture.getWidth() / cols;
+                int frameH = documentSheetTexture.getHeight() / rows;
+                com.badlogic.gdx.graphics.g2d.TextureRegion[][] tmp = com.badlogic.gdx.graphics.g2d.TextureRegion.split(documentSheetTexture, frameW, frameH);
+                documentFrames = new com.badlogic.gdx.graphics.g2d.TextureRegion[cols * rows];
+                int idx = 0;
+                for (int r = 0; r < rows; r++) {
+                    for (int c = 0; c < cols; c++) {
+                        documentFrames[idx++] = tmp[r][c];
+                    }
+                }
+                Gdx.app.log("GameScreen", "Loaded document spritesheet (2x3): assets/documents.png");
+            } catch (Exception e) {
+                // fallback to other path
+                try {
+                    documentSheetTexture = new Texture(Gdx.files.internal("documents.png"));
+                    int cols = 2, rows = 3;
+                    int frameW = documentSheetTexture.getWidth() / cols;
+                    int frameH = documentSheetTexture.getHeight() / rows;
+                    com.badlogic.gdx.graphics.g2d.TextureRegion[][] tmp = com.badlogic.gdx.graphics.g2d.TextureRegion.split(documentSheetTexture, frameW, frameH);
+                    documentFrames = new com.badlogic.gdx.graphics.g2d.TextureRegion[cols * rows];
+                    int idx = 0;
+                    for (int r = 0; r < rows; r++) {
+                        for (int c = 0; c < cols; c++) {
+                            documentFrames[idx++] = tmp[r][c];
+                        }
+                    }
+                    Gdx.app.log("GameScreen", "Loaded document spritesheet fallback: documents.png");
+                } catch (Exception ex) {
+                    documentSheetTexture = null;
+                    documentFrames = null;
+                    Gdx.app.log("GameScreen", "Document spritesheet not found");
+                }
+            }
+
+            // Load audit timer background image (centered above the timer)
+            try {
+                auditBgTexture = new Texture(Gdx.files.internal("assets/buttons/Audit time.png"));
+                Gdx.app.log("GameScreen", "Loaded audit timer background: assets/buttons/Audit time.png");
+            } catch (Exception e) {
+                try {
+                    auditBgTexture = new Texture(Gdx.files.internal("buttons/Audit time.png"));
+                    Gdx.app.log("GameScreen", "Loaded audit timer background from fallback: buttons/Audit time.png");
+                } catch (Exception ex) {
+                    auditBgTexture = null;
+                    Gdx.app.log("GameScreen", "Audit timer background not found");
+                }
+            }
+
+            // Load pause button and overlay
+            try {
+                pauseButtonTexture = new Texture(Gdx.files.internal("assets/overlay/pause.png"));
+            } catch (Exception e) {
+                try { pauseButtonTexture = new Texture(Gdx.files.internal("overlay/pause.png")); } catch (Exception ex) { pauseButtonTexture = null; }
+            }
+            try {
+                overlayPauseTex = new Texture(Gdx.files.internal("assets/overlay/Pause overlay.png"));
+            } catch (Exception e) {
+                try { overlayPauseTex = new Texture(Gdx.files.internal("overlay/Pause overlay.png")); } catch (Exception ex) { overlayPauseTex = null; }
+            }
+
+            // Load pause overlay buttons: restart(10), resume(11), menu(12)
+            try { btnRestartTex = new Texture(Gdx.files.internal("assets/buttons/10.png")); } catch (Exception e) { try { btnRestartTex = new Texture(Gdx.files.internal("buttons/10.png")); } catch (Exception ex) { btnRestartTex = null; } }
+            try { btnResumeTex  = new Texture(Gdx.files.internal("assets/buttons/11.png")); } catch (Exception e) { try { btnResumeTex = new Texture(Gdx.files.internal("buttons/11.png")); } catch (Exception ex) { btnResumeTex = null; } }
+            try { btnMenuTex    = new Texture(Gdx.files.internal("assets/buttons/12.png")); } catch (Exception e) { try { btnMenuTex = new Texture(Gdx.files.internal("buttons/12.png")); } catch (Exception ex) { btnMenuTex = null; } }
+            
+            // Load small clock icon to display beside the time (replaces audit background)
+            try {
+                clockTexture = new Texture(Gdx.files.internal("assets/overlay/Clock.png"));
+            } catch (Exception e) {
+                try { clockTexture = new Texture(Gdx.files.internal("overlay/Clock.png")); } catch (Exception ex) { clockTexture = null; }
+            }
+
+                // Initialize icon positions (document counter remains top-right)
+                // Lower the document icon a bit to improve vertical placement
+                docIconY = Gdx.graphics.getHeight() - 120f;
+>>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
     }
 
     @Override
@@ -433,6 +630,137 @@ public class GameScreen implements Screen {
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
+<<<<<<< HEAD
+=======
+    /**
+     * Draws floating timer and document counter in the top-right corner
+     */
+    private void drawFloatingUI(com.badlogic.gdx.graphics.g2d.SpriteBatch batch) {
+        if (batch == null || uiFont == null) return;
+        
+        // No floating motion: keep icons and audit timer stationary
+        float floatOffset = 0f;
+        
+        int screenWidth = Gdx.graphics.getWidth();
+        int iconSize = 90;
+        int rightMargin = 20; // kept for potential future use
+        
+        // Timer (centered at top) and document counter (top-right)
+        float centerX = screenWidth * 0.5f;
+        float floatOffsetY = floatOffset;
+
+        // Draw audit timer background and centered timer text
+        int minutes = (int) (remainingTime / 60);
+        int seconds = (int) (remainingTime % 60);
+        String timeText = String.format("%d:%02d", minutes, seconds);
+        // Time drawing will be positioned beside the document icon/text on the left side.
+        // (Actual drawing occurs after document text is measured and drawn below.)
+
+        // Draw pause button at top-right with hover-scale effect
+        int pauseSize = 80;
+        float pauseX = screenWidth - pauseSize - 40f;
+        float pauseY = Gdx.graphics.getHeight() - pauseSize - 20f;
+
+        // Mouse coordinates (screen space, with Y flipped)
+        float mouseX = Gdx.input.getX();
+        float mouseY = Gdx.graphics.getHeight() - Gdx.input.getY();
+
+        // Hover detection on base rect
+        boolean pauseHover = (mouseX >= pauseX && mouseX <= pauseX + pauseSize && mouseY >= pauseY && mouseY <= pauseY + pauseSize);
+        float pauseHoverScale = 1.08f; // how much to scale on hover
+        float pauseScale = pauseHover ? pauseHoverScale : 1f;
+        float pauseDrawSize = pauseSize * pauseScale;
+        // Center scaled image around original center
+        float pauseDrawX = pauseX - (pauseDrawSize - pauseSize) * 0.5f;
+        float pauseDrawY = pauseY - (pauseDrawSize - pauseSize) * 0.5f;
+
+        if (pauseButtonTexture != null) {
+            batch.draw(pauseButtonTexture, pauseDrawX, pauseDrawY, pauseDrawSize, pauseDrawSize);
+        }
+
+        // Handle pause button click using drawn rect (so hitbox matches visual)
+        if (Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
+            float mx = mouseX;
+            float my = mouseY;
+            if (mx >= pauseDrawX && mx <= pauseDrawX + pauseDrawSize && my >= pauseDrawY && my <= pauseDrawY + pauseDrawSize) {
+                if (overlaySuppressNextClick) {
+                    overlaySuppressNextClick = false;
+                } else {
+                    pauseOverlayVisible = true;
+                    currentState = GameState.PAUSED;
+                    overlaySuppressNextClick = true; // ignore the click that opened overlay
+                }
+            }
+        }
+
+        // Document counter icon and text (left side)
+        float docX = 10f; // left margin
+        float currentDocY = docIconY + floatOffset;
+        // Keep the document count text at the original visual baseline (was at height-110f)
+        // so lowering the icon does not move the text.
+        float docTextBaselineY = Gdx.graphics.getHeight() - 100f + floatOffset;
+        // Display only the specific frame: column 2, row 3 (1-based).
+        // With a 2x3 sheet, this corresponds to zero-based r=2, c=1 -> index = 2*2 + 1 = 5.
+        if (documentFrames != null && documentFrames.length > 5) {
+            com.badlogic.gdx.graphics.g2d.TextureRegion frame = documentFrames[5];
+            batch.draw(frame, docX, currentDocY, iconSize, iconSize);
+        } else if (documentSheetTexture != null) {
+            // fallback: draw whole texture scaled
+            batch.draw(documentSheetTexture, docX, currentDocY, iconSize, iconSize);
+        }
+
+        // Document count text next to icon (to the right of the icon)
+        String docText = "";
+        com.badlogic.gdx.graphics.g2d.GlyphLayout glDoc = null;
+        if (levelManager != null) {
+            docText = levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments();
+            // Draw the text at the fixed baseline so it does not move when the icon Y changes
+            float textY = docTextBaselineY + iconSize / 2 + 8;
+            if (docFont != null) {
+                glDoc = new com.badlogic.gdx.graphics.g2d.GlyphLayout(docFont, docText);
+                docFont.draw(batch, docText, docX + iconSize + -5, textY);
+            } else {
+                glDoc = new com.badlogic.gdx.graphics.g2d.GlyphLayout(uiFont, docText);
+                uiFont.draw(batch, docText, docX + iconSize + -5, textY);
+            }
+        }
+
+        // Now draw the time (clock + text) to the right of the document text
+        // Position it with a small gap after the doc text
+        float gapAfterDoc = 12f;
+        float timeStartX = docX + iconSize + 4 + (glDoc != null ? glDoc.width : 0f) + gapAfterDoc;
+        // Time baseline should match the doc text baseline
+        float timeBaselineY = docTextBaselineY + iconSize / 2 + AUDIT_TIME_VERTICAL_OFFSET;
+
+        // Prepare time glyph (use dedicated timeFont if available, otherwise fall back to uiFont)
+        com.badlogic.gdx.graphics.g2d.BitmapFont timeFontToUse = (timeFont != null) ? timeFont : uiFont;
+        com.badlogic.gdx.graphics.g2d.GlyphLayout glTime = new com.badlogic.gdx.graphics.g2d.GlyphLayout(timeFontToUse, timeText);
+        float padding = 9f;
+        // Determine desired clock height to match font height (so the icon aligns with text)
+        float desiredClockH = glTime.height * 2.5f; // increase to ~60% larger than font height
+        float clockW = 0f, clockH = 0f;
+        if (clockTexture != null) {
+            float texW = clockTexture.getWidth();
+            float texH = clockTexture.getHeight();
+            float scale = desiredClockH / texH;
+            clockW = texW * scale;
+            clockH = desiredClockH;
+        }
+
+        // Draw clock icon (left) then time text
+        if (clockTexture != null && clockW > 0f) {
+            float clockX = timeStartX;
+            // Lower the clock icon slightly so it visually lines up better with the text
+            float clockYOffset = -8f; // negative moves the icon down
+            float clockY = timeBaselineY - clockH * 0.5f + clockYOffset;
+            batch.draw(clockTexture, clockX, clockY, clockW, clockH);
+        }
+
+        float timeTextX = timeStartX + (clockW > 0f ? clockW + padding : 0f);
+        timeFontToUse.draw(batch, glTime, timeTextX, timeBaselineY);
+    }
+
+>>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
     // If the full-screen overlay is active, draw it on top of everything and allow dismissal
     private void drawFullOverlayIfActive() {
         if (!overlayFullVisible) return;
@@ -770,6 +1098,7 @@ public class GameScreen implements Screen {
         } else {
             // Load next level
             currentLevel++;
+            initialized = false;  // Allow show() to reinitialize for the new level
             show();  // reinit for next level
             showLevelComplete = false;
             levelCompleteTimer = 0f;
@@ -821,8 +1150,50 @@ public class GameScreen implements Screen {
         }
     }
 
-    @Override public void pause() {}
-    @Override public void resume() {}
+    @Override public void pause() {
+        Gdx.app.log("GameScreen", "pause() called");
+        // store state so we can restore exact position/velocity on resume
+        if (fixer != null) {
+            Rectangle b = fixer.getBounds();
+            savedX = b.x;
+            savedY = b.y;
+            try {
+                com.badlogic.gdx.math.Vector2 vel = fixer.getVelocity();
+                if (vel != null) {
+                    savedVelX = vel.x;
+                    savedVelY = vel.y;
+                }
+            } catch (Exception ignored) {}
+        }
+        // stop updating while paused
+        currentState = GameState.PAUSED;
+        // clear accumulated time so resume won't apply a large physics step
+        accumulator = 0f;
+        // prevent input while paused
+        try { Gdx.input.setInputProcessor(null); } catch (Exception ignored) {}
+        // mark that we've been paused so show()/init logic knows to avoid resets
+        wasPaused = true;
+    }
+
+    @Override
+    public void resume() {
+        Gdx.app.log("GameScreen", "resume() called");
+        // avoid a huge dt on next frame
+        accumulator = 0f;
+        // restore exact saved position/velocity so character remains where the player left it
+        if (fixer != null && !Float.isNaN(savedX)) {
+            try {
+                fixer.getBounds().setPosition(savedX, savedY);
+                com.badlogic.gdx.math.Vector2 vel = fixer.getVelocity();
+                if (vel != null) vel.set(savedVelX, savedVelY);
+            } catch (Exception ignored) {}
+        }
+        currentState = GameState.RUNNING;
+        // we resume, clear the paused marker so future show() inits behave normally
+        wasPaused = false;
+         // leave input processor null so UI won't accidentally receive input on immediate restore.
+         // If you want input restored immediately, re-set the processor here.
+    }
     @Override public void hide() {}
 
     @Override
@@ -836,5 +1207,18 @@ public class GameScreen implements Screen {
         if (overlayFullTex != null) overlayFullTex.dispose();
         if (overlayTalkingTex != null) overlayTalkingTex.dispose();
         if (overlayTalkingFont != null) overlayTalkingFont.dispose();
+<<<<<<< HEAD
+=======
+        if (auditBgTexture != null) auditBgTexture.dispose();
+        if (clockTexture != null) clockTexture.dispose();
+        if (documentSheetTexture != null) documentSheetTexture.dispose();
+        if (pauseButtonTexture != null) pauseButtonTexture.dispose();
+        if (overlayPauseTex != null) overlayPauseTex.dispose();
+        if (btnRestartTex != null) btnRestartTex.dispose();
+        if (btnResumeTex != null) btnResumeTex.dispose();
+        if (btnMenuTex != null) btnMenuTex.dispose();
+        if (docFont != null) docFont.dispose();
+        if (timeFont != null) timeFont.dispose();
+>>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
     }
 }

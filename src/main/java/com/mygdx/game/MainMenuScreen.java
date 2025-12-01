@@ -47,6 +47,44 @@ public class MainMenuScreen implements Screen {
     private float runAnimTime = 0f;
     // number of columns in the loaded run sprite sheet (detected at runtime)
     private int runColumns = 8;
+<<<<<<< HEAD
+=======
+
+    // NEW: cat runner
+    private Texture catTexture;
+    private Animation<TextureRegion> catAnimation;
+    private int catColumns = 4;                // Catrun.png uses 4 frames
+    private float catScaleMultiplier = 1.75f;  // make cat smaller than main character (tweakable)
+    private float catX = Float.NaN;            // current x for cat (init on first draw)
+    private float catYOffset = -130f;            // align cat baseline with runner (adjust if needed)
+
+    // NEW: main menu background texture
+    private Texture backgroundTex;
+
+    // Optional custom button textures (Start/Tutorial/Settings) and hover variants
+    private Texture startButtonTexture;
+    private Texture startButtonHoverTexture;
+    private Texture tutorialButtonTexture;
+    private Texture tutorialButtonHoverTexture;
+    private Texture settingsButtonTexture;
+    private Texture settingsButtonHoverTexture;
+    // NEW: bird flying effect (top of screen)
+    private Texture birdTexture;
+    private Animation<TextureRegion> birdAnimation; // NEW: sprite-sheet animation
+    private float birdAnimTime = 0f;                // NEW: animation timer
+    private int birdColumns = 6;                    // try 6 columns by default (fallback handled at load)
+    private int birdFrameW = 0;                     // actual frame width after split
+    private int birdFrameH = 0;                     // actual frame height after split
+    private float birdX = Float.NaN;
+    private float birdY = Float.NaN;
+    private float birdSpeed = 45f; // pixels/sec
+    // NEW: horizontal runner state — moves left->right, then resets after a delay
+    private float runX = Float.NaN;            // current x position (initialised on first draw)
+    private float runSpeed = 260f;             // pixels per second
+    private float runRestartDelay = 0.9f;      // seconds to wait after reaching end before restarting
+    private float runPauseTimer = 0f;          // countdown when paused
+    private boolean runPaused = false;         // true while waiting to restart
+>>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
     // Menu animation tuning (slower motion for main menu)
     private final float MENU_RUN_FRAME_DURATION = 0.16f; // longer frame -> slower animation
     private final float MENU_RUN_SPEED_FACTOR = 0.6f;    // scale applied to delta when advancing time
@@ -303,6 +341,234 @@ public class MainMenuScreen implements Screen {
             runAnimation = null;
             runTexture = null;
         }
+<<<<<<< HEAD
+=======
+
+        // NEW: Load cat runner sprite sheet (Catrun.png)
+        try {
+            FileHandle catHandle = null;
+            String catName = "Catrun.png";
+            if (Gdx.files.internal(catName).exists()) {
+                catHandle = Gdx.files.internal(catName);
+            } else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/MainScreenfx/" + catName; 
+                if (Gdx.files.absolute(abs).exists()) catHandle = Gdx.files.absolute(abs);
+            }
+            if (catHandle != null) {
+                catTexture = new Texture(catHandle);
+                catTexture.setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
+                // try 4 columns (fallback to 3 if width doesn't divide evenly)
+                int ccols = catColumns;
+                int cfw = Math.max(1, catTexture.getWidth() / ccols);
+                int cfh = catTexture.getHeight();
+                TextureRegion[][] ctmp = TextureRegion.split(catTexture, cfw, cfh);
+                // if split produced fewer frames than expected, try fallback column count 3
+                if (ctmp.length == 0 || ctmp[0].length < ccols) {
+                    ccols = 3;
+                    cfw = Math.max(1, catTexture.getWidth() / ccols);
+                    ctmp = TextureRegion.split(catTexture, cfw, cfh);
+                }
+                int available = (ctmp.length > 0) ? Math.min(ctmp[0].length, ccols) : 0;
+                TextureRegion[] cframes = new TextureRegion[Math.max(1, available)];
+                for (int i = 0; i < cframes.length; i++) cframes[i] = ctmp[0][i];
+                catAnimation = new Animation<TextureRegion>(MENU_RUN_FRAME_DURATION, cframes);
+                Gdx.app.log("MainMenuScreen", "Loaded cat animation (Catrun.png) with " + cframes.length + " frames");
+            } else {
+                catAnimation = null;
+                catTexture = null;
+                Gdx.app.log("MainMenuScreen", "Catrun.png not found (internal or absolute).");
+            }
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Failed to load Catrun.png animation", e);
+            catAnimation = null;
+            catTexture = null;
+        }
+
+        // Load main menu background (try internal then project assets/)
+        try {
+            String bgName = "MainMenuBG.png";
+            if (Gdx.files.internal(bgName).exists()) {
+                backgroundTex = new Texture(Gdx.files.internal(bgName));
+                Gdx.app.log("MainMenuScreen", "Loaded background (internal): " + bgName);
+            } else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/MainScreenfx/" + bgName;
+                if (Gdx.files.absolute(abs).exists()) {
+                    backgroundTex = new Texture(Gdx.files.absolute(abs));
+                    Gdx.app.log("MainMenuScreen", "Loaded background (absolute): " + abs);
+                } else {
+                    backgroundTex = null;
+                    Gdx.app.log("MainMenuScreen", "MainMenuBG.png not found (internal or absolute).");
+                }
+            }
+            if (backgroundTex != null) backgroundTex.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Error loading MainMenuBG.png", e);
+            backgroundTex = null;
+        }
+
+        // NEW: load bird sprite (try even-split first using birdColumns; fallback to auto-detect)
+        try {
+            String birdName = "birdfly.png";
+            FileHandle birdHandle = null;
+            if (Gdx.files.internal(birdName).exists()) {
+                birdHandle = Gdx.files.internal(birdName);
+            } else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/MainScreenfx/" + birdName;
+                if (Gdx.files.absolute(abs).exists()) birdHandle = Gdx.files.absolute(abs);
+            }
+
+            if (birdHandle != null) {
+                com.badlogic.gdx.graphics.Pixmap pm = null;
+                try {
+                    pm = new com.badlogic.gdx.graphics.Pixmap(birdHandle);
+                    birdTexture = new Texture(birdHandle);
+                    birdTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+
+                    int texW = birdTexture.getWidth();
+                    int texH = birdTexture.getHeight();
+
+                    // Attempt #1: even split by birdColumns (user adjusted sheet spacing)
+                    boolean usedEvenSplit = false;
+                    if (birdColumns > 0 && texW >= birdColumns) {
+                        int frameW = texW / birdColumns;
+                        if (frameW > 0) {
+                            TextureRegion[][] tmp = TextureRegion.split(birdTexture, frameW, texH);
+                            if (tmp.length > 0 && tmp[0].length > 0) {
+                                // Validate that frames contain non-empty pixels (ensures correct split)
+                                int validFrames = 0;
+                                for (int i = 0; i < tmp[0].length; i++) {
+                                    TextureRegion r = tmp[0][i];
+                                    // sample region in Pixmap to check for opacity
+                                    int sx = r.getRegionX();
+                                    int sw = r.getRegionWidth();
+                                    int sy = r.getRegionY();
+                                    int sh = r.getRegionHeight();
+                                    boolean any = false;
+                                    outer:
+                                    for (int cx = Math.max(0, sx); cx < Math.min(texW, sx + sw); cx++) {
+                                        for (int cy = Math.max(0, sy); cy < Math.min(texH, sy + sh); cy++) {
+                                            int px = pm.getPixel(cx, cy);
+                                            int alpha = (px >>> 24) & 0xff;
+                                            if (alpha > 12) { any = true; break outer; }
+                                        }
+                                    }
+                                    if (any) validFrames++;
+                                }
+                                // if at least half the split frames contain content, accept even split
+                                if (validFrames >= Math.max(1, tmp[0].length / 2)) {
+                                    int available = tmp[0].length;
+                                    TextureRegion[] fa = new TextureRegion[available];
+                                    for (int i = 0; i < available; i++) fa[i] = tmp[0][i];
+                                    birdAnimation = new Animation<TextureRegion>(0.10f, fa);
+                                    int maxW = 0, maxH = 0;
+                                    for (TextureRegion r : fa) {
+                                        if (r.getRegionWidth() > maxW) maxW = r.getRegionWidth();
+                                        if (r.getRegionHeight() > maxH) maxH = r.getRegionHeight();
+                                    }
+                                    birdFrameW = maxW;
+                                    birdFrameH = maxH;
+                                    usedEvenSplit = true;
+                                    Gdx.app.log("MainMenuScreen", "birdfly: used even split frames=" + fa.length + " frameW=" + frameW);
+                                }
+                            }
+                        }
+                    }
+
+                    // Attempt #2: auto-detect columns if even-split wasn't suitable
+                    if (!usedEvenSplit) {
+                        // Per-column alpha count (ignore near-transparent pixels)
+                        int[] colCount = new int[texW];
+                        for (int x = 0; x < texW; x++) {
+                            int count = 0;
+                            for (int y = 0; y < texH; y++) {
+                                int px = pm.getPixel(x, y);
+                                int alpha = (px >>> 24) & 0xff;
+                                if (alpha > 8) count++;
+                            }
+                            colCount[x] = count;
+                        }
+
+                        int minOpaque = Math.max(1, (int)(texH * 0.01f)); // 1% of height
+                        boolean[] occupied = new boolean[texW];
+                        for (int x = 0; x < texW; x++) occupied[x] = colCount[x] >= minOpaque;
+
+                        // Use a small separator width because the sheet was adjusted for proper spacing
+                        int separatorWidth = 2;
+                        List<TextureRegion> frames = new ArrayList<>();
+                        int x = 0;
+                        while (x < texW) {
+                            while (x < texW && !occupied[x]) x++;
+                            if (x >= texW) break;
+                            int start = x;
+                            int lastOccupied = x;
+                            x++;
+                            while (x < texW) {
+                                if (occupied[x]) {
+                                    lastOccupied = x;
+                                    x++;
+                                    continue;
+                                }
+                                int run = 0;
+                                int j = x;
+                                while (j < texW && !occupied[j] && run <= separatorWidth) { run++; j++; }
+                                if (run > separatorWidth) break;
+                                x = j;
+                            }
+                            int end = lastOccupied;
+                            int fw = end - start + 1;
+                            if (fw > 0) {
+                                int top = texH - 1;
+                                int bottom = 0;
+                                boolean any = false;
+                                for (int cx = start; cx <= end; cx++) {
+                                    for (int yRow = 0; yRow < texH; yRow++) {
+                                        int px = pm.getPixel(cx, yRow);
+                                        int alpha = (px >>> 24) & 0xff;
+                                        if (alpha > 8) {
+                                            any = true;
+                                            if (yRow < top) top = yRow;
+                                            if (yRow > bottom) bottom = yRow;
+                                        }
+                                    }
+                                }
+                                if (!any) { top = 0; bottom = texH - 1; }
+                                int fh = bottom - top + 1;
+                                frames.add(new TextureRegion(birdTexture, start, top, fw, fh));
+                            }
+                            x = end + 1;
+                        }
+
+                        // Fallback to single full texture if detection failed
+                        if (frames.isEmpty()) frames.add(new TextureRegion(birdTexture));
+
+                        TextureRegion[] fa = frames.toArray(new TextureRegion[0]);
+                        birdAnimation = new Animation<TextureRegion>(0.10f, fa);
+                        int maxW = 0, maxH = 0;
+                        for (TextureRegion r : fa) {
+                            if (r.getRegionWidth() > maxW) maxW = r.getRegionWidth();
+                            if (r.getRegionHeight() > maxH) maxH = r.getRegionHeight();
+                        }
+                        birdFrameW = maxW;
+                        birdFrameH = maxH;
+                        Gdx.app.log("MainMenuScreen", "birdfly: auto-detected frames=" + fa.length + " maxW=" + birdFrameW + " maxH=" + birdFrameH);
+                    }
+                } finally {
+                    if (pm != null) pm.dispose();
+                }
+            } else {
+                birdTexture = null;
+                birdAnimation = null;
+                Gdx.app.log("MainMenuScreen", "birdfly.png not found (internal or absolute).");
+            }
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Failed to load birdfly.png", e);
+            birdTexture = null;
+            birdAnimation = null;
+        }
+>>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
     }
 
     private void generateTitleFontWithSize(int size) {
@@ -652,9 +918,51 @@ public class MainMenuScreen implements Screen {
     
     @Override
     public void dispose() {
+<<<<<<< HEAD
         shapeRenderer.dispose();
         if (titleFont != null) titleFont.dispose();
         if (buttonFont != null) buttonFont.dispose();
         if (runTexture != null) runTexture.dispose();
+=======
+        // Dispose renderers
+        if (shapeRenderer != null) {
+            try { shapeRenderer.dispose(); } catch (Exception ignored) {}
+        }
+        if (backgroundTex != null) {
+            backgroundTex.dispose();
+            backgroundTex = null;
+        }
+        // dispose bird texture if loaded
+        if (birdTexture != null) {
+            birdTexture.dispose();
+            birdTexture = null;
+        }
+        // clear animation reference
+        birdAnimation = null;
+        if (startButtonTexture != null) {
+            startButtonTexture.dispose();
+            startButtonTexture = null;
+        }
+        if (startButtonHoverTexture != null) {
+            startButtonHoverTexture.dispose();
+            startButtonHoverTexture = null;
+        }
+        if (tutorialButtonTexture != null) {
+            tutorialButtonTexture.dispose();
+            tutorialButtonTexture = null;
+        }
+        if (tutorialButtonHoverTexture != null) {
+            tutorialButtonHoverTexture.dispose();
+            tutorialButtonHoverTexture = null;
+        }
+        if (settingsButtonTexture != null) {
+            settingsButtonTexture.dispose();
+            settingsButtonTexture = null;
+        }
+        if (settingsButtonHoverTexture != null) {
+            settingsButtonHoverTexture.dispose();
+            settingsButtonHoverTexture = null;
+        }
+>>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
     }
 }

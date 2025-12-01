@@ -40,6 +40,16 @@ public class Fixer {
     private boolean isOnGround = false;
     private boolean canJump = true;
     private boolean isSlowed = false;
+    // when true, update() returns immediately so position/velocity do not change
+    private boolean frozen = false;
+
+    public void setFrozen(boolean frozen) {
+        this.frozen = frozen;
+    }
+
+    public boolean isFrozen() {
+        return frozen;
+    }
 
     public void setSlowed(boolean slowed) {
         this.isSlowed = slowed;
@@ -98,6 +108,17 @@ public class Fixer {
     private float dashTimer = 0f;
     private float dashCooldownTimer = 0f;  // cooldown before next dash allowed
     private float dashEffectTimer = 0f;  // visual effect timer for dash animation
+
+    // new: prevent external auto-resets while paused/minimized
+    private boolean allowAutoReset = true;
+
+    public void setAllowAutoReset(boolean allow) {
+        this.allowAutoReset = allow;
+    }
+
+    public boolean isAllowAutoReset() {
+        return allowAutoReset;
+    }
 
     public Fixer(float x, float y, Texture fixerTexture) {
         bounds = new Rectangle(x, y, WIDTH, HEIGHT);
@@ -179,6 +200,7 @@ public class Fixer {
     }
 
     public void update(float dt) {
+        if (frozen) return; // do not integrate physics while frozen (pause/minimize)
         // accumulate state time for animations
         stateTime += dt;
 
@@ -364,7 +386,13 @@ public class Fixer {
         if (dashEffectTex != null) { dashEffectTex.dispose(); dashEffectTex = null; }
     }
 
-    public void reset(float x, float y) { 
+    public void reset(float x, float y) {
+        // suppress automatic resets when disabled (paused/minimized)
+        if (!allowAutoReset) {
+            com.badlogic.gdx.Gdx.app.log("Fixer", "reset() suppressed while paused/minimized");
+            return;
+        }
+
         bounds.setPosition(x, y); 
         velocity.set(0, 0); 
         stateTime = 0f; 
