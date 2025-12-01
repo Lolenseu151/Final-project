@@ -20,7 +20,11 @@ public class Level3 implements Level, BackgroundedLevel {
     private final Array<Rectangle> obstacles = new Array<>();
     private final Array<Rectangle> beams = new Array<>();
     private Rectangle shredder;
-    // use explicit position/size for visual shredder (no rectangle placeholder)
+    // Shredder position/size matching Level3_1 for consistency
+    private float shredderX = 250f;
+    private float shredderY = 590f;
+    private float shredderW = 64f;
+    private float shredderH = 64f;
     
 
     // shared document total across Level3 + Level3_1
@@ -47,6 +51,9 @@ public class Level3 implements Level, BackgroundedLevel {
         
         float w = 1280;
         float h = 800;
+        
+        // Initialize shredder collision rectangle
+        shredder = new Rectangle(shredderX, shredderY, shredderW, shredderH);
         
         // === Invisible Platforms Matching Level1Map.png ===
         platforms.clear();
@@ -100,7 +107,7 @@ public class Level3 implements Level, BackgroundedLevel {
 
     // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
     // If your collision code relies on getShredder(), update it to call getShredderCollisionRect().
-    @Override public Rectangle getShredder() { return null; }
+    @Override public Rectangle getShredder() { return shredder; }
 
     // Use this for actual collision checks if needed.
     public Rectangle getShredderCollisionRect() { return shredder; }
@@ -165,10 +172,10 @@ public class Level3 implements Level, BackgroundedLevel {
         if (platforms.size > 0) {
             Rectangle p = platforms.get(0);          // first-floor platform
             float x = p.x + 40f;                    // tweak horizontal offset as needed
-            float y = p.y + p.height + 150f;               // player feet exactly on top
+            float y = p.y + p.height;               // player feet exactly on top of platform
             return new float[]{ x, y };
         }
-        return new float[]{ 200f, 0f };
+        return new float[]{ 200f, 100f };
     }
 
     public float[] getReturnSpawn() {
