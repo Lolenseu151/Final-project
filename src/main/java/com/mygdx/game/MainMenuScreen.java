@@ -29,6 +29,7 @@ public class MainMenuScreen implements Screen {
     private final ShapeRenderer shapeRenderer;
         private BitmapFont titleFont;
         private BitmapFont buttonFont;
+        private Texture titleFontTexture;
         // Fixed title font size for pixel look
         private String foundTtfPath = null;
         private final int titleFontSize = 64;
@@ -58,6 +59,7 @@ public class MainMenuScreen implements Screen {
 
     // NEW: main menu background texture
     private Texture backgroundTex;
+<<<<<<< HEAD
 
     // NEW: bird flying effect (top of screen)
     private Texture birdTexture;
@@ -69,6 +71,17 @@ public class MainMenuScreen implements Screen {
     private float birdX = Float.NaN;
     private float birdY = Float.NaN;
     private float birdSpeed = 45f; // pixels/sec
+=======
+    // Custom Start button textures (base and hover)
+    private Texture startButtonTexture;
+    private Texture startButtonHoverTexture;
+    // Custom Tutorial button textures (base and hover)
+    private Texture tutorialButtonTexture;
+    private Texture tutorialButtonHoverTexture;
+    // Custom Settings button textures (base and hover)
+    private Texture settingsButtonTexture;
+    private Texture settingsButtonHoverTexture;
+>>>>>>> 9a2cee8caeb1b058d9e1083da33e40da02b86302
     // NEW: horizontal runner state — moves left->right, then resets after a delay
     private float runX = Float.NaN;            // current x position (initialised on first draw)
     private float runSpeed = 260f;             // pixels per second
@@ -99,6 +112,8 @@ public class MainMenuScreen implements Screen {
     private final float RUN_SCREEN_HEIGHT_RATIO = 0.23f; // reduced so character is smaller on the menu
     // Button font scale (1.0 = normal). Set to 0.9 as requested.
     private final float BUTTON_FONT_SCALE = 0.7f;
+    // Scale multiplier for the custom Start button image
+    private final float START_BUTTON_SCALE = 2;
     
     private enum MenuOption {
         START_GAME,
@@ -137,6 +152,37 @@ public class MainMenuScreen implements Screen {
         }
 
         boolean generated = false;
+
+        // PRIORITY: try the Gradient Pexilify bitmap font first so it overrides other fallbacks
+        try {
+            String gradFnt = "fonts/Gradient/Gradient pexilify.fnt";
+            String gradPng = "fonts/Gradient/Gradient pexilify.png";
+            FileHandle fntHandle = null;
+            FileHandle pngHandle = null;
+            if (Gdx.files.internal(gradFnt).exists() && Gdx.files.internal(gradPng).exists()) {
+                fntHandle = Gdx.files.internal(gradFnt);
+                pngHandle = Gdx.files.internal(gradPng);
+            } else {
+                String userDir = System.getProperty("user.dir");
+                String absFnt = userDir + "/assets/" + gradFnt;
+                String absPng = userDir + "/assets/" + gradPng;
+                if (Gdx.files.absolute(absFnt).exists() && Gdx.files.absolute(absPng).exists()) {
+                    fntHandle = Gdx.files.absolute(absFnt);
+                    pngHandle = Gdx.files.absolute(absPng);
+                }
+            }
+            if (fntHandle != null && pngHandle != null) {
+                if (titleFont != null) { try { titleFont.dispose(); } catch (Exception ignored) {} titleFont = null; }
+                if (titleFontTexture != null) { try { titleFontTexture.dispose(); } catch (Exception ignored) {} titleFontTexture = null; }
+                titleFontTexture = new Texture(pngHandle);
+                titleFontTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                titleFont = new BitmapFont(fntHandle, new TextureRegion(titleFontTexture), false);
+                generated = true;
+                Gdx.app.log("MainMenuScreen", "Loaded Gradient title font (priority) from: " + gradFnt);
+            }
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Error while attempting to load Gradient title font (priority)", e);
+        }
         for (String ttfPath : candidates) {
             Gdx.app.log("MainMenuScreen", "Checking for TTF at: " + ttfPath);
             if (Gdx.files.internal(ttfPath).exists()) {
@@ -248,6 +294,32 @@ public class MainMenuScreen implements Screen {
             } catch (Exception e) {
                 Gdx.app.error("MainMenuScreen", "Exception loading explicit .fnt", e);
                 titleFont = null;
+            }
+        }
+        // Try loading the Gradient Pexilify font (.fnt + .png) from assets/fonts/Gradient
+        if (!generated) {
+            String gradFnt = "fonts/Gradient/Gradient pexilify.fnt";
+            String gradPng = "fonts/Gradient/Gradient pexilify.png";
+            try {
+                boolean fntExists = Gdx.files.internal(gradFnt).exists() || Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradFnt).exists();
+                boolean pngExists = Gdx.files.internal(gradPng).exists() || Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradPng).exists();
+                if (fntExists && pngExists) {
+                    // prefer internal if available
+                    FileHandle fntHandle = Gdx.files.internal(gradFnt).exists() ? Gdx.files.internal(gradFnt) : Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradFnt);
+                    FileHandle pngHandle = Gdx.files.internal(gradPng).exists() ? Gdx.files.internal(gradPng) : Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradPng);
+                    titleFontTexture = new Texture(pngHandle);
+                    titleFontTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                    titleFont = new BitmapFont(fntHandle, new TextureRegion(titleFontTexture), false);
+                    generated = true;
+                    Gdx.app.log("MainMenuScreen", "Loaded Gradient title font from: " + gradFnt);
+                } else {
+                    Gdx.app.log("MainMenuScreen", "Gradient font files not found at: " + gradFnt + " / " + gradPng);
+                }
+            } catch (Exception e) {
+                Gdx.app.error("MainMenuScreen", "Failed to load Gradient title font", e);
+                // ensure titleFont null so fallback continues
+                titleFont = null;
+                if (titleFontTexture != null) { try { titleFontTexture.dispose(); } catch (Exception ignored) {} titleFontTexture = null; }
             }
         }
         // If no pixel font was created, force the default font to nearest filtering so scaled text appears pixelated
@@ -396,6 +468,7 @@ public class MainMenuScreen implements Screen {
             backgroundTex = null;
         }
 
+<<<<<<< HEAD
         // NEW: load bird sprite (try even-split first using birdColumns; fallback to auto-detect)
         try {
             String birdName = "birdfly.png";
@@ -555,6 +628,108 @@ public class MainMenuScreen implements Screen {
             Gdx.app.error("MainMenuScreen", "Failed to load birdfly.png", e);
             birdTexture = null;
             birdAnimation = null;
+=======
+        // Load custom Start button images (internal first, then absolute project assets)
+        try {
+            String startBase = "Start/3.png"; // base button image
+            String startHover = "Start/4.png"; // hover image
+            FileHandle sBase = null;
+            FileHandle sHover = null;
+            if (Gdx.files.internal(startBase).exists()) sBase = Gdx.files.internal(startBase);
+            else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/" + startBase;
+                if (Gdx.files.absolute(abs).exists()) sBase = Gdx.files.absolute(abs);
+            }
+            if (Gdx.files.internal(startHover).exists()) sHover = Gdx.files.internal(startHover);
+            else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/" + startHover;
+                if (Gdx.files.absolute(abs).exists()) sHover = Gdx.files.absolute(abs);
+            }
+            if (sBase != null) {
+                startButtonTexture = new Texture(sBase);
+                startButtonTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                Gdx.app.log("MainMenuScreen", "Loaded Start button image: " + startBase);
+            }
+            if (sHover != null) {
+                startButtonHoverTexture = new Texture(sHover);
+                startButtonHoverTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                Gdx.app.log("MainMenuScreen", "Loaded Start hover image: " + startHover);
+            }
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Failed to load Start button images", e);
+            startButtonTexture = null;
+            startButtonHoverTexture = null;
+        }
+
+        // Load custom Tutorial button images (Start/1.png base, Start/2.png hover)
+        try {
+            String tutBase = "Start/1.png";
+            String tutHover = "Start/2.png";
+            FileHandle tBase = null;
+            FileHandle tHover = null;
+            if (Gdx.files.internal(tutBase).exists()) tBase = Gdx.files.internal(tutBase);
+            else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/" + tutBase;
+                if (Gdx.files.absolute(abs).exists()) tBase = Gdx.files.absolute(abs);
+            }
+            if (Gdx.files.internal(tutHover).exists()) tHover = Gdx.files.internal(tutHover);
+            else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/" + tutHover;
+                if (Gdx.files.absolute(abs).exists()) tHover = Gdx.files.absolute(abs);
+            }
+            if (tBase != null) {
+                tutorialButtonTexture = new Texture(tBase);
+                tutorialButtonTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                Gdx.app.log("MainMenuScreen", "Loaded Tutorial button image: " + tutBase);
+            }
+            if (tHover != null) {
+                tutorialButtonHoverTexture = new Texture(tHover);
+                tutorialButtonHoverTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                Gdx.app.log("MainMenuScreen", "Loaded Tutorial hover image: " + tutHover);
+            }
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Failed to load Tutorial button images", e);
+            tutorialButtonTexture = null;
+            tutorialButtonHoverTexture = null;
+        }
+
+        // Load custom Settings button images (Start/5.png base, Start/6.png hover)
+        try {
+            String setBase = "Start/5.png";
+            String setHover = "Start/6.png";
+            FileHandle sB = null;
+            FileHandle sH = null;
+            if (Gdx.files.internal(setBase).exists()) sB = Gdx.files.internal(setBase);
+            else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/" + setBase;
+                if (Gdx.files.absolute(abs).exists()) sB = Gdx.files.absolute(abs);
+            }
+            if (Gdx.files.internal(setHover).exists()) sH = Gdx.files.internal(setHover);
+            else {
+                String userDir = System.getProperty("user.dir");
+                String abs = userDir + "/assets/" + setHover;
+                if (Gdx.files.absolute(abs).exists()) sH = Gdx.files.absolute(abs);
+            }
+            if (sB != null) {
+                settingsButtonTexture = new Texture(sB);
+                settingsButtonTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                Gdx.app.log("MainMenuScreen", "Loaded Settings button image: " + setBase);
+            }
+            if (sH != null) {
+                settingsButtonHoverTexture = new Texture(sH);
+                settingsButtonHoverTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+                Gdx.app.log("MainMenuScreen", "Loaded Settings hover image: " + setHover);
+            }
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Failed to load Settings button images", e);
+            settingsButtonTexture = null;
+            settingsButtonHoverTexture = null;
+>>>>>>> 9a2cee8caeb1b058d9e1083da33e40da02b86302
         }
     }
 
@@ -936,6 +1111,15 @@ public class MainMenuScreen implements Screen {
     }
     
     private void drawMenuOptionBox(float centerX, float y, MenuOption option) {
+        // If the START_GAME/TUTORIAL/SETTINGS option has a custom image, skip drawing the rounded background
+        // but keep ShapeRenderer state consistent by ending and re-beginning.
+        if ((option == MenuOption.START_GAME && startButtonTexture != null) ||
+            (option == MenuOption.TUTORIAL && tutorialButtonTexture != null) ||
+            (option == MenuOption.SETTINGS && settingsButtonTexture != null)) {
+            shapeRenderer.end();
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            return;
+        }
         // Visual selection is controlled by hover only
         boolean isSelected = (hoveredOption == option);
         float boxW = BOX_W;
@@ -976,6 +1160,60 @@ public class MainMenuScreen implements Screen {
         boolean isSelected = (hoveredOption == option);
         // Choose the button font if available, otherwise fall back to the game's default font
         BitmapFont font = (buttonFont != null) ? buttonFont : game.font;
+        // If user provided Start button textures, draw them for the START_GAME option
+        if (option == MenuOption.START_GAME && startButtonTexture != null) {
+            Texture tex = isSelected && startButtonHoverTexture != null ? startButtonHoverTexture : startButtonTexture;
+            float texW = tex.getWidth();
+            float texH = tex.getHeight();
+            float pad = 6f;
+            float maxW = BOX_W - pad * 2f;
+            float maxH = BOX_H - pad * 2f;
+            float scale = Math.min(maxW / texW, maxH / texH);
+            if (scale <= 0) scale = 1f;
+            scale *= START_BUTTON_SCALE; // apply user-requested increase
+            float drawW = texW * scale;
+            float drawH = texH * scale;
+            float drawX = x - (drawW / 2f);
+            float drawY = y - (drawH / 2f);
+            game.batch.draw(tex, drawX, drawY, drawW, drawH);
+            return;
+        }
+        // Tutorial option uses Start/1.png (base) and Start/2.png (hover)
+        if (option == MenuOption.TUTORIAL && tutorialButtonTexture != null) {
+            Texture tex = isSelected && tutorialButtonHoverTexture != null ? tutorialButtonHoverTexture : tutorialButtonTexture;
+            float texW = tex.getWidth();
+            float texH = tex.getHeight();
+            float pad = 6f;
+            float maxW = BOX_W - pad * 2f;
+            float maxH = BOX_H - pad * 2f;
+            float scale = Math.min(maxW / texW, maxH / texH);
+            if (scale <= 0) scale = 1f;
+            scale *= START_BUTTON_SCALE;
+            float drawW = texW * scale;
+            float drawH = texH * scale;
+            float drawX = x - (drawW / 2f);
+            float drawY = y - (drawH / 2f);
+            game.batch.draw(tex, drawX, drawY, drawW, drawH);
+            return;
+        }
+        // Settings option uses Start/5.png (base) and Start/6.png (hover)
+        if (option == MenuOption.SETTINGS && settingsButtonTexture != null) {
+            Texture tex = isSelected && settingsButtonHoverTexture != null ? settingsButtonHoverTexture : settingsButtonTexture;
+            float texW = tex.getWidth();
+            float texH = tex.getHeight();
+            float pad = 6f;
+            float maxW = BOX_W - pad * 2f;
+            float maxH = BOX_H - pad * 2f;
+            float scale = Math.min(maxW / texW, maxH / texH);
+            if (scale <= 0) scale = 1f;
+            scale *= START_BUTTON_SCALE;
+            float drawW = texW * scale;
+            float drawH = texH * scale;
+            float drawX = x - (drawW / 2f);
+            float drawY = y - (drawH / 2f);
+            game.batch.draw(tex, drawX, drawY, drawW, drawH);
+            return;
+        }
         // apply requested scale while measuring and drawing, then restore previous scale
         float prevScaleX = font.getData().scaleX;
         float prevScaleY = font.getData().scaleY;
@@ -1022,6 +1260,7 @@ public class MainMenuScreen implements Screen {
     public void dispose() {
         shapeRenderer.dispose();
         if (titleFont != null) titleFont.dispose();
+        if (titleFontTexture != null) { titleFontTexture.dispose(); titleFontTexture = null; }
         if (buttonFont != null) buttonFont.dispose();
         if (runTexture != null) runTexture.dispose();
         if (catTexture != null) {
@@ -1032,6 +1271,7 @@ public class MainMenuScreen implements Screen {
             backgroundTex.dispose();
             backgroundTex = null;
         }
+<<<<<<< HEAD
         // dispose bird texture if loaded
         if (birdTexture != null) {
             birdTexture.dispose();
@@ -1039,5 +1279,31 @@ public class MainMenuScreen implements Screen {
         }
         // clear animation reference
         birdAnimation = null;
+=======
+        if (startButtonTexture != null) {
+            startButtonTexture.dispose();
+            startButtonTexture = null;
+        }
+        if (startButtonHoverTexture != null) {
+            startButtonHoverTexture.dispose();
+            startButtonHoverTexture = null;
+        }
+        if (tutorialButtonTexture != null) {
+            tutorialButtonTexture.dispose();
+            tutorialButtonTexture = null;
+        }
+        if (tutorialButtonHoverTexture != null) {
+            tutorialButtonHoverTexture.dispose();
+            tutorialButtonHoverTexture = null;
+        }
+        if (settingsButtonTexture != null) {
+            settingsButtonTexture.dispose();
+            settingsButtonTexture = null;
+        }
+        if (settingsButtonHoverTexture != null) {
+            settingsButtonHoverTexture.dispose();
+            settingsButtonHoverTexture = null;
+        }
+>>>>>>> 9a2cee8caeb1b058d9e1083da33e40da02b86302
     }
 }
