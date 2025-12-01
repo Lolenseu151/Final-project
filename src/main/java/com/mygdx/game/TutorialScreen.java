@@ -1144,7 +1144,7 @@ public class TutorialScreen implements Screen {
             if (Gdx.input.justTouched()) {
                 if (mx >= btnContinueX && mx <= btnContinueX + btnW && my >= btnContinueY && my <= btnContinueY + btnH) {
                     Gdx.app.log("UI", "Continue clicked");
-                    // TODO: go to next screen
+                   
                 }
                 if (mx >= btnSkipX && mx <= btnSkipX + btnW && my >= btnSkipY && my <= btnSkipY + btnH) {
                     Gdx.app.log("UI", "Skip clicked");
