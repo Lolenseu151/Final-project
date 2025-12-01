@@ -29,7 +29,6 @@ public class MainMenuScreen implements Screen {
     private final ShapeRenderer shapeRenderer;
         private BitmapFont titleFont;
         private BitmapFont buttonFont;
-        private Texture titleFontTexture;
         // Fixed title font size for pixel look
         private String foundTtfPath = null;
         private final int titleFontSize = 64;
@@ -56,29 +55,8 @@ public class MainMenuScreen implements Screen {
     private float catScaleMultiplier = 1.75f;  // make cat smaller than main character (tweakable)
     private float catX = Float.NaN;            // current x for cat (init on first draw)
     private float catYOffset = -130f;            // align cat baseline with runner (adjust if needed)
-
     // NEW: main menu background texture
     private Texture backgroundTex;
-
-    // NEW: bird flying effect (top of screen)
-    private Texture birdTexture;
-    private Animation<TextureRegion> birdAnimation; // NEW: sprite-sheet animation
-    private float birdAnimTime = 0f;                // NEW: animation timer
-    private int birdColumns = 6;                    // try 6 columns by default (fallback handled at load)
-    private int birdFrameW = 0;                     // actual frame width after split
-    private int birdFrameH = 0;                     // actual frame height after split
-    private float birdX = Float.NaN;
-    private float birdY = Float.NaN;
-    private float birdSpeed = 45f; // pixels/sec
-    // Custom Start button textures (base and hover)
-    private Texture startButtonTexture;
-    private Texture startButtonHoverTexture;
-    // Custom Tutorial button textures (base and hover)
-    private Texture tutorialButtonTexture;
-    private Texture tutorialButtonHoverTexture;
-    // Custom Settings button textures (base and hover)
-    private Texture settingsButtonTexture;
-    private Texture settingsButtonHoverTexture;
     // NEW: horizontal runner state — moves left->right, then resets after a delay
     private float runX = Float.NaN;            // current x position (initialised on first draw)
     private float runSpeed = 260f;             // pixels per second
@@ -109,8 +87,6 @@ public class MainMenuScreen implements Screen {
     private final float RUN_SCREEN_HEIGHT_RATIO = 0.23f; // reduced so character is smaller on the menu
     // Button font scale (1.0 = normal). Set to 0.9 as requested.
     private final float BUTTON_FONT_SCALE = 0.7f;
-    // Scale multiplier for the custom Start button image
-    private final float START_BUTTON_SCALE = 2;
     
     private enum MenuOption {
         START_GAME,
@@ -149,37 +125,6 @@ public class MainMenuScreen implements Screen {
         }
 
         boolean generated = false;
-
-        // PRIORITY: try the Gradient Pexilify bitmap font first so it overrides other fallbacks
-        try {
-            String gradFnt = "fonts/Gradient/Gradient pexilify.fnt";
-            String gradPng = "fonts/Gradient/Gradient pexilify.png";
-            FileHandle fntHandle = null;
-            FileHandle pngHandle = null;
-            if (Gdx.files.internal(gradFnt).exists() && Gdx.files.internal(gradPng).exists()) {
-                fntHandle = Gdx.files.internal(gradFnt);
-                pngHandle = Gdx.files.internal(gradPng);
-            } else {
-                String userDir = System.getProperty("user.dir");
-                String absFnt = userDir + "/assets/" + gradFnt;
-                String absPng = userDir + "/assets/" + gradPng;
-                if (Gdx.files.absolute(absFnt).exists() && Gdx.files.absolute(absPng).exists()) {
-                    fntHandle = Gdx.files.absolute(absFnt);
-                    pngHandle = Gdx.files.absolute(absPng);
-                }
-            }
-            if (fntHandle != null && pngHandle != null) {
-                if (titleFont != null) { try { titleFont.dispose(); } catch (Exception ignored) {} titleFont = null; }
-                if (titleFontTexture != null) { try { titleFontTexture.dispose(); } catch (Exception ignored) {} titleFontTexture = null; }
-                titleFontTexture = new Texture(pngHandle);
-                titleFontTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                titleFont = new BitmapFont(fntHandle, new TextureRegion(titleFontTexture), false);
-                generated = true;
-                Gdx.app.log("MainMenuScreen", "Loaded Gradient title font (priority) from: " + gradFnt);
-            }
-        } catch (Exception e) {
-            Gdx.app.error("MainMenuScreen", "Error while attempting to load Gradient title font (priority)", e);
-        }
         for (String ttfPath : candidates) {
             Gdx.app.log("MainMenuScreen", "Checking for TTF at: " + ttfPath);
             if (Gdx.files.internal(ttfPath).exists()) {
@@ -293,32 +238,6 @@ public class MainMenuScreen implements Screen {
                 titleFont = null;
             }
         }
-        // Try loading the Gradient Pexilify font (.fnt + .png) from assets/fonts/Gradient
-        if (!generated) {
-            String gradFnt = "fonts/Gradient/Gradient pexilify.fnt";
-            String gradPng = "fonts/Gradient/Gradient pexilify.png";
-            try {
-                boolean fntExists = Gdx.files.internal(gradFnt).exists() || Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradFnt).exists();
-                boolean pngExists = Gdx.files.internal(gradPng).exists() || Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradPng).exists();
-                if (fntExists && pngExists) {
-                    // prefer internal if available
-                    FileHandle fntHandle = Gdx.files.internal(gradFnt).exists() ? Gdx.files.internal(gradFnt) : Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradFnt);
-                    FileHandle pngHandle = Gdx.files.internal(gradPng).exists() ? Gdx.files.internal(gradPng) : Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradPng);
-                    titleFontTexture = new Texture(pngHandle);
-                    titleFontTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                    titleFont = new BitmapFont(fntHandle, new TextureRegion(titleFontTexture), false);
-                    generated = true;
-                    Gdx.app.log("MainMenuScreen", "Loaded Gradient title font from: " + gradFnt);
-                } else {
-                    Gdx.app.log("MainMenuScreen", "Gradient font files not found at: " + gradFnt + " / " + gradPng);
-                }
-            } catch (Exception e) {
-                Gdx.app.error("MainMenuScreen", "Failed to load Gradient title font", e);
-                // ensure titleFont null so fallback continues
-                titleFont = null;
-                if (titleFontTexture != null) { try { titleFontTexture.dispose(); } catch (Exception ignored) {} titleFontTexture = null; }
-            }
-        }
         // If no pixel font was created, force the default font to nearest filtering so scaled text appears pixelated
         if (titleFont == null && game.font != null && game.font.getRegion() != null && game.font.getRegion().getTexture() != null) {
             game.font.getRegion().getTexture().setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
@@ -377,7 +296,7 @@ public class MainMenuScreen implements Screen {
             } else {
                 // fallback to absolute path under project assets
                 String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/MainScreenfx/" + internalName;
+                String abs = userDir + "/assets/" + internalName;
                 if (Gdx.files.absolute(abs).exists()) runHandle = Gdx.files.absolute(abs);
             }
 
@@ -409,7 +328,7 @@ public class MainMenuScreen implements Screen {
                 catHandle = Gdx.files.internal(catName);
             } else {
                 String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/MainScreenfx/" + catName; 
+                String abs = userDir + "/assets/" + catName;
                 if (Gdx.files.absolute(abs).exists()) catHandle = Gdx.files.absolute(abs);
             }
             if (catHandle != null) {
@@ -450,7 +369,7 @@ public class MainMenuScreen implements Screen {
                 Gdx.app.log("MainMenuScreen", "Loaded background (internal): " + bgName);
             } else {
                 String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/MainScreenfx/" + bgName;
+                String abs = userDir + "/assets/" + bgName;
                 if (Gdx.files.absolute(abs).exists()) {
                     backgroundTex = new Texture(Gdx.files.absolute(abs));
                     Gdx.app.log("MainMenuScreen", "Loaded background (absolute): " + abs);
@@ -463,268 +382,6 @@ public class MainMenuScreen implements Screen {
         } catch (Exception e) {
             Gdx.app.error("MainMenuScreen", "Error loading MainMenuBG.png", e);
             backgroundTex = null;
-        }
-
-        // NEW: load bird sprite (try even-split first using birdColumns; fallback to auto-detect)
-        try {
-            String birdName = "birdfly.png";
-            FileHandle birdHandle = null;
-            if (Gdx.files.internal(birdName).exists()) {
-                birdHandle = Gdx.files.internal(birdName);
-            } else {
-                String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/MainScreenfx/" + birdName;
-                if (Gdx.files.absolute(abs).exists()) birdHandle = Gdx.files.absolute(abs);
-            }
-
-            if (birdHandle != null) {
-                com.badlogic.gdx.graphics.Pixmap pm = null;
-                try {
-                    pm = new com.badlogic.gdx.graphics.Pixmap(birdHandle);
-                    birdTexture = new Texture(birdHandle);
-                    birdTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-
-                    int texW = birdTexture.getWidth();
-                    int texH = birdTexture.getHeight();
-
-                    // Attempt #1: even split by birdColumns (user adjusted sheet spacing)
-                    boolean usedEvenSplit = false;
-                    if (birdColumns > 0 && texW >= birdColumns) {
-                        int frameW = texW / birdColumns;
-                        if (frameW > 0) {
-                            TextureRegion[][] tmp = TextureRegion.split(birdTexture, frameW, texH);
-                            if (tmp.length > 0 && tmp[0].length > 0) {
-                                // Validate that frames contain non-empty pixels (ensures correct split)
-                                int validFrames = 0;
-                                for (int i = 0; i < tmp[0].length; i++) {
-                                    TextureRegion r = tmp[0][i];
-                                    // sample region in Pixmap to check for opacity
-                                    int sx = r.getRegionX();
-                                    int sw = r.getRegionWidth();
-                                    int sy = r.getRegionY();
-                                    int sh = r.getRegionHeight();
-                                    boolean any = false;
-                                    outer:
-                                    for (int cx = Math.max(0, sx); cx < Math.min(texW, sx + sw); cx++) {
-                                        for (int cy = Math.max(0, sy); cy < Math.min(texH, sy + sh); cy++) {
-                                            int px = pm.getPixel(cx, cy);
-                                            int alpha = (px >>> 24) & 0xff;
-                                            if (alpha > 12) { any = true; break outer; }
-                                        }
-                                    }
-                                    if (any) validFrames++;
-                                }
-                                // if at least half the split frames contain content, accept even split
-                                if (validFrames >= Math.max(1, tmp[0].length / 2)) {
-                                    int available = tmp[0].length;
-                                    TextureRegion[] fa = new TextureRegion[available];
-                                    for (int i = 0; i < available; i++) fa[i] = tmp[0][i];
-                                    birdAnimation = new Animation<TextureRegion>(0.10f, fa);
-                                    int maxW = 0, maxH = 0;
-                                    for (TextureRegion r : fa) {
-                                        if (r.getRegionWidth() > maxW) maxW = r.getRegionWidth();
-                                        if (r.getRegionHeight() > maxH) maxH = r.getRegionHeight();
-                                    }
-                                    birdFrameW = maxW;
-                                    birdFrameH = maxH;
-                                    usedEvenSplit = true;
-                                    Gdx.app.log("MainMenuScreen", "birdfly: used even split frames=" + fa.length + " frameW=" + frameW);
-                                }
-                            }
-                        }
-                    }
-
-                    // Attempt #2: auto-detect columns if even-split wasn't suitable
-                    if (!usedEvenSplit) {
-                        // Per-column alpha count (ignore near-transparent pixels)
-                        int[] colCount = new int[texW];
-                        for (int x = 0; x < texW; x++) {
-                            int count = 0;
-                            for (int y = 0; y < texH; y++) {
-                                int px = pm.getPixel(x, y);
-                                int alpha = (px >>> 24) & 0xff;
-                                if (alpha > 8) count++;
-                            }
-                            colCount[x] = count;
-                        }
-
-                        int minOpaque = Math.max(1, (int)(texH * 0.01f)); // 1% of height
-                        boolean[] occupied = new boolean[texW];
-                        for (int x = 0; x < texW; x++) occupied[x] = colCount[x] >= minOpaque;
-
-                        // Use a small separator width because the sheet was adjusted for proper spacing
-                        int separatorWidth = 2;
-                        List<TextureRegion> frames = new ArrayList<>();
-                        int x = 0;
-                        while (x < texW) {
-                            while (x < texW && !occupied[x]) x++;
-                            if (x >= texW) break;
-                            int start = x;
-                            int lastOccupied = x;
-                            x++;
-                            while (x < texW) {
-                                if (occupied[x]) {
-                                    lastOccupied = x;
-                                    x++;
-                                    continue;
-                                }
-                                int run = 0;
-                                int j = x;
-                                while (j < texW && !occupied[j] && run <= separatorWidth) { run++; j++; }
-                                if (run > separatorWidth) break;
-                                x = j;
-                            }
-                            int end = lastOccupied;
-                            int fw = end - start + 1;
-                            if (fw > 0) {
-                                int top = texH - 1;
-                                int bottom = 0;
-                                boolean any = false;
-                                for (int cx = start; cx <= end; cx++) {
-                                    for (int yRow = 0; yRow < texH; yRow++) {
-                                        int px = pm.getPixel(cx, yRow);
-                                        int alpha = (px >>> 24) & 0xff;
-                                        if (alpha > 8) {
-                                            any = true;
-                                            if (yRow < top) top = yRow;
-                                            if (yRow > bottom) bottom = yRow;
-                                        }
-                                    }
-                                }
-                                if (!any) { top = 0; bottom = texH - 1; }
-                                int fh = bottom - top + 1;
-                                frames.add(new TextureRegion(birdTexture, start, top, fw, fh));
-                            }
-                            x = end + 1;
-                        }
-
-                        // Fallback to single full texture if detection failed
-                        if (frames.isEmpty()) frames.add(new TextureRegion(birdTexture));
-
-                        TextureRegion[] fa = frames.toArray(new TextureRegion[0]);
-                        birdAnimation = new Animation<TextureRegion>(0.10f, fa);
-                        int maxW = 0, maxH = 0;
-                        for (TextureRegion r : fa) {
-                            if (r.getRegionWidth() > maxW) maxW = r.getRegionWidth();
-                            if (r.getRegionHeight() > maxH) maxH = r.getRegionHeight();
-                        }
-                        birdFrameW = maxW;
-                        birdFrameH = maxH;
-                        Gdx.app.log("MainMenuScreen", "birdfly: auto-detected frames=" + fa.length + " maxW=" + birdFrameW + " maxH=" + birdFrameH);
-                    }
-                } finally {
-                    if (pm != null) pm.dispose();
-                }
-            } else {
-                birdTexture = null;
-                birdAnimation = null;
-                Gdx.app.log("MainMenuScreen", "birdfly.png not found (internal or absolute).");
-            }
-        } catch (Exception e) {
-            Gdx.app.error("MainMenuScreen", "Failed to load birdfly.png", e);
-            birdTexture = null;
-            birdAnimation = null;
-        }
-        // Load custom Start button images (internal first, then absolute project assets)
-        try {
-            String startBase = "Start/3.png"; // base button image
-            String startHover = "Start/4.png"; // hover image
-            FileHandle sBase = null;
-            FileHandle sHover = null;
-            if (Gdx.files.internal(startBase).exists()) sBase = Gdx.files.internal(startBase);
-            else {
-                String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + startBase;
-                if (Gdx.files.absolute(abs).exists()) sBase = Gdx.files.absolute(abs);
-            }
-            if (Gdx.files.internal(startHover).exists()) sHover = Gdx.files.internal(startHover);
-            else {
-                String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + startHover;
-                if (Gdx.files.absolute(abs).exists()) sHover = Gdx.files.absolute(abs);
-            }
-            if (sBase != null) {
-                startButtonTexture = new Texture(sBase);
-                startButtonTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                Gdx.app.log("MainMenuScreen", "Loaded Start button image: " + startBase);
-            }
-            if (sHover != null) {
-                startButtonHoverTexture = new Texture(sHover);
-                startButtonHoverTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                Gdx.app.log("MainMenuScreen", "Loaded Start hover image: " + startHover);
-            }
-        } catch (Exception e) {
-            Gdx.app.error("MainMenuScreen", "Failed to load Start button images", e);
-            startButtonTexture = null;
-            startButtonHoverTexture = null;
-        }
-
-        // Load custom Tutorial button images (Start/1.png base, Start/2.png hover)
-        try {
-            String tutBase = "Start/1.png";
-            String tutHover = "Start/2.png";
-            FileHandle tBase = null;
-            FileHandle tHover = null;
-            if (Gdx.files.internal(tutBase).exists()) tBase = Gdx.files.internal(tutBase);
-            else {
-                String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + tutBase;
-                if (Gdx.files.absolute(abs).exists()) tBase = Gdx.files.absolute(abs);
-            }
-            if (Gdx.files.internal(tutHover).exists()) tHover = Gdx.files.internal(tutHover);
-            else {
-                String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + tutHover;
-                if (Gdx.files.absolute(abs).exists()) tHover = Gdx.files.absolute(abs);
-            }
-            if (tBase != null) {
-                tutorialButtonTexture = new Texture(tBase);
-                tutorialButtonTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                Gdx.app.log("MainMenuScreen", "Loaded Tutorial button image: " + tutBase);
-            }
-            if (tHover != null) {
-                tutorialButtonHoverTexture = new Texture(tHover);
-                tutorialButtonHoverTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                Gdx.app.log("MainMenuScreen", "Loaded Tutorial hover image: " + tutHover);
-            }
-        } catch (Exception e) {
-            Gdx.app.error("MainMenuScreen", "Failed to load Tutorial button images", e);
-            tutorialButtonTexture = null;
-            tutorialButtonHoverTexture = null;
-        }
-
-        // Load custom Settings button images (Start/5.png base, Start/6.png hover)
-        try {
-            String setBase = "Start/5.png";
-            String setHover = "Start/6.png";
-            FileHandle sB = null;
-            FileHandle sH = null;
-            if (Gdx.files.internal(setBase).exists()) sB = Gdx.files.internal(setBase);
-            else {
-                String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + setBase;
-                if (Gdx.files.absolute(abs).exists()) sB = Gdx.files.absolute(abs);
-            }
-            if (Gdx.files.internal(setHover).exists()) sH = Gdx.files.internal(setHover);
-            else {
-                String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + setHover;
-                if (Gdx.files.absolute(abs).exists()) sH = Gdx.files.absolute(abs);
-            }
-            if (sB != null) {
-                settingsButtonTexture = new Texture(sB);
-                settingsButtonTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                Gdx.app.log("MainMenuScreen", "Loaded Settings button image: " + setBase);
-            }
-            if (sH != null) {
-                settingsButtonHoverTexture = new Texture(sH);
-                settingsButtonHoverTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                Gdx.app.log("MainMenuScreen", "Loaded Settings hover image: " + setHover);
-            }
-        } catch (Exception e) {
-            Gdx.app.error("MainMenuScreen", "Failed to load Settings button images", e);
-            settingsButtonTexture = null;
-            settingsButtonHoverTexture = null;
         }
     }
 
@@ -1028,66 +685,6 @@ public class MainMenuScreen implements Screen {
             }
         }
         
-        // NEW: bird drawing (top of screen) — use current frame's bounds and explicit target width
-        if (birdTexture != null) {
-            float dt = Gdx.graphics.getDeltaTime();
-            if (birdAnimation != null) birdAnimTime += dt;
-
-            TextureRegion currentFrame = (birdAnimation != null) ? birdAnimation.getKeyFrame(birdAnimTime, true) : null;
-
-            // get frame dims (per-frame preferred)
-            float frameW = currentFrame != null ? currentFrame.getRegionWidth() : (birdFrameW > 0 ? birdFrameW : birdTexture.getWidth());
-            float frameH = currentFrame != null ? currentFrame.getRegionHeight() : (birdFrameH > 0 ? birdFrameH : birdTexture.getHeight());
-
-            // Option B: explicit on-screen width (preferred to avoid including neighbor frames)
-            float targetWidthPx = 16f; // tweak to make bird larger/smaller on screen
-            float drawScale = targetWidthPx / frameW;
-
-            // Bounds derived from the user-drawn line:
-            // leftPercent/rightPercent define the horizontal start/end of the line (0..1 of screen width).
-            // lineYPercent defines vertical position (0..1 from bottom); increase to move bird closer to top.
-            final float leftPercent = 0.06f;   // start of line ~6% from left
-            final float rightPercent = 0.88f;  // end of line ~88% from left
-            final float lineYPercent = 0.92f;  // line vertical position (0 = bottom, 1 = top)
-
-            float screenW = Gdx.graphics.getWidth();
-            float screenH = Gdx.graphics.getHeight();
-            float leftBound = screenW * leftPercent;
-            float rightBound = screenW * rightPercent;
-            // Fallback to full width if computed bounds are invalid
-            if (rightBound <= leftBound + 2f) {
-                leftBound = -frameW * drawScale - 10f;
-                rightBound = screenW + 10f;
-            }
-
-            // vertical placement aligned with line
-            float lineY = screenH * lineYPercent;
-            // offset slightly down so bird sits on/under the line depending on sprite origin
-            float verticalOffset = -4f; // tweak if needed
-            float targetBirdY = lineY + verticalOffset - (frameH * drawScale * 0.5f);
-
-            if (Float.isNaN(birdX) || Float.isNaN(birdY)) {
-                birdX = leftBound - frameW * drawScale - 10f; // start just left of the line start
-                birdY = targetBirdY;
-            }
-
-            birdX += birdSpeed * dt;
-            // wrap when passing rightBound
-            if (birdX > rightBound + 10f) {
-                birdX = leftBound - frameW * drawScale - 10f;
-                // keep vertical in case window resized
-                birdY = targetBirdY;
-            }
-
-            try {
-                if (currentFrame != null) {
-                    game.batch.draw(currentFrame, birdX, birdY, frameW * drawScale, frameH * drawScale);
-                } else {
-                    game.batch.draw(birdTexture, birdX, birdY, frameW * drawScale, frameH * drawScale);
-                }
-            } catch (Exception ignored) {}
-        }
-        
         
         // Menu options (center text inside each rounded box)
         drawMenuOptionText("START GAME", centerX, centerY + MENU_TOP_OFFSET, MenuOption.START_GAME);
@@ -1106,15 +703,6 @@ public class MainMenuScreen implements Screen {
     }
     
     private void drawMenuOptionBox(float centerX, float y, MenuOption option) {
-        // If the START_GAME/TUTORIAL/SETTINGS option has a custom image, skip drawing the rounded background
-        // but keep ShapeRenderer state consistent by ending and re-beginning.
-        if ((option == MenuOption.START_GAME && startButtonTexture != null) ||
-            (option == MenuOption.TUTORIAL && tutorialButtonTexture != null) ||
-            (option == MenuOption.SETTINGS && settingsButtonTexture != null)) {
-            shapeRenderer.end();
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-            return;
-        }
         // Visual selection is controlled by hover only
         boolean isSelected = (hoveredOption == option);
         float boxW = BOX_W;
@@ -1155,60 +743,6 @@ public class MainMenuScreen implements Screen {
         boolean isSelected = (hoveredOption == option);
         // Choose the button font if available, otherwise fall back to the game's default font
         BitmapFont font = (buttonFont != null) ? buttonFont : game.font;
-        // If user provided Start button textures, draw them for the START_GAME option
-        if (option == MenuOption.START_GAME && startButtonTexture != null) {
-            Texture tex = isSelected && startButtonHoverTexture != null ? startButtonHoverTexture : startButtonTexture;
-            float texW = tex.getWidth();
-            float texH = tex.getHeight();
-            float pad = 6f;
-            float maxW = BOX_W - pad * 2f;
-            float maxH = BOX_H - pad * 2f;
-            float scale = Math.min(maxW / texW, maxH / texH);
-            if (scale <= 0) scale = 1f;
-            scale *= START_BUTTON_SCALE; // apply user-requested increase
-            float drawW = texW * scale;
-            float drawH = texH * scale;
-            float drawX = x - (drawW / 2f);
-            float drawY = y - (drawH / 2f);
-            game.batch.draw(tex, drawX, drawY, drawW, drawH);
-            return;
-        }
-        // Tutorial option uses Start/1.png (base) and Start/2.png (hover)
-        if (option == MenuOption.TUTORIAL && tutorialButtonTexture != null) {
-            Texture tex = isSelected && tutorialButtonHoverTexture != null ? tutorialButtonHoverTexture : tutorialButtonTexture;
-            float texW = tex.getWidth();
-            float texH = tex.getHeight();
-            float pad = 6f;
-            float maxW = BOX_W - pad * 2f;
-            float maxH = BOX_H - pad * 2f;
-            float scale = Math.min(maxW / texW, maxH / texH);
-            if (scale <= 0) scale = 1f;
-            scale *= START_BUTTON_SCALE;
-            float drawW = texW * scale;
-            float drawH = texH * scale;
-            float drawX = x - (drawW / 2f);
-            float drawY = y - (drawH / 2f);
-            game.batch.draw(tex, drawX, drawY, drawW, drawH);
-            return;
-        }
-        // Settings option uses Start/5.png (base) and Start/6.png (hover)
-        if (option == MenuOption.SETTINGS && settingsButtonTexture != null) {
-            Texture tex = isSelected && settingsButtonHoverTexture != null ? settingsButtonHoverTexture : settingsButtonTexture;
-            float texW = tex.getWidth();
-            float texH = tex.getHeight();
-            float pad = 6f;
-            float maxW = BOX_W - pad * 2f;
-            float maxH = BOX_H - pad * 2f;
-            float scale = Math.min(maxW / texW, maxH / texH);
-            if (scale <= 0) scale = 1f;
-            scale *= START_BUTTON_SCALE;
-            float drawW = texW * scale;
-            float drawH = texH * scale;
-            float drawX = x - (drawW / 2f);
-            float drawY = y - (drawH / 2f);
-            game.batch.draw(tex, drawX, drawY, drawW, drawH);
-            return;
-        }
         // apply requested scale while measuring and drawing, then restore previous scale
         float prevScaleX = font.getData().scaleX;
         float prevScaleY = font.getData().scaleY;
@@ -1253,34 +787,17 @@ public class MainMenuScreen implements Screen {
     
     @Override
     public void dispose() {
-        // Dispose renderers
-        if (shapeRenderer != null) {
-            try { shapeRenderer.dispose(); } catch (Exception ignored) {}
+        shapeRenderer.dispose();
+        if (titleFont != null) titleFont.dispose();
+        if (buttonFont != null) buttonFont.dispose();
+        if (runTexture != null) runTexture.dispose();
+        if (catTexture != null) {
+            catTexture.dispose();
+            catTexture = null;
         }
-
-        // Fonts
-        if (titleFont != null) { try { titleFont.dispose(); } catch (Exception ignored) {} titleFont = null; }
-        if (titleFontTexture != null) { try { titleFontTexture.dispose(); } catch (Exception ignored) {} titleFontTexture = null; }
-        if (buttonFont != null) { try { buttonFont.dispose(); } catch (Exception ignored) {} buttonFont = null; }
-
-        // Textures and animations
-        if (runTexture != null) { try { runTexture.dispose(); } catch (Exception ignored) {} runTexture = null; }
-        runAnimation = null;
-
-        if (catTexture != null) { try { catTexture.dispose(); } catch (Exception ignored) {} catTexture = null; }
-        catAnimation = null;
-
-        if (backgroundTex != null) { try { backgroundTex.dispose(); } catch (Exception ignored) {} backgroundTex = null; }
-
-        if (birdTexture != null) { try { birdTexture.dispose(); } catch (Exception ignored) {} birdTexture = null; }
-        birdAnimation = null;
-
-        if (startButtonTexture != null) { try { startButtonTexture.dispose(); } catch (Exception ignored) {} startButtonTexture = null; }
-        if (startButtonHoverTexture != null) { try { startButtonHoverTexture.dispose(); } catch (Exception ignored) {} startButtonHoverTexture = null; }
-        if (tutorialButtonTexture != null) { try { tutorialButtonTexture.dispose(); } catch (Exception ignored) {} tutorialButtonTexture = null; }
-        if (tutorialButtonHoverTexture != null) { try { tutorialButtonHoverTexture.dispose(); } catch (Exception ignored) {} tutorialButtonHoverTexture = null; }
-        if (settingsButtonTexture != null) { try { settingsButtonTexture.dispose(); } catch (Exception ignored) {} settingsButtonTexture = null; }
-        if (settingsButtonHoverTexture != null) { try { settingsButtonHoverTexture.dispose(); } catch (Exception ignored) {} settingsButtonHoverTexture = null; }
+        if (backgroundTex != null) {
+            backgroundTex.dispose();
+            backgroundTex = null;
+        }
     }
-
 }
