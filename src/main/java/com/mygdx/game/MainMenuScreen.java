@@ -59,7 +59,6 @@ public class MainMenuScreen implements Screen {
 
     // NEW: main menu background texture
     private Texture backgroundTex;
-<<<<<<< HEAD
 
     // NEW: bird flying effect (top of screen)
     private Texture birdTexture;
@@ -71,7 +70,6 @@ public class MainMenuScreen implements Screen {
     private float birdX = Float.NaN;
     private float birdY = Float.NaN;
     private float birdSpeed = 45f; // pixels/sec
-=======
     // Custom Start button textures (base and hover)
     private Texture startButtonTexture;
     private Texture startButtonHoverTexture;
@@ -81,7 +79,6 @@ public class MainMenuScreen implements Screen {
     // Custom Settings button textures (base and hover)
     private Texture settingsButtonTexture;
     private Texture settingsButtonHoverTexture;
->>>>>>> 9a2cee8caeb1b058d9e1083da33e40da02b86302
     // NEW: horizontal runner state — moves left->right, then resets after a delay
     private float runX = Float.NaN;            // current x position (initialised on first draw)
     private float runSpeed = 260f;             // pixels per second
@@ -468,7 +465,6 @@ public class MainMenuScreen implements Screen {
             backgroundTex = null;
         }
 
-<<<<<<< HEAD
         // NEW: load bird sprite (try even-split first using birdColumns; fallback to auto-detect)
         try {
             String birdName = "birdfly.png";
@@ -628,7 +624,7 @@ public class MainMenuScreen implements Screen {
             Gdx.app.error("MainMenuScreen", "Failed to load birdfly.png", e);
             birdTexture = null;
             birdAnimation = null;
-=======
+        }
         // Load custom Start button images (internal first, then absolute project assets)
         try {
             String startBase = "Start/3.png"; // base button image
@@ -729,7 +725,6 @@ public class MainMenuScreen implements Screen {
             Gdx.app.error("MainMenuScreen", "Failed to load Settings button images", e);
             settingsButtonTexture = null;
             settingsButtonHoverTexture = null;
->>>>>>> 9a2cee8caeb1b058d9e1083da33e40da02b86302
         }
     }
 
@@ -1258,52 +1253,34 @@ public class MainMenuScreen implements Screen {
     
     @Override
     public void dispose() {
-        shapeRenderer.dispose();
-        if (titleFont != null) titleFont.dispose();
-        if (titleFontTexture != null) { titleFontTexture.dispose(); titleFontTexture = null; }
-        if (buttonFont != null) buttonFont.dispose();
-        if (runTexture != null) runTexture.dispose();
-        if (catTexture != null) {
-            catTexture.dispose();
-            catTexture = null;
+        // Dispose renderers
+        if (shapeRenderer != null) {
+            try { shapeRenderer.dispose(); } catch (Exception ignored) {}
         }
-        if (backgroundTex != null) {
-            backgroundTex.dispose();
-            backgroundTex = null;
-        }
-<<<<<<< HEAD
-        // dispose bird texture if loaded
-        if (birdTexture != null) {
-            birdTexture.dispose();
-            birdTexture = null;
-        }
-        // clear animation reference
+
+        // Fonts
+        if (titleFont != null) { try { titleFont.dispose(); } catch (Exception ignored) {} titleFont = null; }
+        if (titleFontTexture != null) { try { titleFontTexture.dispose(); } catch (Exception ignored) {} titleFontTexture = null; }
+        if (buttonFont != null) { try { buttonFont.dispose(); } catch (Exception ignored) {} buttonFont = null; }
+
+        // Textures and animations
+        if (runTexture != null) { try { runTexture.dispose(); } catch (Exception ignored) {} runTexture = null; }
+        runAnimation = null;
+
+        if (catTexture != null) { try { catTexture.dispose(); } catch (Exception ignored) {} catTexture = null; }
+        catAnimation = null;
+
+        if (backgroundTex != null) { try { backgroundTex.dispose(); } catch (Exception ignored) {} backgroundTex = null; }
+
+        if (birdTexture != null) { try { birdTexture.dispose(); } catch (Exception ignored) {} birdTexture = null; }
         birdAnimation = null;
-=======
-        if (startButtonTexture != null) {
-            startButtonTexture.dispose();
-            startButtonTexture = null;
-        }
-        if (startButtonHoverTexture != null) {
-            startButtonHoverTexture.dispose();
-            startButtonHoverTexture = null;
-        }
-        if (tutorialButtonTexture != null) {
-            tutorialButtonTexture.dispose();
-            tutorialButtonTexture = null;
-        }
-        if (tutorialButtonHoverTexture != null) {
-            tutorialButtonHoverTexture.dispose();
-            tutorialButtonHoverTexture = null;
-        }
-        if (settingsButtonTexture != null) {
-            settingsButtonTexture.dispose();
-            settingsButtonTexture = null;
-        }
-        if (settingsButtonHoverTexture != null) {
-            settingsButtonHoverTexture.dispose();
-            settingsButtonHoverTexture = null;
-        }
->>>>>>> 9a2cee8caeb1b058d9e1083da33e40da02b86302
+
+        if (startButtonTexture != null) { try { startButtonTexture.dispose(); } catch (Exception ignored) {} startButtonTexture = null; }
+        if (startButtonHoverTexture != null) { try { startButtonHoverTexture.dispose(); } catch (Exception ignored) {} startButtonHoverTexture = null; }
+        if (tutorialButtonTexture != null) { try { tutorialButtonTexture.dispose(); } catch (Exception ignored) {} tutorialButtonTexture = null; }
+        if (tutorialButtonHoverTexture != null) { try { tutorialButtonHoverTexture.dispose(); } catch (Exception ignored) {} tutorialButtonHoverTexture = null; }
+        if (settingsButtonTexture != null) { try { settingsButtonTexture.dispose(); } catch (Exception ignored) {} settingsButtonTexture = null; }
+        if (settingsButtonHoverTexture != null) { try { settingsButtonHoverTexture.dispose(); } catch (Exception ignored) {} settingsButtonHoverTexture = null; }
     }
+
 }
