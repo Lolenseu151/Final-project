@@ -60,6 +60,13 @@ public class MainMenuScreen implements Screen {
     // NEW: main menu background texture
     private Texture backgroundTex;
 
+    // Optional custom button textures (Start/Tutorial/Settings) and hover variants
+    private Texture startButtonTexture;
+    private Texture startButtonHoverTexture;
+    private Texture tutorialButtonTexture;
+    private Texture tutorialButtonHoverTexture;
+    private Texture settingsButtonTexture;
+    private Texture settingsButtonHoverTexture;
     // NEW: bird flying effect (top of screen)
     private Texture birdTexture;
     private Animation<TextureRegion> birdAnimation; // NEW: sprite-sheet animation
@@ -70,15 +77,6 @@ public class MainMenuScreen implements Screen {
     private float birdX = Float.NaN;
     private float birdY = Float.NaN;
     private float birdSpeed = 45f; // pixels/sec
-    // Custom Start button textures (base and hover)
-    private Texture startButtonTexture;
-    private Texture startButtonHoverTexture;
-    // Custom Tutorial button textures (base and hover)
-    private Texture tutorialButtonTexture;
-    private Texture tutorialButtonHoverTexture;
-    // Custom Settings button textures (base and hover)
-    private Texture settingsButtonTexture;
-    private Texture settingsButtonHoverTexture;
     // NEW: horizontal runner state — moves left->right, then resets after a delay
     private float runX = Float.NaN;            // current x position (initialised on first draw)
     private float runSpeed = 260f;             // pixels per second
@@ -625,107 +623,6 @@ public class MainMenuScreen implements Screen {
             birdTexture = null;
             birdAnimation = null;
         }
-        // Load custom Start button images (internal first, then absolute project assets)
-        try {
-            String startBase = "Start/3.png"; // base button image
-            String startHover = "Start/4.png"; // hover image
-            FileHandle sBase = null;
-            FileHandle sHover = null;
-            if (Gdx.files.internal(startBase).exists()) sBase = Gdx.files.internal(startBase);
-            else {
-                String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + startBase;
-                if (Gdx.files.absolute(abs).exists()) sBase = Gdx.files.absolute(abs);
-            }
-            if (Gdx.files.internal(startHover).exists()) sHover = Gdx.files.internal(startHover);
-            else {
-                String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + startHover;
-                if (Gdx.files.absolute(abs).exists()) sHover = Gdx.files.absolute(abs);
-            }
-            if (sBase != null) {
-                startButtonTexture = new Texture(sBase);
-                startButtonTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                Gdx.app.log("MainMenuScreen", "Loaded Start button image: " + startBase);
-            }
-            if (sHover != null) {
-                startButtonHoverTexture = new Texture(sHover);
-                startButtonHoverTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                Gdx.app.log("MainMenuScreen", "Loaded Start hover image: " + startHover);
-            }
-        } catch (Exception e) {
-            Gdx.app.error("MainMenuScreen", "Failed to load Start button images", e);
-            startButtonTexture = null;
-            startButtonHoverTexture = null;
-        }
-
-        // Load custom Tutorial button images (Start/1.png base, Start/2.png hover)
-        try {
-            String tutBase = "Start/1.png";
-            String tutHover = "Start/2.png";
-            FileHandle tBase = null;
-            FileHandle tHover = null;
-            if (Gdx.files.internal(tutBase).exists()) tBase = Gdx.files.internal(tutBase);
-            else {
-                String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + tutBase;
-                if (Gdx.files.absolute(abs).exists()) tBase = Gdx.files.absolute(abs);
-            }
-            if (Gdx.files.internal(tutHover).exists()) tHover = Gdx.files.internal(tutHover);
-            else {
-                String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + tutHover;
-                if (Gdx.files.absolute(abs).exists()) tHover = Gdx.files.absolute(abs);
-            }
-            if (tBase != null) {
-                tutorialButtonTexture = new Texture(tBase);
-                tutorialButtonTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                Gdx.app.log("MainMenuScreen", "Loaded Tutorial button image: " + tutBase);
-            }
-            if (tHover != null) {
-                tutorialButtonHoverTexture = new Texture(tHover);
-                tutorialButtonHoverTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                Gdx.app.log("MainMenuScreen", "Loaded Tutorial hover image: " + tutHover);
-            }
-        } catch (Exception e) {
-            Gdx.app.error("MainMenuScreen", "Failed to load Tutorial button images", e);
-            tutorialButtonTexture = null;
-            tutorialButtonHoverTexture = null;
-        }
-
-        // Load custom Settings button images (Start/5.png base, Start/6.png hover)
-        try {
-            String setBase = "Start/5.png";
-            String setHover = "Start/6.png";
-            FileHandle sB = null;
-            FileHandle sH = null;
-            if (Gdx.files.internal(setBase).exists()) sB = Gdx.files.internal(setBase);
-            else {
-                String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + setBase;
-                if (Gdx.files.absolute(abs).exists()) sB = Gdx.files.absolute(abs);
-            }
-            if (Gdx.files.internal(setHover).exists()) sH = Gdx.files.internal(setHover);
-            else {
-                String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + setHover;
-                if (Gdx.files.absolute(abs).exists()) sH = Gdx.files.absolute(abs);
-            }
-            if (sB != null) {
-                settingsButtonTexture = new Texture(sB);
-                settingsButtonTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                Gdx.app.log("MainMenuScreen", "Loaded Settings button image: " + setBase);
-            }
-            if (sH != null) {
-                settingsButtonHoverTexture = new Texture(sH);
-                settingsButtonHoverTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                Gdx.app.log("MainMenuScreen", "Loaded Settings hover image: " + setHover);
-            }
-        } catch (Exception e) {
-            Gdx.app.error("MainMenuScreen", "Failed to load Settings button images", e);
-            settingsButtonTexture = null;
-            settingsButtonHoverTexture = null;
-        }
     }
 
     private void generateTitleFontWithSize(int size) {
@@ -1257,30 +1154,41 @@ public class MainMenuScreen implements Screen {
         if (shapeRenderer != null) {
             try { shapeRenderer.dispose(); } catch (Exception ignored) {}
         }
-
-        // Fonts
-        if (titleFont != null) { try { titleFont.dispose(); } catch (Exception ignored) {} titleFont = null; }
-        if (titleFontTexture != null) { try { titleFontTexture.dispose(); } catch (Exception ignored) {} titleFontTexture = null; }
-        if (buttonFont != null) { try { buttonFont.dispose(); } catch (Exception ignored) {} buttonFont = null; }
-
-        // Textures and animations
-        if (runTexture != null) { try { runTexture.dispose(); } catch (Exception ignored) {} runTexture = null; }
-        runAnimation = null;
-
-        if (catTexture != null) { try { catTexture.dispose(); } catch (Exception ignored) {} catTexture = null; }
-        catAnimation = null;
-
-        if (backgroundTex != null) { try { backgroundTex.dispose(); } catch (Exception ignored) {} backgroundTex = null; }
-
-        if (birdTexture != null) { try { birdTexture.dispose(); } catch (Exception ignored) {} birdTexture = null; }
+        if (backgroundTex != null) {
+            backgroundTex.dispose();
+            backgroundTex = null;
+        }
+        // dispose bird texture if loaded
+        if (birdTexture != null) {
+            birdTexture.dispose();
+            birdTexture = null;
+        }
+        // clear animation reference
         birdAnimation = null;
-
-        if (startButtonTexture != null) { try { startButtonTexture.dispose(); } catch (Exception ignored) {} startButtonTexture = null; }
-        if (startButtonHoverTexture != null) { try { startButtonHoverTexture.dispose(); } catch (Exception ignored) {} startButtonHoverTexture = null; }
-        if (tutorialButtonTexture != null) { try { tutorialButtonTexture.dispose(); } catch (Exception ignored) {} tutorialButtonTexture = null; }
-        if (tutorialButtonHoverTexture != null) { try { tutorialButtonHoverTexture.dispose(); } catch (Exception ignored) {} tutorialButtonHoverTexture = null; }
-        if (settingsButtonTexture != null) { try { settingsButtonTexture.dispose(); } catch (Exception ignored) {} settingsButtonTexture = null; }
-        if (settingsButtonHoverTexture != null) { try { settingsButtonHoverTexture.dispose(); } catch (Exception ignored) {} settingsButtonHoverTexture = null; }
+        if (startButtonTexture != null) {
+            startButtonTexture.dispose();
+            startButtonTexture = null;
+        }
+        if (startButtonHoverTexture != null) {
+            startButtonHoverTexture.dispose();
+            startButtonHoverTexture = null;
+        }
+        if (tutorialButtonTexture != null) {
+            tutorialButtonTexture.dispose();
+            tutorialButtonTexture = null;
+        }
+        if (tutorialButtonHoverTexture != null) {
+            tutorialButtonHoverTexture.dispose();
+            tutorialButtonHoverTexture = null;
+        }
+        if (settingsButtonTexture != null) {
+            settingsButtonTexture.dispose();
+            settingsButtonTexture = null;
+        }
+        if (settingsButtonHoverTexture != null) {
+            settingsButtonHoverTexture.dispose();
+            settingsButtonHoverTexture = null;
+        }
     }
 
 }

@@ -8,6 +8,9 @@ public class MyGdxGame extends Game {
 
     public SpriteBatch batch;
     public BitmapFont font;
+    // Persisted game state to survive Screen recreation (minimize/restore)
+    private LevelManager persistentLevelManager = null;
+    private Fixer persistentFixer = null;
     // Preloaded tutorial images (optional)
     public com.badlogic.gdx.graphics.Texture[] tutorialImages;
 
@@ -17,6 +20,12 @@ public class MyGdxGame extends Game {
         font = new BitmapFont();
         setScreen(new LoadingScreen(this));  // START WITH LOADING SCREEN
     }
+
+    public LevelManager getPersistentLevelManager() { return persistentLevelManager; }
+    public void setPersistentLevelManager(LevelManager lm) { this.persistentLevelManager = lm; }
+
+    public Fixer getPersistentFixer() { return persistentFixer; }
+    public void setPersistentFixer(Fixer f) { this.persistentFixer = f; }
 
     @Override
     public void dispose() {
