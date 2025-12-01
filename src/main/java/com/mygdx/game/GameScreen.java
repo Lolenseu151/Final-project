@@ -45,6 +45,12 @@ public class GameScreen implements Screen {
     private float remainingTime = 180f;
     private float accumulator = 0f;
     private boolean pKeyWasPressed = false;
+
+    // --- pause/resume/freeze helpers ---
+    private boolean initialized = false;                 // prevent re-init on show() after minimize
+    private float savedX = Float.NaN, savedY = Float.NaN;
+    private float savedVelX = 0f, savedVelY = 0f;
+    private boolean wasPaused = false;                  // true when pause() was called (used to avoid unintended resets)
     
     // Floating UI icons (document counter)
     // Documents spritesheet (2 cols x 3 rows = 6 frames)
@@ -177,7 +183,12 @@ public class GameScreen implements Screen {
 
     @Override
     public void show() {
-        levelManager = new LevelManager();
+        // Avoid re-initializing everything if show() is called again (e.g. on minimize/restore)
+        if (initialized) {
+            Gdx.app.log("GameScreen", "show() called but already initialized - skipping re-init");
+            return;
+        }
+         levelManager = new LevelManager();
         
         // Load level based on currentLevel
         Level level = null;
@@ -233,14 +244,34 @@ public class GameScreen implements Screen {
         lastEventTime = 0f;
         
         if (fixer != null) {
-            // For tutorial (level 0) spawn player slightly higher
-            if (currentLevel == 0) {
-                fixer.reset(100, 50);
+            // If we are here because the app was paused (minimized), avoid calling reset()
+            // which moves the player to a spawn. Instead restore the saved position if available.
+            if (wasPaused && !Float.isNaN(savedX)) {
+                try {
+                    fixer.getBounds().setPosition(savedX, savedY);
+                    com.badlogic.gdx.math.Vector2 vel = fixer.getVelocity();
+                    if (vel != null) vel.set(savedVelX, savedVelY);
+                } catch (Exception ignored) {}
             } else {
-                fixer.reset(100, 0);
+                // Normal initial spawn behavior (only when not resuming from pause)
+                if (currentLevel == 0) {
+                    fixer.reset(100, 50);
+                } else if (currentLevel == 3 && level instanceof Level3) {
+                    try {
+                        float[] sp = ((Level3)level).getEntranceSpawn();
+                        if (sp != null && sp.length >= 2) fixer.reset(sp[0], sp[1]);
+                        else fixer.reset(100, 0);
+                    } catch (Exception e) {
+                        fixer.reset(100, 0);
+                    }
+                } else {
+                    fixer.reset(100, 0);
+                }
             }
         }
         Gdx.app.log("GameScreen", "Loaded Level " + currentLevel);
+        // mark as initialized so future show() calls (from minimize/restore) do not reload/reset
+        initialized = true;
         
             // Load overlay arrow texture (optional)
             try {
@@ -1583,6 +1614,7 @@ public class GameScreen implements Screen {
         } else {
             // Load next level
             currentLevel++;
+            initialized = false;  // Allow show() to reinitialize for the new level
             show();  // reinit for next level
             showLevelComplete = false;
             levelCompleteTimer = 0f;
@@ -1634,8 +1666,50 @@ public class GameScreen implements Screen {
         }
     }
 
-    @Override public void pause() {}
-    @Override public void resume() {}
+    @Override public void pause() {
+        Gdx.app.log("GameScreen", "pause() called");
+        // store state so we can restore exact position/velocity on resume
+        if (fixer != null) {
+            Rectangle b = fixer.getBounds();
+            savedX = b.x;
+            savedY = b.y;
+            try {
+                com.badlogic.gdx.math.Vector2 vel = fixer.getVelocity();
+                if (vel != null) {
+                    savedVelX = vel.x;
+                    savedVelY = vel.y;
+                }
+            } catch (Exception ignored) {}
+        }
+        // stop updating while paused
+        currentState = GameState.PAUSED;
+        // clear accumulated time so resume won't apply a large physics step
+        accumulator = 0f;
+        // prevent input while paused
+        try { Gdx.input.setInputProcessor(null); } catch (Exception ignored) {}
+        // mark that we've been paused so show()/init logic knows to avoid resets
+        wasPaused = true;
+    }
+
+    @Override
+    public void resume() {
+        Gdx.app.log("GameScreen", "resume() called");
+        // avoid a huge dt on next frame
+        accumulator = 0f;
+        // restore exact saved position/velocity so character remains where the player left it
+        if (fixer != null && !Float.isNaN(savedX)) {
+            try {
+                fixer.getBounds().setPosition(savedX, savedY);
+                com.badlogic.gdx.math.Vector2 vel = fixer.getVelocity();
+                if (vel != null) vel.set(savedVelX, savedVelY);
+            } catch (Exception ignored) {}
+        }
+        currentState = GameState.RUNNING;
+        // we resume, clear the paused marker so future show() inits behave normally
+        wasPaused = false;
+         // leave input processor null so UI won't accidentally receive input on immediate restore.
+         // If you want input restored immediately, re-set the processor here.
+    }
     @Override public void hide() {}
 
     @Override

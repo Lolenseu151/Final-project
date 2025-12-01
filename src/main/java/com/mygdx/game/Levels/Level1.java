@@ -6,6 +6,7 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.mygdx.game.LevelManager;
+import com.mygdx.game.ILevelManager;
 import com.mygdx.game.Fixer;
 
 /**
@@ -125,7 +126,7 @@ public class Level1 implements Level, BackgroundedLevel {
     }
 
     @Override
-    public void updateBackground(float deltaTime, LevelManager levelMgr, Array<Rectangle> documents,
+    public void updateBackground(float deltaTime, ILevelManager levelMgr, Array<Rectangle> documents,
                                  Array<Rectangle> obstacles, Fixer player) {
         // Advance shredder animation state time
         if (shredderVisual != null) {
