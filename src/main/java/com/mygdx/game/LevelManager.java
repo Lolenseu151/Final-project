@@ -23,7 +23,7 @@ import com.mygdx.game.Levels.Shredder;
  * LevelManager - Manages all level elements including obstacles, documents, and shredders
  * Responsible for level layout, collision detection, and objective tracking
  */
-public class LevelManager {
+public class LevelManager implements ILevelManager {
     // Level elements
     private final Array<Rectangle> documents;      // Incriminating documents to collect
     private final Array<Rectangle> obstacles;      // Red Tape obstacles (slow player)
@@ -654,6 +654,7 @@ public class LevelManager {
     private Level currentLevel;
 
     // NEW: load a specific level's data into the manager
+    @Override
     public void loadLevel(Level level) {
         if (level == null) return;
 
@@ -816,15 +817,23 @@ public class LevelManager {
         }
     }
 
-    public Shredder getSharedShredder() { return sharedShredder; }
+    @Override
+    public Shredder getSharedShredder() { 
+        // LevelManager doesn't use shared shredder, return null
+        return null; 
+    }
 
     // Expose current level for debugging/inspection
     public Level getCurrentLevel() { return currentLevel; }
 
     // Getters
+    @Override
     public int getDocumentsCollected() { return documentsCollected; }
+    @Override
     public int getTotalDocuments() { return totalDocuments; }
+    @Override
     public boolean isLevelComplete() { return levelComplete; }
+    @Override
     public int getDocumentsRemaining() { return totalDocuments - documentsCollected; }
 
     // Return copies or an unmodifiable list of collision/doc rectangles for debugging

@@ -1,10 +1,12 @@
 package com.mygdx.game.Levels;
- 
+
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import com.mygdx.game.Fixer;
-import com.mygdx.game.LevelManager;
+import com.mygdx.game.ILevelManager;
+import com.mygdx.game.LevelManager2;
+import com.mygdx.game.LevelManager; // fallback legacy manager
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
@@ -113,41 +115,48 @@ public class Level3 implements Level, BackgroundedLevel {
     }
 
     @Override
-    public void updateBackground(float deltaTime, LevelManager levelMgr, Array<Rectangle> documents,
-                                 Array<Rectangle> obstacles, Fixer player) {
-        // Advance shared shredder animation state time (if present)
+    public void updateBackground(float deltaTime, ILevelManager levelMgr, 
+                                 Array<Rectangle> documents, Array<Rectangle> obstacles, 
+                                 Fixer player) {
+        // Try to get LevelManager2 features if available
+        LevelManager2 lm2 = (levelMgr instanceof LevelManager2) ? (LevelManager2) levelMgr : null;
+        
         try {
-            if (levelMgr != null && levelMgr.getSharedShredder() != null) levelMgr.getSharedShredder().update(deltaTime);
+            if (lm2 != null && lm2.getSharedShredder() != null) {
+                lm2.getSharedShredder().update(deltaTime);
+            }
         } catch (Exception ignored) {}
-        // If player reaches the right edge of the first-floor platform, switch to continuation map.
+
         try {
             if (player != null && player.getBounds() != null && platforms.size > 0) {
                 Rectangle firstFloor = platforms.get(0);
                 float rightEdge = firstFloor.x + firstFloor.width;
                 Rectangle pb = player.getBounds();
-                // tolerance so the player doesn't need pixel-perfect overlap
                 final float TOL = 12f;
-                // require player to be near the floor vertically to avoid mid-air triggers
                 boolean nearFloorY = pb.y <= (firstFloor.y + firstFloor.height + 8f);
 
-                // --- Move to continuation map when exiting to the right ---
                 if (!switchedToContinuation && nearFloorY && (pb.x + pb.width) >= (rightEdge - TOL)) {
-                        try {
-                            Level3_1 cont = new Level3_1();
-                            levelMgr.loadLevelPreserveDocuments(cont);
-                            float[] sp = cont.getEntranceSpawn();
-                            if (sp != null && sp.length >= 2) {
-                                try { player.reset(sp[0], sp[1]); } catch (Exception ignored) {}
-                            }
-                            switchedToContinuation = true;
-                            com.badlogic.gdx.Gdx.app.log("Level3", "Loaded continuation Level3_1 instance (preserve docs)");
-                        } catch (Exception e) {
-                            com.badlogic.gdx.Gdx.app.error("Level3", "Failed to load continuation level", e);
+                    try {
+                        Level3_1 cont = new Level3_1();
+                        // Use LevelManager2 merge API if available
+                        if (lm2 != null) {
+                            lm2.loadTwoMaps(this, cont);
+                        } else if (levelMgr != null) {
+                            // legacy fallback
+                            levelMgr.loadLevel(cont);
                         }
+                        float[] sp = cont.getEntranceSpawn();
+                        if (sp != null && sp.length >= 2) {
+                            try { player.reset(sp[0], sp[1]); } catch (Exception ignored) {}
+                        }
+                        switchedToContinuation = true;
+                        Gdx.app.log("Level3", "Loaded continuation Level3_1");
+                    } catch (Exception e) {
+                        Gdx.app.error("Level3", "Failed to load continuation level", e);
+                    }
                 }
             }
         } catch (Exception ignored) {}
-
     }
 
     // Provide entrance spawn positions so GameScreen can set initial player position

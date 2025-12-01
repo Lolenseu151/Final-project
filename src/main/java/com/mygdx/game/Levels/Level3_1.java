@@ -6,11 +6,11 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import com.mygdx.game.Fixer;
-import com.mygdx.game.LevelManager;
+import com.mygdx.game.ILevelManager;
+import com.mygdx.game.LevelManager2;
 
 /**
- * Level3_1 - continuation area for Level3. Different platforms/doc placements
- * Shares shredder position with Level3 so the shredder feels continuous.
+ * Level3_1 - continuation area for Level3.
  */
 public class Level3_1 implements Level, BackgroundedLevel {
     private final Array<Rectangle> documents = new Array<>();
@@ -90,29 +90,37 @@ public class Level3_1 implements Level, BackgroundedLevel {
     }
 
     @Override
-    public void updateBackground(float deltaTime, LevelManager levelMgr, Array<Rectangle> documents,
-                                 Array<Rectangle> obstacles, Fixer player) {
-        // Advance shared shredder animation
-        try { if (levelMgr != null && levelMgr.getSharedShredder() != null) levelMgr.getSharedShredder().update(deltaTime); } catch (Exception ignored) {}
+    public void updateBackground(float deltaTime, ILevelManager levelMgr, 
+                                 Array<Rectangle> documents, Array<Rectangle> obstacles, 
+                                 Fixer player) {
+        LevelManager2 lm2 = (levelMgr instanceof LevelManager2) ? (LevelManager2) levelMgr : null;
+        
+        try { 
+            if (lm2 != null && lm2.getSharedShredder() != null) 
+                lm2.getSharedShredder().update(deltaTime); 
+        } catch (Exception ignored) {}
 
-        // If the player reaches the left-side entrance, return to Level3
         try {
             if (player != null && player.getBounds() != null && platforms.size > 0) {
                 Rectangle leftEdgePlatform = platforms.get(0);
                 Rectangle pb = player.getBounds();
                 final float TOL = 12f;
                 boolean nearFloorY = pb.y <= (leftEdgePlatform.y + leftEdgePlatform.height + 8f);
-                // Require the player to be near the floor AND moving left with some momentum
-                boolean movingLeft = true;
-                try { movingLeft = (player.getVelocity() != null && player.getVelocity().x < -40f); } catch (Exception ignored) { movingLeft = false; }
+                boolean movingLeft = false;
+                try { movingLeft = (player.getVelocity() != null && player.getVelocity().x < -40f); } 
+                catch (Exception ignored) { movingLeft = false; }
+                
                 if (nearFloorY && pb.x <= (leftEdgePlatform.x + TOL) && movingLeft) {
-                    // load Level3 back, preserve documents
                     try {
                         Level3 original = new Level3();
-                        levelMgr.loadLevelPreserveDocuments(original);
+                        if (lm2 != null) {
+                            lm2.loadTwoMaps(original, this);
+                        } else if (levelMgr != null) {
+                            levelMgr.loadLevel(original);
+                        }
                         float[] sp = original.getReturnSpawn();
                         if (sp != null && sp.length >= 2) player.reset(sp[0], sp[1]);
-                        Gdx.app.log("Level3_1", "Returned to Level3 instance (preserve docs)");
+                        Gdx.app.log("Level3_1", "Returned to Level3");
                     } catch (Exception e) {
                         Gdx.app.error("Level3_1", "Failed to return to Level3", e);
                     }
