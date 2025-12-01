@@ -1,10 +1,11 @@
 package com.mygdx.game.Levels;
 
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import com.mygdx.game.Fixer;
-import com.mygdx.game.LevelManager;
-import com.badlogic.gdx.math.Rectangle;
+import com.mygdx.game.ILevelManager; // changed from LevelManager
 
 /**
  * Optional interface for levels that provide a background image with interactive logic.
@@ -26,7 +27,7 @@ public interface BackgroundedLevel {
      * @param obstacles red tape obstacles
      * @param player the Fixer player
      */
-    default void updateBackground(float deltaTime, LevelManager levelMgr, Array<Rectangle> documents,
+    default void updateBackground(float deltaTime, ILevelManager levelMgr, Array<Rectangle> documents,
                                    Array<Rectangle> obstacles, Fixer player) {
         // default: no update logic (background is static)
     }
@@ -37,7 +38,7 @@ public interface BackgroundedLevel {
      * @param batch SpriteBatch for drawing
      * @param backgroundTexture the loaded background texture (may be null)
      */
-    default void renderBackground(SpriteBatch batch, com.badlogic.gdx.graphics.Texture backgroundTexture) {
+    default void renderBackground(SpriteBatch batch, Texture backgroundTexture) {
         // default: LevelManager handles rendering
     }
 }
