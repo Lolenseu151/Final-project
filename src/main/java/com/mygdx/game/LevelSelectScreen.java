@@ -75,10 +75,26 @@ public class LevelSelectScreen implements Screen {
     private boolean level5Hovered = false;
     // Reusable vector to avoid allocations during hover polling
     private final com.badlogic.gdx.math.Vector2 tmpStageCoords = new com.badlogic.gdx.math.Vector2();
+    // Debugging: enable to draw actor bounds and show pointer coordinates
+    private final boolean DEBUG_HOVER = false;
+    private Label debugPointerLabel = null; // kept for optional debugging
+    // Temporary: enable hover logging and subtle tint fallback when hover drawable appears identical
+    private final boolean ENABLE_HOVER_DIAGNOSTICS = true;
+    // Unified hover info list so polling works for all buttons (fixes touchpad hover issues)
+    private static class HoverInfo {
+        int id; // level id (optional)
+        ImageButton button;
+        TextureRegionDrawable up;
+        TextureRegionDrawable over;
+        boolean hovered;
+        HoverInfo(int id, ImageButton b, TextureRegionDrawable u, TextureRegionDrawable o) { this.id = id; button = b; up = u; over = o; hovered = false; }
+    }
+    private final java.util.List<HoverInfo> hoverInfos = new java.util.ArrayList<>();
 
     // Layout
     private static final float BUTTON_WIDTH = 220f;
     private static final float BUTTON_HEIGHT = 128f;
+    private static final float HOVER_SCALE = 1.06f;
     private static final float BUTTON_SPACING = 12f;
     private static final float TITLE_TOP_MARGIN = 30f;
     private static final float LABEL_FONT_SCALE = 1.5f;
@@ -342,6 +358,8 @@ public class LevelSelectScreen implements Screen {
             stage.addActor(levelsLabel);
         }
 
+        // debugPointerLabel not added in normal runs
+
         // Back button: prefer custom textures (assets/back button/7.png, 8.png), fallback to atlas
         TextureRegion arrow = null;
         TextureRegion arrowHover = null;
@@ -367,6 +385,8 @@ public class LevelSelectScreen implements Screen {
             float x = startX + (i - 1) * (BUTTON_WIDTH + spacing);
             createLevelButton(i, x, y);
         }
+        // Enable stage debug outlines when troubleshooting hover issues
+        stage.setDebugAll(DEBUG_HOVER);
     }
 
     private ImageButton createBackButton(TextureRegion arrowRegion, TextureRegion arrowHoverRegion, float screenHeight) {
@@ -443,19 +463,41 @@ public class LevelSelectScreen implements Screen {
             ib.setSize(BUTTON_WIDTH, BUTTON_HEIGHT);
             ib.setPosition(x, y);
         }
+        // enable transform origin so scaling centers on the button
+        ib.setTransform(true);
+        ib.setOrigin(BUTTON_WIDTH / 2f, BUTTON_HEIGHT / 2f);
         stage.addActor(ib);
-        // Add enter/exit listener to swap inner drawable immediately on mouse hover
+        // Add input listener: hover -> scale, touchDown/touchUp -> swap drawables
         ib.addListener(new InputListener() {
             @Override
             public void enter(InputEvent event, float x, float y, int pointer, Actor from) {
-                if (ib.getStyle().imageOver != null) {
-                    ib.getImage().setDrawable((TextureRegionDrawable) ib.getStyle().imageOver);
-                }
+                ib.setScale(HOVER_SCALE);
             }
             @Override
             public void exit(InputEvent event, float x, float y, int pointer, Actor to) {
-                if (ib.getStyle().imageUp != null) {
-                    ib.getImage().setDrawable((TextureRegionDrawable) ib.getStyle().imageUp);
+                ib.setScale(1f);
+            }
+            @Override
+            public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+                if (ib.getStyle().imageOver != null) ib.getImage().setDrawable((TextureRegionDrawable) ib.getStyle().imageOver);
+                // remove hover tint while clicking
+                if (ENABLE_HOVER_DIAGNOSTICS) {
+                    try { ib.getImage().setColor(Color.WHITE); } catch (Exception e) {}
+                }
+                return false; // allow ClickListener to also handle
+            }
+            @Override
+            public void touchUp(InputEvent event, float x, float y, int pointer, int button) {
+                // on release, restore to over if still hovered, otherwise up
+                boolean inside = x >= 0 && x <= ib.getWidth() && y >= 0 && y <= ib.getHeight();
+                if (inside && ib.getStyle().imageOver != null) ib.getImage().setDrawable((TextureRegionDrawable) ib.getStyle().imageOver);
+                else if (ib.getStyle().imageUp != null) ib.getImage().setDrawable((TextureRegionDrawable) ib.getStyle().imageUp);
+                // restore tint after click if still hovered
+                if (ENABLE_HOVER_DIAGNOSTICS) {
+                    try {
+                        if (inside) ib.getImage().setColor(Color.LIGHT_GRAY);
+                        else ib.getImage().setColor(Color.WHITE);
+                    } catch (Exception e) {}
                 }
             }
         });
@@ -511,6 +553,14 @@ public class LevelSelectScreen implements Screen {
             level5ButtonRef = ib;
             level5Hovered = false;
         }
+        // Register this button for unified hover polling (works with touchpads)
+        try {
+            TextureRegionDrawable upDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
+            TextureRegionDrawable overDrawable = (ib.getStyle().imageOver != null) ? (TextureRegionDrawable) ib.getStyle().imageOver : upDrawable;
+            hoverInfos.add(new HoverInfo(levelNum, ib, upDrawable, overDrawable));
+        } catch (Exception e) {
+            // ignore if style drawables are not TextureRegionDrawable
+        }
     }
 
     @Override
@@ -525,16 +575,11 @@ public class LevelSelectScreen implements Screen {
         // Poll mouse position once and update all level hover states immediately (no per-frame allocations)
         tmpStageCoords.set(Gdx.input.getX(), Gdx.input.getY());
         stage.screenToStageCoordinates(tmpStageCoords);
-        if (level1ButtonRef != null && level1UpDrawable != null && level1OverDrawable != null)
-            level1Hovered = updateButtonHover(level1ButtonRef, level1UpDrawable, level1OverDrawable, level1Hovered, tmpStageCoords);
-        if (level2ButtonRef != null && level2UpDrawable != null && level2OverDrawable != null)
-            level2Hovered = updateButtonHover(level2ButtonRef, level2UpDrawable, level2OverDrawable, level2Hovered, tmpStageCoords);
-        if (level3ButtonRef != null && level3UpDrawable != null && level3OverDrawable != null)
-            level3Hovered = updateButtonHover(level3ButtonRef, level3UpDrawable, level3OverDrawable, level3Hovered, tmpStageCoords);
-        if (level4ButtonRef != null && level4UpDrawable != null && level4OverDrawable != null)
-            level4Hovered = updateButtonHover(level4ButtonRef, level4UpDrawable, level4OverDrawable, level4Hovered, tmpStageCoords);
-        if (level5ButtonRef != null && level5UpDrawable != null && level5OverDrawable != null)
-            level5Hovered = updateButtonHover(level5ButtonRef, level5UpDrawable, level5OverDrawable, level5Hovered, tmpStageCoords);
+        // Update hoverInfos for unified hover polling
+        for (HoverInfo hi : hoverInfos) {
+            hi.hovered = updateButtonHover(hi.button, hi.up, hi.over, hi.hovered, tmpStageCoords);
+        }
+        // (hover polling done above as part of debug label update)
         if (animatedBg != null && bgRegions != null && bgRegions.length > 0) {
             bgAnimTime += delta;
             int frame = (int)(bgAnimTime / BG_FRAME_DURATION) % bgRegions.length;
@@ -552,10 +597,34 @@ public class LevelSelectScreen implements Screen {
         float bh = ref.getHeight();
         boolean nowOver = (stagePoint.x >= bx && stagePoint.x <= bx + bw && stagePoint.y >= by && stagePoint.y <= by + bh);
         if (nowOver && !wasHovered) {
-            ref.getImage().setDrawable(over);
+            try {
+                ImageButton.ImageButtonStyle newStyle = new ImageButton.ImageButtonStyle(ref.getStyle());
+                newStyle.imageUp = up;
+                newStyle.imageOver = over;
+                ref.setStyle(newStyle);
+            } catch (Exception e) {
+                // fallback
+            }
+            try {
+                ref.getImage().setDrawable(over);
+                if (ENABLE_HOVER_DIAGNOSTICS) ref.getImage().setColor(Color.LIGHT_GRAY);
+                if (ENABLE_HOVER_DIAGNOSTICS) Gdx.app.log("[HoverDiag]", "ENTER at " + (int)stagePoint.x + "," + (int)stagePoint.y + " for button " + ref);
+            } catch (Exception e) {}
             return true;
         } else if (!nowOver && wasHovered) {
-            ref.getImage().setDrawable(up);
+            try {
+                ImageButton.ImageButtonStyle newStyle = new ImageButton.ImageButtonStyle(ref.getStyle());
+                newStyle.imageUp = up;
+                newStyle.imageOver = over;
+                ref.setStyle(newStyle);
+            } catch (Exception e) {
+                // fallback
+            }
+            try {
+                ref.getImage().setDrawable(up);
+                if (ENABLE_HOVER_DIAGNOSTICS) ref.getImage().setColor(Color.WHITE);
+                if (ENABLE_HOVER_DIAGNOSTICS) Gdx.app.log("[HoverDiag]", "EXIT at " + (int)stagePoint.x + "," + (int)stagePoint.y + " for button " + ref);
+            } catch (Exception e) {}
             return false;
         }
         return wasHovered;
