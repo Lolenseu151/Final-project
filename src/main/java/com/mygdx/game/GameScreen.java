@@ -67,6 +67,7 @@ public class GameScreen implements Screen {
     private float floatTimer = 0f;  // Track time for floating animation
     private BitmapFont uiFont;  // Font for timer and doc counter text
     private BitmapFont docFont; // Smaller font for document count only
+    private BitmapFont timeFont; // Font specifically for the audit time
         private com.badlogic.gdx.graphics.Texture overlayArrowTex;
         private com.badlogic.gdx.graphics.Texture overlayFullTex;
         private boolean overlayFullVisible = false;
@@ -251,6 +252,26 @@ public class GameScreen implements Screen {
                 uiFont.getData().setScale(1.9f);  // Slightly larger for readability
             } catch (Exception e) {
                 uiFont = new BitmapFont();  // Use default if loading fails
+            }
+
+            // Load a dedicated font for the audit time (prefer pixeloid Sans)
+            try {
+                timeFont = new BitmapFont(
+                        Gdx.files.internal("assets/fonts/pixeloid/Sans.fnt"),
+                        Gdx.files.internal("assets/fonts/pixeloid/Sans.png"),
+                        false);
+                Gdx.app.log("GameScreen", "Loaded time font: assets/fonts/pixeloid/Sans.fnt");
+            } catch (Exception e) {
+                try {
+                    timeFont = new BitmapFont(
+                            Gdx.files.internal("fonts/pixeloid/Sans.fnt"),
+                            Gdx.files.internal("fonts/pixeloid/Sans.png"),
+                            false);
+                    Gdx.app.log("GameScreen", "Loaded time font from fallback: fonts/pixeloid/Sans.fnt");
+                } catch (Exception ex) {
+                    timeFont = null; // will fall back to uiFont when drawing
+                    Gdx.app.log("GameScreen", "Time font not found; using uiFont as fallback");
+                }
             }
 
             // Load a smaller font for the document counter so it doesn't share the large uiFont scale
@@ -793,25 +814,26 @@ public class GameScreen implements Screen {
             float textY = docTextBaselineY + iconSize / 2 + 8;
             if (docFont != null) {
                 glDoc = new com.badlogic.gdx.graphics.g2d.GlyphLayout(docFont, docText);
-                docFont.draw(batch, docText, docX + iconSize + 8, textY);
+                docFont.draw(batch, docText, docX + iconSize + -5, textY);
             } else {
                 glDoc = new com.badlogic.gdx.graphics.g2d.GlyphLayout(uiFont, docText);
-                uiFont.draw(batch, docText, docX + iconSize + 8, textY);
+                uiFont.draw(batch, docText, docX + iconSize + -5, textY);
             }
         }
 
         // Now draw the time (clock + text) to the right of the document text
         // Position it with a small gap after the doc text
         float gapAfterDoc = 12f;
-        float timeStartX = docX + iconSize + 8 + (glDoc != null ? glDoc.width : 0f) + gapAfterDoc;
+        float timeStartX = docX + iconSize + 4 + (glDoc != null ? glDoc.width : 0f) + gapAfterDoc;
         // Time baseline should match the doc text baseline
         float timeBaselineY = docTextBaselineY + iconSize / 2 + AUDIT_TIME_VERTICAL_OFFSET;
 
-        // Prepare time glyph
-        com.badlogic.gdx.graphics.g2d.GlyphLayout glTime = new com.badlogic.gdx.graphics.g2d.GlyphLayout(uiFont, timeText);
+        // Prepare time glyph (use dedicated timeFont if available, otherwise fall back to uiFont)
+        com.badlogic.gdx.graphics.g2d.BitmapFont timeFontToUse = (timeFont != null) ? timeFont : uiFont;
+        com.badlogic.gdx.graphics.g2d.GlyphLayout glTime = new com.badlogic.gdx.graphics.g2d.GlyphLayout(timeFontToUse, timeText);
         float padding = 9f;
         // Determine desired clock height to match font height (so the icon aligns with text)
-        float desiredClockH = glTime.height * 1.9f; // increase to ~60% larger than font height
+        float desiredClockH = glTime.height * 2.5f; // increase to ~60% larger than font height
         float clockW = 0f, clockH = 0f;
         if (clockTexture != null) {
             float texW = clockTexture.getWidth();
@@ -831,7 +853,7 @@ public class GameScreen implements Screen {
         }
 
         float timeTextX = timeStartX + (clockW > 0f ? clockW + padding : 0f);
-        uiFont.draw(batch, glTime, timeTextX, timeBaselineY);
+        timeFontToUse.draw(batch, glTime, timeTextX, timeBaselineY);
     }
 
     // If the full-screen overlay is active, draw it on top of everything and allow dismissal
@@ -1257,5 +1279,6 @@ public class GameScreen implements Screen {
         if (btnResumeTex != null) btnResumeTex.dispose();
         if (btnMenuTex != null) btnMenuTex.dispose();
         if (docFont != null) docFont.dispose();
+        if (timeFont != null) timeFont.dispose();
     }
 }
