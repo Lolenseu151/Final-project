@@ -1,4 +1,4 @@
-﻿package com.mygdx.game;
+package com.mygdx.game;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -145,7 +145,7 @@ public class GameScreen implements Screen {
         }
 
         // Ensure raw keyboard input is delivered to Fixer (prevents UI stage or other processors
-        // from blocking keys). This doesn't change game logic ΓÇö it only sets the input target.
+        // from blocking keys). This doesn't change game logic — it only sets the input target.
         Gdx.input.setInputProcessor(null);
 
         // Reset game state
@@ -354,7 +354,7 @@ public class GameScreen implements Screen {
         shapeRenderer.setColor(0f, 0f, 0f, 0.35f);
         shapeRenderer.rect(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
-        // The property-files "light" overlay was removed ΓÇö the LevelTutorial
+        // The property-files "light" overlay was removed — the LevelTutorial
         // exposes `getPropertyFilesLight()` for optional highlighting elsewhere.
         shapeRenderer.end();
         // Instruction text: center on screen and allow customization via LevelTutorial
