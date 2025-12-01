@@ -15,37 +15,14 @@ import com.badlogic.gdx.math.Rectangle;
 // import com.badlogic.gdx.utils.reflect.Method;
 import com.badlogic.gdx.utils.Array;
 // ADDED: BackgroundedLevel lives in com.mygdx.game.Levels
-<<<<<<< HEAD
-import com.mygdx.game.BackgroundedLevel;
-import com.mygdx.game.Level;
-=======
 import com.mygdx.game.Levels.BackgroundedLevel;
 import com.mygdx.game.Levels.Level;
-import com.mygdx.game.Levels.Shredder;
->>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
 
 /**
  * LevelManager - Manages all level elements including obstacles, documents, and shredders
  * Responsible for level layout, collision detection, and objective tracking
  */
-<<<<<<< HEAD
 public class LevelManager {
-    /** Listener callback for level completion events. */
-    public interface LevelCompleteListener {
-        void onLevelComplete();
-    }
-
-    private LevelCompleteListener levelCompleteListener = null;
-
-    /**
-     * Register a listener to be notified when the level completes (shredding finished).
-     */
-    public void setLevelCompleteListener(LevelCompleteListener l) {
-        this.levelCompleteListener = l;
-    }
-=======
-public class LevelManager implements ILevelManager {
->>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
     // Level elements
     private final Array<Rectangle> documents;      // Incriminating documents to collect
     private final Array<Rectangle> obstacles;      // Red Tape obstacles (slow player)
@@ -78,8 +55,6 @@ public class LevelManager implements ILevelManager {
     private float documentAnimTime = 0f;
     // NEW: per-level background texture (used by loadLevel)
     private Texture backgroundTex;
-    // NEW: shared shredder visual instance across levels (for Level3/Level3_1)
-    private Shredder sharedShredder;
 
     /**
      * Creates a new Level Manager and initializes the level
@@ -444,7 +419,7 @@ public class LevelManager implements ILevelManager {
         // If a shred sequence is pending, advance its timer and complete the level when elapsed
         if (shredPending && !levelComplete) {
             shredTimer += deltaTime;
-                if (shredTimer >= SHRED_DELAY_SECONDS) {
+            if (shredTimer >= SHRED_DELAY_SECONDS) {
                 levelComplete = true;
                 shredPending = false;
                 Gdx.app.log("LevelManager", "LEVEL COMPLETE! All documents shredded! (after delay)");
@@ -461,10 +436,6 @@ public class LevelManager implements ILevelManager {
                             } catch (NoSuchMethodException ignored) {}
                         }
                     }
-                } catch (Exception ignored) {}
-                // Notify listener (if any) that the level has completed so UI can react immediately
-                try {
-                    if (levelCompleteListener != null) levelCompleteListener.onLevelComplete();
                 } catch (Exception ignored) {}
             }
         }
@@ -583,13 +554,6 @@ public class LevelManager implements ILevelManager {
                 batch.draw(backgroundTex, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
             }
             batch.end();  // *** CRITICAL: END BATCH BEFORE SHAPES ***
-            // Render shared shredder visual on top of background if present
-            if (sharedShredder != null) {
-                batch.begin();
-                try { sharedShredder.update(Gdx.graphics.getDeltaTime()); } catch (Exception ignored) {}
-                try { sharedShredder.render(batch); } catch (Exception ignored) {}
-                batch.end();
-            }
         }
 
         // === PHASE 2: Draw platforms/obstacles/beams (ShapeRenderer) ===
@@ -601,7 +565,7 @@ public class LevelManager implements ILevelManager {
         // Platforms are intentionally not rendered (invisible platforms)
         // They remain in `platforms` for collision detection but are not drawn.
         // If you want to debug them, set debugPlatformRender to true.
-        boolean debugPlatformRender = true;              // set to true to visualize platforms
+        boolean debugPlatformRender = false;              // set to true to visualize platforms
         if (debugPlatformRender) {
             shapeRenderer.setColor(153f/255f, 170f/255f, 187f/255f, 1f);
             for (Rectangle platform : platforms) {
@@ -680,7 +644,6 @@ public class LevelManager implements ILevelManager {
     private Level currentLevel;
 
     // NEW: load a specific level's data into the manager
-    @Override
     public void loadLevel(Level level) {
         if (level == null) return;
 
@@ -697,27 +660,8 @@ public class LevelManager implements ILevelManager {
         obstacles.clear(); obstacles.addAll(level.getObstacles());
         auditorBeams.clear(); auditorBeams.addAll(level.getAuditorBeams());
 
-        // Use helper that returns the level's shredder rect (or null if level has none)
+        // Use helper that falls back to level.getShredderCollisionRect() if getShredder() is null
         shredder = getLevelShredder(level);
-
-        // If the level supplies no shredder rect, remove the shared shredder visual so
-        // nothing is drawn. Otherwise create or update the shared shredder instance.
-        try {
-            if (shredder == null) {
-                if (sharedShredder != null) {
-                    try { sharedShredder.dispose(); } catch (Exception ignored) {}
-                    sharedShredder = null;
-                }
-            } else {
-                if (sharedShredder == null) sharedShredder = new Shredder(shredder);
-                else sharedShredder.setRect(shredder);
-                sharedShredder.setFrameDuration(0.08f);
-                // attempt to load visuals if not loaded yet
-                if (!sharedShredder.hasVisual()) {
-                    try { sharedShredder.loadFromFolder("shredderFx", 9); } catch (Exception ignored) {}
-                }
-            }
-        } catch (Exception ignored) {}
 
         totalDocuments = level.getTotalDocuments();
         documentsCollected = 0;
@@ -755,111 +699,10 @@ public class LevelManager implements ILevelManager {
         }
     }
 
-    /**
-     * Load a level but preserve the existing documents and document progress.
-     * Useful for swapping between sub-areas that share the same overall objective count.
-     */
-    public void loadLevelPreserveDocuments(Level level) {
-        if (level == null) return;
-
-        // do not dispose backgroundTex here; we'll replace it below if needed
-
-        level.init();
-        currentLevel = level;
-
-        // Preserve existing documents but ADD any new documents from the incoming level
-        // Replace platforms/obstacles/beams so collisions match the new area
-        platforms.clear(); platforms.addAll(level.getPlatforms());
-        obstacles.clear(); obstacles.addAll(level.getObstacles());
-        auditorBeams.clear(); auditorBeams.addAll(level.getAuditorBeams());
-
-        // Merge document lists so the total requirement is the union (sum across areas)
-        try {
-            Array<Rectangle> incoming = level.getDocuments();
-            if (incoming != null) {
-                for (Rectangle r : incoming) {
-                    boolean dup = false;
-                    for (Rectangle exist : documents) {
-                        // consider duplicate if centers are within 6px
-                        float dx = (exist.x + exist.width/2f) - (r.x + r.width/2f);
-                        float dy = (exist.y + exist.height/2f) - (r.y + r.height/2f);
-                        if (Math.abs(dx) < 6f && Math.abs(dy) < 6f) { dup = true; break; }
-                    }
-                    if (!dup) documents.add(new Rectangle(r));
-                }
-            }
-        } catch (Exception ignored) {}
-
-        // Update shredder rect; if the incoming level has no shredder, dispose/hide the shared visual.
-        shredder = getLevelShredder(level);
-        try {
-            if (shredder == null) {
-                if (sharedShredder != null) {
-                    try { sharedShredder.dispose(); } catch (Exception ignored) {}
-                    sharedShredder = null;
-                }
-            } else {
-                if (sharedShredder == null) sharedShredder = new Shredder(shredder);
-                else sharedShredder.setRect(shredder);
-                sharedShredder.setFrameDuration(0.08f);
-                if (!sharedShredder.hasVisual()) {
-                    try { sharedShredder.loadFromFolder("shredderFx", 9); } catch (Exception ignored) {}
-                }
-            }
-        } catch (Exception ignored) {}
-
-        // Recompute totalDocuments as the unioned set
-        totalDocuments = documents.size;
-        Gdx.app.log("LevelManager", "Loaded level (preserve docs): " + level.getClass().getSimpleName() + " totalDocs=" + totalDocuments);
-
-        // Try to load background for new level
-        try {
-            if (level instanceof BackgroundedLevel) {
-                String bg = ((BackgroundedLevel) level).getBackgroundPath();
-                if (bg != null && !bg.isEmpty()) {
-                    // dispose previous texture
-                    if (backgroundTex != null) { backgroundTex.dispose(); backgroundTex = null; }
-                    String[] bgCandidates = new String[] { bg, bg.toLowerCase(), "assets/" + bg };
-                    for (String c : bgCandidates) {
-                        if (c == null) continue;
-                        if (Gdx.files.internal(c).exists()) {
-                            backgroundTex = new Texture(Gdx.files.internal(c));
-                            Gdx.app.log("LevelManager", "Loaded background: " + c);
-                            break;
-                        }
-                        if (Gdx.files.absolute(c).exists()) {
-                            backgroundTex = new Texture(Gdx.files.absolute(c));
-                            Gdx.app.log("LevelManager", "Loaded background (absolute): " + c);
-                            break;
-                        }
-                    }
-                }
-            } else {
-                backgroundTex = null;
-            }
-        } catch (Exception e) {
-            Gdx.app.error("LevelManager", "Error loading background (preserve)", e);
-            if (backgroundTex != null) { backgroundTex.dispose(); backgroundTex = null; }
-        }
-    }
-
-    @Override
-    public Shredder getSharedShredder() { 
-        // LevelManager doesn't use shared shredder, return null
-        return null; 
-    }
-
-    // Expose current level for debugging/inspection
-    public Level getCurrentLevel() { return currentLevel; }
-
     // Getters
-    @Override
     public int getDocumentsCollected() { return documentsCollected; }
-    @Override
     public int getTotalDocuments() { return totalDocuments; }
-    @Override
     public boolean isLevelComplete() { return levelComplete; }
-    @Override
     public int getDocumentsRemaining() { return totalDocuments - documentsCollected; }
 
     // Return copies or an unmodifiable list of collision/doc rectangles for debugging
@@ -882,10 +725,6 @@ public class LevelManager implements ILevelManager {
             backgroundTex.dispose();
             backgroundTex = null;
         }
-        if (sharedShredder != null) {
-            try { sharedShredder.dispose(); } catch (Exception ignored) {}
-            sharedShredder = null;
-        }
     }
 
     // Add a small utility to safely test overlap
@@ -895,11 +734,7 @@ public class LevelManager implements ILevelManager {
 
     // Add a helper to retrieve the shredder rect from the level (with fallback)
     private Rectangle getLevelShredder(Level level) {
-        // If no level provided, return manager's default shredder rect
         if (level == null) return this.shredder;
-
-        // Ask the level for an explicit shredder rectangle; if it returns null,
-        // treat that as "this level has no shredder" and return null.
         try {
             Rectangle r = level.getShredder();
             if (r != null) return r;
@@ -912,8 +747,8 @@ public class LevelManager implements ILevelManager {
             if (o instanceof Rectangle) return (Rectangle) o;
         } catch (Exception ignored) {}
 
-        // If the level provides no shredder, return null (do not fall back to manager's default)
-        return null;
+        // final fallback to manager's shredder
+        return this.shredder;
     }
 
     public void update(float dt, Fixer player, Level level) {
@@ -934,9 +769,6 @@ public class LevelManager implements ILevelManager {
             if (!levelComplete) {
                 levelComplete = true;
                 Gdx.app.log("LevelManager", "LEVEL COMPLETE! All documents shredded!");
-                try {
-                    if (levelCompleteListener != null) levelCompleteListener.onLevelComplete();
-                } catch (Exception ignored) {}
             }
         }
     }
@@ -967,4 +799,3 @@ public class LevelManager implements ILevelManager {
         Gdx.app.log("LevelManager", "addDocumentsAtPositions: added " + added + " docs, total=" + totalDocuments);
     }
 }
-
