@@ -75,8 +75,8 @@ public class LevelSelectScreen implements Screen {
     private boolean level5Hovered = false;
 
     // Layout
-    private static final float BUTTON_WIDTH = 200f;
-    private static final float BUTTON_HEIGHT = 112f;
+    private static final float BUTTON_WIDTH = 220f;
+    private static final float BUTTON_HEIGHT = 128f;
     private static final float BUTTON_SPACING = 12f;
     private static final float TITLE_TOP_MARGIN = 30f;
     private static final float LABEL_FONT_SCALE = 1.5f;
@@ -311,7 +311,7 @@ public class LevelSelectScreen implements Screen {
 
         // Load bitmap font for the top-center "Levels" label (internal first, then project assets)
         try {
-            String fontPath = "fonts/Pexelify_Sans.fnt";
+            String fontPath = "fonts/bold/Bold.fnt";
             com.badlogic.gdx.files.FileHandle fh = null;
             if (Gdx.files.internal(fontPath).exists()) fh = Gdx.files.internal(fontPath);
             else {
@@ -322,6 +322,7 @@ public class LevelSelectScreen implements Screen {
                 levelsFont = new BitmapFont(fh);
                 levelsFont.getData().setScale(LEVELS_FONT_SCALE);
                 levelsFont.setColor(Color.WHITE);
+                Gdx.app.log("[LevelSelectScreen]", "Loaded Levels bold font: " + fontPath);
             }
         } catch (Exception e) {
             Gdx.app.error("[LevelSelectScreen]", "Failed to load levels font", e);
