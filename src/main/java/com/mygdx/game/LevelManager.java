@@ -1,19 +1,21 @@
 package com.mygdx.game;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.Pixmap;
-import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.math.Rectangle;
-import com.badlogic.gdx.utils.Array;
-import java.util.List;
-import java.util.ArrayList;
-import java.lang.reflect.Method; // added
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.graphics.g2d.Animation;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Rectangle;
+// REMOVED: wrong Scene2D/UI List import and wrong reflect Method import
+// import com.badlogic.gdx.scenes.scene2d.ui.List;
+// import com.badlogic.gdx.utils.reflect.Method;
+import com.badlogic.gdx.utils.Array;
+// ADDED: BackgroundedLevel lives in com.mygdx.game.Levels
+import com.mygdx.game.Levels.BackgroundedLevel;
 import com.mygdx.game.Levels.Level;
 
 /**
@@ -704,8 +706,8 @@ public class LevelManager {
     public int getDocumentsRemaining() { return totalDocuments - documentsCollected; }
 
     // Return copies or an unmodifiable list of collision/doc rectangles for debugging
-    public List<Rectangle> getAllDebugRects() {
-        List<Rectangle> out = new ArrayList<>();
+    public java.util.List<Rectangle> getAllDebugRects() {
+        java.util.List<Rectangle> out = new java.util.ArrayList<Rectangle>();
         // example: add platform rects, doc rects, obstacle rects, beam rects
         // for (Platform p : platforms) out.add(new Rectangle(p.x, p.y, p.width, p.height));
         // for (Document d : documents) out.add(new Rectangle(d.x, d.y, d.width, d.height));
@@ -740,7 +742,7 @@ public class LevelManager {
 
         // try to call a non-standard public method used by some levels
         try {
-            Method m = level.getClass().getMethod("getShredderCollisionRect");
+            java.lang.reflect.Method m = level.getClass().getMethod("getShredderCollisionRect");
             Object o = m.invoke(level);
             if (o instanceof Rectangle) return (Rectangle) o;
         } catch (Exception ignored) {}
