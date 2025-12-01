@@ -76,6 +76,15 @@ public class GameScreen implements Screen {
         // Tutorial talking overlay (shown when first doc collected)
         private com.badlogic.gdx.graphics.Texture overlayTalkingTex;
         private boolean overlayTalkingVisible = false;
+        // Win / GameOver overlays
+        private com.badlogic.gdx.graphics.Texture overlayWinTex;
+        private com.badlogic.gdx.graphics.Texture overlayGameOverTex;
+        // Whether the Win overlay is currently visible and blocking progression
+        private boolean winOverlayVisible = false;
+        // Record the event stats to display on overlay (docs collected and time at event)
+        private int lastEventDocs = 0;
+        private float lastEventTime = 0f;
+        private boolean lastEventRecorded = false;
         // --- Talking overlay tunables (edit these PUBLIC static values to reposition the overlay text) ---
         // Example: change these values at the top of this file to move the overlay text.
         // Width as fraction of screen (0.0 - 1.0). Max width caps the computed width.
@@ -185,6 +194,10 @@ public class GameScreen implements Screen {
         accumulator = 0f;
         showLevelComplete = false;
         levelCompleteTimer = 0f;
+        // Reset overlay event recording
+        lastEventRecorded = false;
+        lastEventDocs = 0;
+        lastEventTime = 0f;
         
         if (fixer != null) {
             // For tutorial (level 0) spawn player slightly higher
@@ -209,6 +222,17 @@ public class GameScreen implements Screen {
             } catch (Exception e) {
                 try { overlayFullTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("Overlay.png")); }
                 catch (Exception ex) { overlayFullTex = null; }
+            }
+            // Load win / gameover overlays
+            try {
+                overlayWinTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("assets/overlay/Win.png"));
+            } catch (Exception e) {
+                try { overlayWinTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("overlay/Win.png")); } catch (Exception ex) { overlayWinTex = null; }
+            }
+            try {
+                overlayGameOverTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("assets/overlay/Gameover.png"));
+            } catch (Exception e) {
+                try { overlayGameOverTex = new com.badlogic.gdx.graphics.Texture(Gdx.files.internal("overlay/Gameover.png")); } catch (Exception ex) { overlayGameOverTex = null; }
             }
             // Load the tutorial talking overlay (shown when first document collected)
             try {
@@ -386,13 +410,12 @@ public class GameScreen implements Screen {
         Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // Show level complete screen
+        // If level complete, still render the game underneath and then draw overlay on top
         if (showLevelComplete) {
-            levelCompleteTimer += delta;
-            renderLevelCompleteScreen();
-            if (levelCompleteTimer >= LEVEL_COMPLETE_DELAY) {
-                proceedToNextLevel();
-            }
+            // Do not call update (freeze game state); just render current frame
+            renderGame();
+            // Draw the win overlay on top of the currently rendered game
+            if (winOverlayVisible) drawWinOverlay();
             return;
         }
 
@@ -404,6 +427,12 @@ public class GameScreen implements Screen {
         }
         
         renderGame();
+        
+        // If game over, draw the GameOver overlay on top
+        if (currentState == GameState.GAMEOVER) {
+            drawGameOverOverlay();
+            return; // don't draw anything else on top
+        }
     }
 
     private void handleInput() {
@@ -423,6 +452,32 @@ public class GameScreen implements Screen {
                 (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.Q))) {
             game.setScreen(new LevelSelectScreen(game));
             dispose();
+        }
+        // If we just transitioned to GAMEOVER record event stats for overlay
+        if (currentState == GameState.GAMEOVER && !lastEventRecorded) {
+            try {
+                lastEventDocs = (levelManager != null) ? levelManager.getDocumentsCollected() : 0;
+                lastEventTime = remainingTime;
+            } catch (Exception ignored) {}
+            lastEventRecorded = true;
+        }
+
+        // If the win overlay is visible, allow dismissal via click or key (Enter/Space)
+        if (showLevelComplete && winOverlayVisible) {
+            boolean dismiss = Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                    || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                    || Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT);
+            if (dismiss) {
+                if (overlaySuppressNextClick) {
+                    // consume the initiating click
+                    overlaySuppressNextClick = false;
+                } else {
+                    // Dismiss the win overlay and proceed
+                    winOverlayVisible = false;
+                    showLevelComplete = false;
+                    proceedToNextLevel();
+                }
+            }
         }
     }
 
@@ -1142,60 +1197,131 @@ public class GameScreen implements Screen {
     private void drawGameOverOverlay() {
         if (shapeRenderer == null || game == null || game.batch == null) return;
 
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0f, 0f, 0f, 0.6f);
-        shapeRenderer.rect(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        shapeRenderer.end();
+        float w = Gdx.graphics.getWidth();
+        float h = Gdx.graphics.getHeight();
 
-        if (game.font != null) {
-            String title = "GAME OVER - Time's Up!";
-            String hint = "Press R to Restart or ESC for Level Select";
-            com.badlogic.gdx.graphics.g2d.GlyphLayout titleLayout = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, title);
-            com.badlogic.gdx.graphics.g2d.GlyphLayout hintLayout = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, hint);
-
-            float centerX = Gdx.graphics.getWidth() * 0.5f;
-            float centerY = Gdx.graphics.getHeight() * 0.5f;
-
-            float titleX = centerX - (titleLayout.width * 0.5f);
-            float titleY = centerY + (titleLayout.height * 0.5f) + 10f;
-
-            float hintX = centerX - (hintLayout.width * 0.5f);
-            float hintY = centerY - (hintLayout.height * 0.5f) - 10f;
-
-            game.batch.begin();
-            game.font.draw(game.batch, titleLayout, titleX, titleY);
-            game.font.draw(game.batch, hintLayout, hintX, hintY);
+        game.batch.begin();
+        if (overlayGameOverTex != null) {
+            game.batch.draw(overlayGameOverTex, 0, 0, w, h);
+        } else {
+            // fallback darkened background
             game.batch.end();
+            Gdx.gl.glEnable(GL20.GL_BLEND);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(0f, 0f, 0f, 0.6f);
+            shapeRenderer.rect(0, 0, w, h);
+            shapeRenderer.end();
+            Gdx.gl.glDisable(GL20.GL_BLEND);
+            game.batch.begin();
         }
 
-        Gdx.gl.glDisable(GL20.GL_BLEND);
+        // Draw stats: documents collected and time at event
+        try {
+            String docs = "Documents: " + lastEventDocs + "/" + (levelManager != null ? levelManager.getTotalDocuments() : 0);
+            int minutes = (int) (lastEventTime / 60);
+            int seconds = (int) (lastEventTime % 60);
+            String time = String.format("Time: %d:%02d", minutes, seconds);
+
+            com.badlogic.gdx.graphics.g2d.GlyphLayout g1 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, docs);
+            com.badlogic.gdx.graphics.g2d.GlyphLayout g2 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, time);
+            float cx = w * 0.5f;
+            float baseY = h * 0.5f - 20f;
+            game.font.draw(game.batch, g1, cx - g1.width * 0.5f, baseY + 20f + g1.height);
+            game.font.draw(game.batch, g2, cx - g2.width * 0.5f, baseY - 10f + g2.height);
+        } catch (Exception ignored) {}
+
+        game.batch.end();
+    }
+
+    /**
+     * Draw the Win overlay on top of the already-rendered game (DO NOT clear the screen).
+     */
+    private void drawWinOverlay() {
+        if (game == null || game.batch == null) return;
+
+        float w = Gdx.graphics.getWidth();
+        float h = Gdx.graphics.getHeight();
+
+        game.batch.begin();
+        if (overlayWinTex != null) {
+            game.batch.draw(overlayWinTex, 0, 0, w, h);
+        }
+
+        // Draw stats: documents collected and time at win
+        try {
+            String docs = "Documents: " + lastEventDocs + "/" + (levelManager != null ? levelManager.getTotalDocuments() : 0);
+            int minutes = (int) (lastEventTime / 60);
+            int seconds = (int) (lastEventTime % 60);
+            String time = String.format("Time: %d:%02d", minutes, seconds);
+
+            com.badlogic.gdx.graphics.g2d.GlyphLayout g1 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, docs);
+            com.badlogic.gdx.graphics.g2d.GlyphLayout g2 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, time);
+            float cx = w * 0.5f;
+            float baseY = h * 0.5f - 20f;
+            game.font.draw(game.batch, g1, cx - g1.width * 0.5f, baseY + 20f + g1.height);
+            game.font.draw(game.batch, g2, cx - g2.width * 0.5f, baseY - 10f + g2.height);
+        } catch (Exception ignored) {}
+
+        // Draw hint
+        try {
+            com.badlogic.gdx.graphics.g2d.GlyphLayout hintGL = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, "Click or press Enter/Space to continue");
+            float hx = w * 0.5f - hintGL.width * 0.5f;
+            float hy = 48f + hintGL.height;
+            game.font.draw(game.batch, hintGL, hx, hy);
+        } catch (Exception ignored) {}
+
+        game.batch.end();
     }
 
     private void levelComplete() {
         showLevelComplete = true;
         levelCompleteTimer = 0f;
+        // record event stats for the win overlay
+        try {
+            lastEventDocs = (levelManager != null) ? levelManager.getDocumentsCollected() : 0;
+            lastEventTime = remainingTime;
+        } catch (Exception ignored) {}
+        lastEventRecorded = true;
+        // Show the blocking win overlay and suppress the click that triggered completion
+        winOverlayVisible = true;
+        overlaySuppressNextClick = true;
         Gdx.app.log("GameScreen", "Level " + currentLevel + " Complete!");
     }
 
     private void renderLevelCompleteScreen() {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+        float w = Gdx.graphics.getWidth();
+        float h = Gdx.graphics.getHeight();
 
         game.batch.begin();
-        if (game.font != null) {
-            String mainMsg = "LEVEL " + currentLevel + " COMPLETED!";
-            String nextMsg = (currentLevel >= MAX_LEVEL) ? "All Levels Complete!" : "Proceeding to Level " + (currentLevel + 1) + "...";
-            
-            com.badlogic.gdx.graphics.g2d.GlyphLayout mainLayout = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, mainMsg);
-            com.badlogic.gdx.graphics.g2d.GlyphLayout nextLayout = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, nextMsg);
-
-            float centerX = Gdx.graphics.getWidth() * 0.5f;
-            float centerY = Gdx.graphics.getHeight() * 0.5f;
-
-            game.font.draw(game.batch, mainLayout, centerX - mainLayout.width * 0.5f, centerY + 50);
-            game.font.draw(game.batch, nextLayout, centerX - nextLayout.width * 0.5f, centerY - 50);
+        if (overlayWinTex != null) {
+            game.batch.draw(overlayWinTex, 0, 0, w, h);
         }
+
+        // Draw stats: documents collected and time at win
+        try {
+            String docs = "Documents: " + lastEventDocs + "/" + (levelManager != null ? levelManager.getTotalDocuments() : 0);
+            int minutes = (int) (lastEventTime / 60);
+            int seconds = (int) (lastEventTime % 60);
+            String time = String.format("Time: %d:%02d", minutes, seconds);
+
+            com.badlogic.gdx.graphics.g2d.GlyphLayout g1 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, docs);
+            com.badlogic.gdx.graphics.g2d.GlyphLayout g2 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, time);
+            float cx = w * 0.5f;
+            float baseY = h * 0.5f - 20f;
+            game.font.draw(game.batch, g1, cx - g1.width * 0.5f, baseY + 20f + g1.height);
+            game.font.draw(game.batch, g2, cx - g2.width * 0.5f, baseY - 10f + g2.height);
+        } catch (Exception ignored) {}
+
+        // Draw a small hint telling the player how to continue
+        try {
+            com.badlogic.gdx.graphics.g2d.GlyphLayout hintGL = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, "Click or press Enter/Space to continue");
+            float hx = w * 0.5f - hintGL.width * 0.5f;
+            float hy = 48f + hintGL.height;
+            game.font.draw(game.batch, hintGL, hx, hy);
+        } catch (Exception ignored) {}
+
         game.batch.end();
     }
 
