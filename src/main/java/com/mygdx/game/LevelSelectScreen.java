@@ -1,14 +1,17 @@
 package com.mygdx.game;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.InputListener;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
@@ -18,128 +21,107 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
-/**
- * Level Select Screen using TextureAtlas
- * 
- * This screen uses a single TextureAtlas (ui1.atlas) containing all Level Select UI sprites:
- * - background_full (1280x800) - full-screen background image
- * - title_selectlevel - pixelated title text at top center
- * - arrow_back - back button sprite with hover support
- * - btn_level1 through btn_level5 - normal button sprites for each level
- * - btn_level1_hover through btn_level5_hover - hover state sprites for each level
- * 
- * The atlas approach provides:
- * 1. Efficient sprite packing (single texture, multiple regions)
- * 2. Per-button hover states using ImageButton's up/over drawables
- * 3. Pixel-perfect hitboxes aligned with visual sprites via Scene2D
- * 
- * Scene2D Layout Benefits:
- * - ImageButton automatically handles hover detection using its bounds
- * - No manual mouse coordinate tracking needed
- * - Hitboxes perfectly match visual button positions (no misalignment)
- * - Each button independently highlights on hover (only hovered button changes)
- */
 public class LevelSelectScreen implements Screen {
     private final MyGdxGame game;
     private final Stage stage;
-    private int selectedLevel = 1;
-    
-    // TextureAtlas containing all UI sprites
-    private TextureAtlas uiAtlas;
-    private BitmapFont buttonFont;  // Font for "Level 1", "Level 2", etc.
-    // Animated background frames
-    private com.badlogic.gdx.graphics.Texture[] bgTextures = null;
-    private com.badlogic.gdx.graphics.g2d.TextureRegion[] bgRegions = null;
-    private com.badlogic.gdx.scenes.scene2d.ui.Image animatedBg = null;
-    private float bgAnimTime = 0f;
-    private static final float BG_FRAME_DURATION = 0.5f; // slower animation (0.5s per frame)
 
-    // Layout tuning constants - based on new atlas sprite sizes (level_button: 210x100, level_button_hover: 218x108)
-    private static final float BUTTON_WIDTH = 180f;
-    private static final float BUTTON_HEIGHT = 100f;
+    private TextureAtlas uiAtlas;
+    private BitmapFont buttonFont;
+    private BitmapFont levelsFont = null;
+
+    // Animated background
+    private Texture[] bgTextures = null;
+    private TextureRegion[] bgRegions = null;
+    private Image animatedBg = null;
+    private float bgAnimTime = 0f;
+    private static final float BG_FRAME_DURATION = 0.5f;
+
+    // Optional custom textures for Level 1 button (normal and hover)
+    private Texture level1ButtonTexture = null;
+    private Texture level1HoverTexture = null;
+    // Optional custom textures for Level 2 button (normal and hover)
+    private Texture level2ButtonTexture = null;
+    private Texture level2HoverTexture = null;
+    // Optional custom textures for Level 3/4/5 buttons (normal and hover)
+    private Texture level3ButtonTexture = null;
+    private Texture level3HoverTexture = null;
+    private Texture level4ButtonTexture = null;
+    private Texture level4HoverTexture = null;
+    private Texture level5ButtonTexture = null;
+    private Texture level5HoverTexture = null;
+    // Optional custom textures for Back button
+    private Texture backButtonTexture = null;
+    private Texture backButtonHoverTexture = null;
+    // Runtime refs for hover polling
+    private ImageButton level1ButtonRef = null;
+    private TextureRegionDrawable level1UpDrawable = null;
+    private TextureRegionDrawable level1OverDrawable = null;
+    private boolean level1Hovered = false;
+    private ImageButton level2ButtonRef = null;
+    private TextureRegionDrawable level2UpDrawable = null;
+    private TextureRegionDrawable level2OverDrawable = null;
+    private boolean level2Hovered = false;
+    private ImageButton level3ButtonRef = null;
+    private TextureRegionDrawable level3UpDrawable = null;
+    private TextureRegionDrawable level3OverDrawable = null;
+    private boolean level3Hovered = false;
+    private ImageButton level4ButtonRef = null;
+    private TextureRegionDrawable level4UpDrawable = null;
+    private TextureRegionDrawable level4OverDrawable = null;
+    private boolean level4Hovered = false;
+    private ImageButton level5ButtonRef = null;
+    private TextureRegionDrawable level5UpDrawable = null;
+    private TextureRegionDrawable level5OverDrawable = null;
+    private boolean level5Hovered = false;
+
+    // Layout
+    private static final float BUTTON_WIDTH = 200f;
+    private static final float BUTTON_HEIGHT = 112f;
     private static final float BUTTON_SPACING = 12f;
-    private static final float BUTTON_BOTTOM_MARGIN = 60f;
     private static final float TITLE_TOP_MARGIN = 30f;
     private static final float LABEL_FONT_SCALE = 1.5f;
-    private static final float BUTTON_COLUMN_TOP_MARGIN = 250f;
+    private static final float BUTTON_VERTICAL_OFFSET = 70f;
+    private static final float LEVELS_FONT_SCALE = 6.0f;
+    private static final float LEVELS_TOP_MARGIN = 25f;
+    private static final float BACK_BUTTON_SCALE = 0.09f;
 
     public LevelSelectScreen(MyGdxGame game) {
         this.game = game;
-        
-        // Create Stage with ScreenViewport (matches screen size 1280x800)
         this.stage = new Stage(new ScreenViewport());
-        
-        // Load TextureAtlas from assets/ui select original/ui.atlas
-        // Atlas regions: level_bg, title_selectlevel, arrow_back, arrow_back_hover,
-        // level_button, level_button_hover
+
+        // Load atlas (try internal then absolute)
         try {
-            com.badlogic.gdx.files.FileHandle atlasHandle = null;
             String atlasPath = "ui select original/ui.atlas";
-            
-            // Try internal path first (works when bundled)
-            if (Gdx.files.internal(atlasPath).exists()) {
-                atlasHandle = Gdx.files.internal(atlasPath);
-                Gdx.app.log("[LevelSelectScreen]", "Loading atlas from internal: " + atlasPath);
-            } else {
-                // Fallback to absolute path (development mode)
+            com.badlogic.gdx.files.FileHandle handle = null;
+            if (Gdx.files.internal(atlasPath).exists()) handle = Gdx.files.internal(atlasPath);
+            else {
                 String userDir = System.getProperty("user.dir");
-                String absPath = userDir + "/assets/" + atlasPath;
-                if (Gdx.files.absolute(absPath).exists()) {
-                    atlasHandle = Gdx.files.absolute(absPath);
-                    Gdx.app.log("[LevelSelectScreen]", "Loading atlas from absolute: " + absPath);
-                }
+                String abs = userDir + "/assets/" + atlasPath;
+                if (Gdx.files.absolute(abs).exists()) handle = Gdx.files.absolute(abs);
             }
-            
-            if (atlasHandle != null) {
-                uiAtlas = new TextureAtlas(atlasHandle);
-                Gdx.app.log("[LevelSelectScreen]", "✓ TextureAtlas loaded successfully");
-            } else {
-                throw new RuntimeException("ui.atlas not found in assets/ui select original/");
-            }
+            if (handle == null) throw new RuntimeException("ui.atlas not found");
+            uiAtlas = new TextureAtlas(handle);
         } catch (Exception e) {
-            Gdx.app.error("[LevelSelectScreen]", "✗ Failed to load ui.atlas: " + e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException("Cannot load ui.atlas", e);
+            Gdx.app.error("[LevelSelectScreen]", "Failed to load atlas", e);
+            throw new RuntimeException(e);
         }
-        
-        // Create font for button labels (Level 1, Level 2, etc.)
+
         buttonFont = new BitmapFont();
-        buttonFont.getData().setScale(1.5f);  // Larger, readable text
+        buttonFont.getData().setScale(1.5f);
         buttonFont.setColor(Color.WHITE);
-        
-        // Build UI using atlas regions
+
         initializeUI();
-        
-        // Set input processor to stage for button clicks
+
         Gdx.input.setInputProcessor(stage);
     }
 
-    /**
-     * Initialize UI using TextureAtlas regions
-     * 
-     * Layout order (back-to-front Z-order):
-     * 1. level_bg (1280x800 stretched to fill screen)
-     * 2. title_selectlevel (centered at top)
-     * 3. arrow_back (top-left corner with hover)
-     * 4. Five level buttons (level_button with level_button_hover on mouseover)
-     * 5. Text labels ("Level 1" through "Level 5") centered on each button
-     * 
-     * Each ImageButton uses:
-     * - up drawable = normal button sprite (level_button)
-     * - over drawable = hover sprite (level_button_hover)
-     * - down drawable = hover sprite (level_button_hover)
-     * 
-     * This ensures ONLY the hovered button highlights, while others remain normal.
-     */
     private void initializeUI() {
-<<<<<<< HEAD
-        // 1. Add animated background (try loading frames from assets/Level BG/2.png..13.png)
-        String[] framePaths = new String[] {
-            "Level BG/2.png","Level BG/3.png","Level BG/4.png","Level BG/5.png",
-            "Level BG/6.png","Level BG/7.png","Level BG/8.png","Level BG/9.png",
-            "Level BG/10.png","Level BG/11.png","Level BG/12.png","Level BG/13.png"
-        };
-        java.util.List<com.badlogic.gdx.graphics.Texture> loaded = new java.util.ArrayList<>();
+        float screenWidth = stage.getViewport().getWorldWidth();
+        float screenHeight = stage.getViewport().getWorldHeight();
+
+        // Try load animated frames
+        String[] framePaths = new String[] {"Level BG/2.png","Level BG/3.png","Level BG/4.png","Level BG/5.png","Level BG/6.png","Level BG/7.png","Level BG/8.png","Level BG/9.png","Level BG/10.png","Level BG/11.png","Level BG/12.png","Level BG/13.png"};
+        java.util.List<Texture> loaded = new java.util.ArrayList<>();
         String userDir = System.getProperty("user.dir");
         for (String p : framePaths) {
             try {
@@ -147,241 +129,370 @@ public class LevelSelectScreen implements Screen {
                 if (Gdx.files.internal(p).exists()) fh = Gdx.files.internal(p);
                 else if (Gdx.files.absolute(userDir + "/assets/" + p).exists()) fh = Gdx.files.absolute(userDir + "/assets/" + p);
                 if (fh != null) {
-                    com.badlogic.gdx.graphics.Texture t = new com.badlogic.gdx.graphics.Texture(fh);
-                    t.setFilter(com.badlogic.gdx.graphics.Texture.TextureFilter.Linear, com.badlogic.gdx.graphics.Texture.TextureFilter.Linear);
+                    Texture t = new Texture(fh);
+                    t.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
                     loaded.add(t);
-                    Gdx.app.log("[LevelSelectScreen]", "Loaded bg frame: " + p);
-                } else {
-                    Gdx.app.log("[LevelSelectScreen]", "bg frame not found: " + p);
                 }
             } catch (Exception e) {
                 Gdx.app.error("[LevelSelectScreen]", "Error loading bg frame: " + p, e);
             }
         }
+
+        // Load custom Level 1 button images (if present) - internal path first, then project assets
+        try {
+            String btnBase = "Level buttons/1.png";
+            String btnHover = "Level buttons/2.png";
+            com.badlogic.gdx.files.FileHandle fh1 = null;
+            com.badlogic.gdx.files.FileHandle fh2 = null;
+            if (Gdx.files.internal(btnBase).exists()) fh1 = Gdx.files.internal(btnBase);
+            else if (Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnBase).exists()) fh1 = Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnBase);
+            if (Gdx.files.internal(btnHover).exists()) fh2 = Gdx.files.internal(btnHover);
+            else if (Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnHover).exists()) fh2 = Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnHover);
+            if (fh1 != null) {
+                level1ButtonTexture = new Texture(fh1);
+                level1ButtonTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                Gdx.app.log("[LevelSelectScreen]", "Loaded Level1 button image: " + btnBase);
+            }
+            if (fh2 != null) {
+                level1HoverTexture = new Texture(fh2);
+                level1HoverTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                Gdx.app.log("[LevelSelectScreen]", "Loaded Level1 hover image: " + btnHover);
+            }
+        } catch (Exception e) {
+            Gdx.app.error("[LevelSelectScreen]", "Error loading Level1 button images", e);
+        }
+
+        // Load custom Level 2 button images (if present)
+        try {
+            String btnBase2 = "Level 2/1.png";
+            String btnHover2 = "Level 2/2.png";
+            com.badlogic.gdx.files.FileHandle fh21 = null;
+            com.badlogic.gdx.files.FileHandle fh22 = null;
+            if (Gdx.files.internal(btnBase2).exists()) fh21 = Gdx.files.internal(btnBase2);
+            else if (Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnBase2).exists()) fh21 = Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnBase2);
+            if (Gdx.files.internal(btnHover2).exists()) fh22 = Gdx.files.internal(btnHover2);
+            else if (Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnHover2).exists()) fh22 = Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnHover2);
+            if (fh21 != null) {
+                level2ButtonTexture = new Texture(fh21);
+                level2ButtonTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                Gdx.app.log("[LevelSelectScreen]", "Loaded Level2 button image: " + btnBase2);
+            }
+            if (fh22 != null) {
+                level2HoverTexture = new Texture(fh22);
+                level2HoverTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                Gdx.app.log("[LevelSelectScreen]", "Loaded Level2 hover image: " + btnHover2);
+            }
+        } catch (Exception e) {
+            Gdx.app.error("[LevelSelectScreen]", "Error loading Level2 button images", e);
+        }
+
+        // Load custom Level 3 button images (if present)
+        try {
+            String btnBase3 = "Level 3/1.png";
+            String btnHover3 = "Level 3/2.png";
+            com.badlogic.gdx.files.FileHandle fh31 = null;
+            com.badlogic.gdx.files.FileHandle fh32 = null;
+            if (Gdx.files.internal(btnBase3).exists()) fh31 = Gdx.files.internal(btnBase3);
+            else if (Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnBase3).exists()) fh31 = Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnBase3);
+            if (Gdx.files.internal(btnHover3).exists()) fh32 = Gdx.files.internal(btnHover3);
+            else if (Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnHover3).exists()) fh32 = Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnHover3);
+            if (fh31 != null) {
+                level3ButtonTexture = new Texture(fh31);
+                level3ButtonTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                Gdx.app.log("[LevelSelectScreen]", "Loaded Level3 button image: " + btnBase3);
+            }
+            if (fh32 != null) {
+                level3HoverTexture = new Texture(fh32);
+                level3HoverTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                Gdx.app.log("[LevelSelectScreen]", "Loaded Level3 hover image: " + btnHover3);
+            }
+        } catch (Exception e) {
+            Gdx.app.error("[LevelSelectScreen]", "Error loading Level3 button images", e);
+        }
+
+        // Load custom Level 4 button images (if present)
+        try {
+            String btnBase4 = "level 4/1.png";
+            String btnHover4 = "level 4/2.png";
+            com.badlogic.gdx.files.FileHandle fh41 = null;
+            com.badlogic.gdx.files.FileHandle fh42 = null;
+            if (Gdx.files.internal(btnBase4).exists()) fh41 = Gdx.files.internal(btnBase4);
+            else if (Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnBase4).exists()) fh41 = Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnBase4);
+            if (Gdx.files.internal(btnHover4).exists()) fh42 = Gdx.files.internal(btnHover4);
+            else if (Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnHover4).exists()) fh42 = Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnHover4);
+            if (fh41 != null) {
+                level4ButtonTexture = new Texture(fh41);
+                level4ButtonTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                Gdx.app.log("[LevelSelectScreen]", "Loaded Level4 button image: " + btnBase4);
+            }
+            if (fh42 != null) {
+                level4HoverTexture = new Texture(fh42);
+                level4HoverTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                Gdx.app.log("[LevelSelectScreen]", "Loaded Level4 hover image: " + btnHover4);
+            }
+        } catch (Exception e) {
+            Gdx.app.error("[LevelSelectScreen]", "Error loading Level4 button images", e);
+        }
+
+        // Load custom Level 5 button images (if present)
+        try {
+            String btnBase5 = "level 5/1.png";
+            String btnHover5 = "level 5/2.png";
+            com.badlogic.gdx.files.FileHandle fh51 = null;
+            com.badlogic.gdx.files.FileHandle fh52 = null;
+            if (Gdx.files.internal(btnBase5).exists()) fh51 = Gdx.files.internal(btnBase5);
+            else if (Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnBase5).exists()) fh51 = Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnBase5);
+            if (Gdx.files.internal(btnHover5).exists()) fh52 = Gdx.files.internal(btnHover5);
+            else if (Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnHover5).exists()) fh52 = Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + btnHover5);
+            if (fh51 != null) {
+                level5ButtonTexture = new Texture(fh51);
+                level5ButtonTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                Gdx.app.log("[LevelSelectScreen]", "Loaded Level5 button image: " + btnBase5);
+            }
+            if (fh52 != null) {
+                level5HoverTexture = new Texture(fh52);
+                level5HoverTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                Gdx.app.log("[LevelSelectScreen]", "Loaded Level5 hover image: " + btnHover5);
+            }
+        } catch (Exception e) {
+            Gdx.app.error("[LevelSelectScreen]", "Error loading Level5 button images", e);
+        }
+
+        // Load custom Back button images (if present)
+        try {
+            String backBase = "back button/7.png";
+            String backHover = "back button/8.png";
+            com.badlogic.gdx.files.FileHandle fhb = null;
+            com.badlogic.gdx.files.FileHandle fhbh = null;
+            if (Gdx.files.internal("back button/7.png").exists()) fhb = Gdx.files.internal(backBase);
+            else if (Gdx.files.absolute(userDir + "/assets/" + backBase).exists()) fhb = Gdx.files.absolute(userDir + "/assets/" + backBase);
+            if (Gdx.files.internal(backHover).exists()) fhbh = Gdx.files.internal(backHover);
+            else if (Gdx.files.absolute(userDir + "/assets/" + backHover).exists()) fhbh = Gdx.files.absolute(userDir + "/assets/" + backHover);
+            if (fhb != null) {
+                backButtonTexture = new Texture(fhb);
+                backButtonTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                Gdx.app.log("[LevelSelectScreen]", "Loaded Back button image: " + backBase);
+            }
+            if (fhbh != null) {
+                backButtonHoverTexture = new Texture(fhbh);
+                backButtonHoverTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                Gdx.app.log("[LevelSelectScreen]", "Loaded Back button hover image: " + backHover);
+            }
+        } catch (Exception e) {
+            Gdx.app.error("[LevelSelectScreen]", "Error loading Back button images", e);
+        }
+
         if (!loaded.isEmpty()) {
-            bgTextures = loaded.toArray(new com.badlogic.gdx.graphics.Texture[0]);
-            bgRegions = new com.badlogic.gdx.graphics.g2d.TextureRegion[bgTextures.length];
-            for (int i = 0; i < bgTextures.length; i++) bgRegions[i] = new com.badlogic.gdx.graphics.g2d.TextureRegion(bgTextures[i]);
+            bgTextures = loaded.toArray(new Texture[0]);
+            bgRegions = new TextureRegion[bgTextures.length];
+            for (int i = 0; i < bgTextures.length; i++) bgRegions[i] = new TextureRegion(bgTextures[i]);
             animatedBg = new Image(bgRegions[0]);
-            // Make the animated background fill the stage/viewport
             animatedBg.setFillParent(true);
             stage.addActor(animatedBg);
-            Gdx.app.log("[LevelSelectScreen]", "✓ Animated background added with " + bgRegions.length + " frames");
-=======
-        float screenWidth = stage.getViewport().getWorldWidth();
-        float screenHeight = stage.getViewport().getWorldHeight();
-
-        // 1. Add level_bg (scaled to viewport size)
-        TextureRegion bgRegion = uiAtlas.findRegion("level_bg (1)");
-        if (bgRegion != null) {
-            Image background = new Image(bgRegion);
-            background.setSize(screenWidth, screenHeight);  // Stretch to full screen
-            background.setPosition(0, 0);
-            stage.addActor(background);
-            Gdx.app.log("[LevelSelectScreen]", "✓ Background (level_bg) added at 1280x800");
->>>>>>> a8b57d714e01d0a21525279a866756d003475ea7
         } else {
-            // fallback to atlas region
             TextureRegion bgRegion = uiAtlas.findRegion("level_bg");
             if (bgRegion != null) {
-                Image background = new Image(bgRegion);
-                // Ensure fallback also fills the screen
-                background.setFillParent(true);
-                stage.addActor(background);
-                Gdx.app.log("[LevelSelectScreen]", "✓ Background (level_bg) added (fallback, fill parent)");
-            } else {
-                Gdx.app.error("[LevelSelectScreen]", "✗ No animated bg frames found and level_bg not in atlas");
+                Image bg = new Image(bgRegion);
+                bg.setFillParent(true);
+                stage.addActor(bg);
             }
         }
-        
-        // 2. Add title_selectlevel centered at top
-        TextureRegion titleRegion = uiAtlas.findRegion("title_selectlevel (1)");
+
+        // Title
+        TextureRegion titleRegion = uiAtlas.findRegion("title_selectlevel");
         if (titleRegion != null) {
             Image title = new Image(titleRegion);
-            float titleWidth = titleRegion.getRegionWidth();
-            float titleHeight = titleRegion.getRegionHeight();
-            title.setSize(titleWidth, titleHeight);
-            // Center horizontally, position near top with margin
-            float titleY = screenHeight - titleHeight - TITLE_TOP_MARGIN;
-            title.setPosition((screenWidth - titleWidth) / 2f, titleY);
+            float titleW = titleRegion.getRegionWidth();
+            float titleH = titleRegion.getRegionHeight();
+            title.setSize(titleW, titleH);
+            title.setPosition((screenWidth - titleW) / 2f, screenHeight - titleH - TITLE_TOP_MARGIN);
             stage.addActor(title);
-            Gdx.app.log("[LevelSelectScreen]", "✓ Title (title_selectlevel) added");
-        } else {
-            Gdx.app.error("[LevelSelectScreen]", "✗ title_selectlevel not found in atlas");
         }
-        
-        // 3. Add arrow_back button at top-left with hover support
-        TextureRegion arrowRegion = uiAtlas.findRegion("arrow_back (1)");
-        TextureRegion arrowHoverRegion = uiAtlas.findRegion("arrow_back_hover");
-        if (arrowRegion != null) {
-            ImageButton backButton = createBackButton(arrowRegion, arrowHoverRegion, screenHeight);
-            stage.addActor(backButton);
-            Gdx.app.log("[LevelSelectScreen]", "✓ Back arrow (arrow_back) added with hover");
-        } else {
-            Gdx.app.error("[LevelSelectScreen]", "✗ arrow_back not found in atlas");
+
+        // Load bitmap font for the top-center "Levels" label (internal first, then project assets)
+        try {
+            String fontPath = "fonts/Pexelify_Sans.fnt";
+            com.badlogic.gdx.files.FileHandle fh = null;
+            if (Gdx.files.internal(fontPath).exists()) fh = Gdx.files.internal(fontPath);
+            else {
+                String abs = userDir + "/assets/" + fontPath;
+                if (Gdx.files.absolute(abs).exists()) fh = Gdx.files.absolute(abs);
+            }
+            if (fh != null) {
+                levelsFont = new BitmapFont(fh);
+                levelsFont.getData().setScale(LEVELS_FONT_SCALE);
+                levelsFont.setColor(Color.WHITE);
+            }
+        } catch (Exception e) {
+            Gdx.app.error("[LevelSelectScreen]", "Failed to load levels font", e);
         }
-        
-        // 4. Create 5 level buttons using level_btn_orig sprites
-        // Each button uses the same sprite but with individual text labels
-        for (int i = 1; i <= 5; i++) {
-            createLevelButton(i, screenWidth, screenHeight);
+
+        // Add top-center "Levels" text if font loaded
+        if (levelsFont != null) {
+            Label.LabelStyle ls = new Label.LabelStyle(levelsFont, Color.WHITE);
+            Label levelsLabel = new Label("Levels", ls);
+            float lw = levelsLabel.getPrefWidth();
+            float lh = levelsLabel.getPrefHeight();
+            levelsLabel.setPosition((screenWidth - lw) / 2f, screenHeight - lh - LEVELS_TOP_MARGIN);
+            levelsLabel.setAlignment(Align.center);
+            levelsLabel.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+            stage.addActor(levelsLabel);
+        }
+
+        // Back button: prefer custom textures (assets/back button/7.png, 8.png), fallback to atlas
+        TextureRegion arrow = null;
+        TextureRegion arrowHover = null;
+        if (backButtonTexture != null) {
+            arrow = new TextureRegion(backButtonTexture);
+            arrowHover = (backButtonHoverTexture != null) ? new TextureRegion(backButtonHoverTexture) : arrow;
+        } else {
+            arrow = uiAtlas.findRegion("arrow_back");
+            arrowHover = uiAtlas.findRegion("arrow_back_hover");
+        }
+        if (arrow != null) {
+            ImageButton back = createBackButton(arrow, arrowHover, screenHeight);
+            stage.addActor(back);
+        }
+
+        // Horizontal level buttons
+        int count = 5;
+        float spacing = 30f;
+        float totalWidth = (BUTTON_WIDTH * count) + (spacing * (count - 1));
+        float startX = (screenWidth - totalWidth) / 2f;
+        float y = (screenHeight - BUTTON_HEIGHT) / 2f - BUTTON_VERTICAL_OFFSET;
+        for (int i = 1; i <= count; i++) {
+            float x = startX + (i - 1) * (BUTTON_WIDTH + spacing);
+            createLevelButton(i, x, y);
         }
     }
-    
-    /**
-     * Create back button using arrow_back sprite with hover support
-     * 
-     * Positioned at top-left with proper size from atlas.
-     * Clicking returns to MainMenuScreen.
-     */
+
     private ImageButton createBackButton(TextureRegion arrowRegion, TextureRegion arrowHoverRegion, float screenHeight) {
-        TextureRegionDrawable upDrawable = new TextureRegionDrawable(arrowRegion);
-        TextureRegionDrawable overDrawable = (arrowHoverRegion != null) 
-            ? new TextureRegionDrawable(arrowHoverRegion) 
-            : upDrawable;
-        
-        ImageButton backButton = new ImageButton(upDrawable, overDrawable, overDrawable);
-        // Use original sprite size (102x69)
-        float btnWidth = arrowRegion.getRegionWidth();
-        float btnHeight = arrowRegion.getRegionHeight();
-        backButton.setSize(btnWidth, btnHeight);
-        backButton.setPosition(20, screenHeight - btnHeight - 20);  // Top-left corner with margin
-        
-        backButton.addListener(new ClickListener() {
+        TextureRegionDrawable up = new TextureRegionDrawable(arrowRegion);
+        TextureRegionDrawable over = (arrowHoverRegion != null) ? new TextureRegionDrawable(arrowHoverRegion) : up;
+        ImageButton b = new ImageButton(up, over, over);
+        float w = arrowRegion.getRegionWidth();
+        float h = arrowRegion.getRegionHeight();
+        float sw = w * BACK_BUTTON_SCALE;
+        float sh = h * BACK_BUTTON_SCALE;
+        b.setSize(sw, sh);
+        b.setPosition(20, screenHeight - sh - 20);
+        b.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                Gdx.app.log("[LevelSelectScreen]", "✓ Back button clicked");
                 game.setScreen(new MainMenuScreen(game));
                 dispose();
             }
         });
-        
-        return backButton;
-    }
-    
-    /**
-     * Create a level button using sprites from atlas
-     * 
-     * All levels use the same button sprites:
-     * - Normal state: level_button
-     * - Hover state: level_button_hover
-     * 
-     * Text labels ("Level 1" through "Level 5") are added on top of buttons
-     * to differentiate them visually.
-     * 
-     * This approach ensures:
-     * 1. Consistent button appearance across all levels
-     * 2. Only the hovered button highlights (ImageButton handles state internally)
-     * 3. Hitbox matches visual sprite bounds exactly (Scene2D positioning)
-     * 4. Clear, centered text labels for easy identification
-     * 
-     * Button positioning:
-     * - Vertically centered with equal spacing
-     * - Horizontally centered on screen
-     * 
-     * On click, calls goToLevel(levelNum) to navigate to GameScreen.
-     * 
-     * @param levelNum Level number (1-5)
-     */
-    private void createLevelButton(int levelNum, float screenWidth, float screenHeight) {
-        // Load the shared button sprites (same for all levels)
-        TextureRegion btnRegion = uiAtlas.findRegion("level_button");
-        TextureRegion btnHoverRegion = uiAtlas.findRegion("level_button_hover");
-        
-        if (btnRegion == null) {
-            Gdx.app.error("[LevelSelectScreen]", "✗ level_button not found in atlas");
-            return;
-        }
-        
-        // Use normal sprite as fallback if hover sprite missing
-        if (btnHoverRegion == null) {
-            Gdx.app.log("[LevelSelectScreen]", "⚠ level_button_hover not found, using normal sprite");
-            btnHoverRegion = btnRegion;
-        }
-        
-        // Create ImageButton with up/over/down drawables
-        // up = normal state, over = mouse hover, down = clicked (also hover sprite)
-        TextureRegionDrawable upDrawable = new TextureRegionDrawable(btnRegion);
-        TextureRegionDrawable overDrawable = new TextureRegionDrawable(btnHoverRegion);
-        
-        final ImageButton levelButton = new ImageButton(upDrawable, overDrawable, overDrawable);
-        
-        // Get button size from sprite dimensions (preserves original artwork size)
-        final float buttonWidth = BUTTON_WIDTH;
-        final float buttonHeight = BUTTON_HEIGHT;
-        levelButton.setSize(buttonWidth, buttonHeight);
-        
-        // Position buttons vertically with generous spacing and lower placement
-        float spacing = BUTTON_SPACING;
-        float totalHeight = (buttonHeight * 5f) + (spacing * 4f);
-        // Center the button column vertically, but ensure it doesn't go above title area
-        float centerY = (screenHeight - totalHeight) / 2f;
-        float maxStartY = screenHeight - BUTTON_COLUMN_TOP_MARGIN - totalHeight;
-        float startY = Math.min(centerY, maxStartY);
-        if (startY < BUTTON_BOTTOM_MARGIN) {
-            startY = BUTTON_BOTTOM_MARGIN;
-        }
-        float buttonX = (screenWidth - buttonWidth) / 2f;  // Horizontally centered
-        // Level 1 at top, Level 5 at bottom
-        float buttonY = startY + (5 - levelNum) * (buttonHeight + spacing);  // Bottom-to-top ordering
-        
-        levelButton.setPosition(buttonX, buttonY);
-        
-        stage.addActor(levelButton);
-        
-        // Add "Level X" text label centered on button
-        Label.LabelStyle labelStyle = new Label.LabelStyle(buttonFont, Color.WHITE);
-        final Label levelLabel = new Label("Level " + levelNum, labelStyle);
-        
-        // Set font scale for readable size
-        levelLabel.setFontScale(LABEL_FONT_SCALE);
-        
-        // Calculate centered position on button using label bounds
-        float labelHeight = levelLabel.getPrefHeight() * LABEL_FONT_SCALE;
-        float labelY = buttonY + (buttonHeight - labelHeight) / 2f;
-        
-        levelLabel.setSize(buttonWidth, labelHeight);
-        levelLabel.setAlignment(Align.center);
-        levelLabel.setPosition(buttonX, labelY);
-        levelLabel.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);  // Let clicks pass through to button
-        
-        // Add label as a child of the button so it moves/scales with the button
-        // and doesn't interfere with button hover detection
-        levelButton.addActor(levelLabel);
-        levelLabel.setPosition(0, (buttonHeight - labelHeight) / 2f);  // Position relative to button
-        // Add unified listener for both click and hover
-        final int level = levelNum;
-        levelButton.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                selectedLevel = level;
-                Gdx.app.log("[LevelSelectScreen]", "✓ Clicked Level " + level);
-                goToLevel(selectedLevel);  // Uses existing goToLevel method (not renamed)
-            }
-            
-            @Override
-            public void enter(InputEvent event, float x, float y, int pointer, com.badlogic.gdx.scenes.scene2d.Actor fromActor) {
-                // Brighten text on hover (yellow highlight) - stays while mouse is over button
-                levelLabel.setColor(Color.YELLOW);
-            }
-            
-            @Override
-            public void exit(InputEvent event, float x, float y, int pointer, com.badlogic.gdx.scenes.scene2d.Actor toActor) {
-                // Return to white when mouse leaves button
-                levelLabel.setColor(Color.WHITE);
-            }
-        });
-        
-        Gdx.app.log("[LevelSelectScreen]", "✓ Level " + levelNum + " button created at (" + buttonX + ", " + buttonY + ") with centered label");
+        return b;
     }
 
-    /**
-     * Navigate to the selected level
-     */
-    private void goToLevel(int level) {
-        Gdx.app.log("[LevelSelectScreen]", "Loading Level " + level);
-        game.setScreen(new GameScreen(game, level));
-        dispose();
+    private void createLevelButton(int levelNum, float x, float y) {
+        ImageButton ib;
+        // If this is Level 1 and custom textures were loaded, use them
+        if (levelNum == 1 && level1ButtonTexture != null) {
+            TextureRegion norm = new TextureRegion(level1ButtonTexture);
+            TextureRegion hover = (level1HoverTexture != null) ? new TextureRegion(level1HoverTexture) : norm;
+            TextureRegionDrawable up = new TextureRegionDrawable(norm);
+            TextureRegionDrawable over = new TextureRegionDrawable(hover);
+            ib = new ImageButton(up, over, over);
+            // Use consistent button size and scale the drawable to fit
+            ib.setSize(BUTTON_WIDTH, BUTTON_HEIGHT);
+            ib.setPosition(x, y);
+        } else if (levelNum == 2 && level2ButtonTexture != null) {
+            TextureRegion norm2 = new TextureRegion(level2ButtonTexture);
+            TextureRegion hover2 = (level2HoverTexture != null) ? new TextureRegion(level2HoverTexture) : norm2;
+            TextureRegionDrawable up2 = new TextureRegionDrawable(norm2);
+            TextureRegionDrawable over2 = new TextureRegionDrawable(hover2);
+            ib = new ImageButton(up2, over2, over2);
+            ib.setSize(BUTTON_WIDTH, BUTTON_HEIGHT);
+            ib.setPosition(x, y);
+        } else if (levelNum == 3 && level3ButtonTexture != null) {
+            TextureRegion norm3 = new TextureRegion(level3ButtonTexture);
+            TextureRegion hover3 = (level3HoverTexture != null) ? new TextureRegion(level3HoverTexture) : norm3;
+            TextureRegionDrawable up3 = new TextureRegionDrawable(norm3);
+            TextureRegionDrawable over3 = new TextureRegionDrawable(hover3);
+            ib = new ImageButton(up3, over3, over3);
+            ib.setSize(BUTTON_WIDTH, BUTTON_HEIGHT);
+            ib.setPosition(x, y);
+        } else if (levelNum == 4 && level4ButtonTexture != null) {
+            TextureRegion norm4 = new TextureRegion(level4ButtonTexture);
+            TextureRegion hover4 = (level4HoverTexture != null) ? new TextureRegion(level4HoverTexture) : norm4;
+            TextureRegionDrawable up4 = new TextureRegionDrawable(norm4);
+            TextureRegionDrawable over4 = new TextureRegionDrawable(hover4);
+            ib = new ImageButton(up4, over4, over4);
+            ib.setSize(BUTTON_WIDTH, BUTTON_HEIGHT);
+            ib.setPosition(x, y);
+        } else if (levelNum == 5 && level5ButtonTexture != null) {
+            TextureRegion norm5 = new TextureRegion(level5ButtonTexture);
+            TextureRegion hover5 = (level5HoverTexture != null) ? new TextureRegion(level5HoverTexture) : norm5;
+            TextureRegionDrawable up5 = new TextureRegionDrawable(norm5);
+            TextureRegionDrawable over5 = new TextureRegionDrawable(hover5);
+            ib = new ImageButton(up5, over5, over5);
+            ib.setSize(BUTTON_WIDTH, BUTTON_HEIGHT);
+            ib.setPosition(x, y);
+        } else {
+            TextureRegion btn = uiAtlas.findRegion("level_button");
+            TextureRegion btnHover = uiAtlas.findRegion("level_button_hover");
+            if (btn == null) return;
+            TextureRegionDrawable up = new TextureRegionDrawable(btn);
+            TextureRegionDrawable over = (btnHover != null) ? new TextureRegionDrawable(btnHover) : up;
+            ib = new ImageButton(up, over, over);
+            ib.setSize(BUTTON_WIDTH, BUTTON_HEIGHT);
+            ib.setPosition(x, y);
+        }
+        stage.addActor(ib);
+
+        if (levelNum != 1 && levelNum != 2 && levelNum != 3 && levelNum != 4 && levelNum != 5) {
+            Label.LabelStyle ls = new Label.LabelStyle(buttonFont, Color.WHITE);
+            Label label = new Label("Level " + levelNum, ls);
+            label.setFontScale(LABEL_FONT_SCALE);
+            label.setSize(BUTTON_WIDTH, label.getPrefHeight() * LABEL_FONT_SCALE);
+            label.setAlignment(Align.center);
+            label.setTouchable(com.badlogic.gdx.scenes.scene2d.Touchable.disabled);
+            ib.addActor(label);
+            label.setPosition(0, (BUTTON_HEIGHT - label.getHeight()) / 2f);
+        }
+
+        final int lvl = levelNum;
+        ib.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                game.setScreen(new GameScreen(game, lvl));
+                dispose();
+            }
+        });
+
+        // For Level 1/2, if hover textures exist, keep references and use polling in render()
+        if (levelNum == 1 && level1HoverTexture != null) {
+            level1UpDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
+            level1OverDrawable = (TextureRegionDrawable) ib.getStyle().imageOver;
+            level1ButtonRef = ib;
+            level1Hovered = false;
+        }
+        if (levelNum == 2 && level2HoverTexture != null) {
+            level2UpDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
+            level2OverDrawable = (TextureRegionDrawable) ib.getStyle().imageOver;
+            level2ButtonRef = ib;
+            level2Hovered = false;
+        }
+        if (levelNum == 3 && level3HoverTexture != null) {
+            level3UpDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
+            level3OverDrawable = (TextureRegionDrawable) ib.getStyle().imageOver;
+            level3ButtonRef = ib;
+            level3Hovered = false;
+        }
+        if (levelNum == 4 && level4HoverTexture != null) {
+            level4UpDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
+            level4OverDrawable = (TextureRegionDrawable) ib.getStyle().imageOver;
+            level4ButtonRef = ib;
+            level4Hovered = false;
+        }
+        if (levelNum == 5 && level5HoverTexture != null) {
+            level5UpDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
+            level5OverDrawable = (TextureRegionDrawable) ib.getStyle().imageOver;
+            level5ButtonRef = ib;
+            level5Hovered = false;
+        }
     }
 
     @Override
@@ -393,44 +504,122 @@ public class LevelSelectScreen implements Screen {
     public void render(float delta) {
         Gdx.gl.glClearColor(0.15f, 0.15f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-        
-        // Handle keyboard navigation
-        handleKeyboardInput();
-        
-        // Advance background animation (if available)
+        // Poll mouse position and update Level 1 hover drawable (works even if enter/exit events aren't firing)
+        if (level1ButtonRef != null && level1UpDrawable != null && level1OverDrawable != null) {
+            com.badlogic.gdx.math.Vector2 sp = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
+            stage.screenToStageCoordinates(sp);
+            Actor hit = stage.hit(sp.x, sp.y, true);
+            boolean nowOver = false;
+            if (hit != null) {
+                Actor a = hit;
+                while (a != null) {
+                    if (a == level1ButtonRef) { nowOver = true; break; }
+                    a = a.getParent();
+                }
+            }
+            if (nowOver && !level1Hovered) {
+                level1Hovered = true;
+                level1ButtonRef.getImage().setDrawable(level1OverDrawable);
+            } else if (!nowOver && level1Hovered) {
+                level1Hovered = false;
+                level1ButtonRef.getImage().setDrawable(level1UpDrawable);
+            }
+        }
+
+        // Poll for Level 2 as well
+        if (level2ButtonRef != null && level2UpDrawable != null && level2OverDrawable != null) {
+            com.badlogic.gdx.math.Vector2 sp2 = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
+            stage.screenToStageCoordinates(sp2);
+            Actor hit2 = stage.hit(sp2.x, sp2.y, true);
+            boolean nowOver2 = false;
+            if (hit2 != null) {
+                Actor a2 = hit2;
+                while (a2 != null) {
+                    if (a2 == level2ButtonRef) { nowOver2 = true; break; }
+                    a2 = a2.getParent();
+                }
+            }
+            if (nowOver2 && !level2Hovered) {
+                level2Hovered = true;
+                level2ButtonRef.getImage().setDrawable(level2OverDrawable);
+            } else if (!nowOver2 && level2Hovered) {
+                level2Hovered = false;
+                level2ButtonRef.getImage().setDrawable(level2UpDrawable);
+            }
+        }
+
+        // Poll for Level 3
+        if (level3ButtonRef != null && level3UpDrawable != null && level3OverDrawable != null) {
+            com.badlogic.gdx.math.Vector2 sp3 = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
+            stage.screenToStageCoordinates(sp3);
+            Actor hit3 = stage.hit(sp3.x, sp3.y, true);
+            boolean nowOver3 = false;
+            if (hit3 != null) {
+                Actor a3 = hit3;
+                while (a3 != null) {
+                    if (a3 == level3ButtonRef) { nowOver3 = true; break; }
+                    a3 = a3.getParent();
+                }
+            }
+            if (nowOver3 && !level3Hovered) {
+                level3Hovered = true;
+                level3ButtonRef.getImage().setDrawable(level3OverDrawable);
+            } else if (!nowOver3 && level3Hovered) {
+                level3Hovered = false;
+                level3ButtonRef.getImage().setDrawable(level3UpDrawable);
+            }
+        }
+
+        // Poll for Level 4
+        if (level4ButtonRef != null && level4UpDrawable != null && level4OverDrawable != null) {
+            com.badlogic.gdx.math.Vector2 sp4 = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
+            stage.screenToStageCoordinates(sp4);
+            Actor hit4 = stage.hit(sp4.x, sp4.y, true);
+            boolean nowOver4 = false;
+            if (hit4 != null) {
+                Actor a4 = hit4;
+                while (a4 != null) {
+                    if (a4 == level4ButtonRef) { nowOver4 = true; break; }
+                    a4 = a4.getParent();
+                }
+            }
+            if (nowOver4 && !level4Hovered) {
+                level4Hovered = true;
+                level4ButtonRef.getImage().setDrawable(level4OverDrawable);
+            } else if (!nowOver4 && level4Hovered) {
+                level4Hovered = false;
+                level4ButtonRef.getImage().setDrawable(level4UpDrawable);
+            }
+        }
+
+        // Poll for Level 5
+        if (level5ButtonRef != null && level5UpDrawable != null && level5OverDrawable != null) {
+            com.badlogic.gdx.math.Vector2 sp5 = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
+            stage.screenToStageCoordinates(sp5);
+            Actor hit5 = stage.hit(sp5.x, sp5.y, true);
+            boolean nowOver5 = false;
+            if (hit5 != null) {
+                Actor a5 = hit5;
+                while (a5 != null) {
+                    if (a5 == level5ButtonRef) { nowOver5 = true; break; }
+                    a5 = a5.getParent();
+                }
+            }
+            if (nowOver5 && !level5Hovered) {
+                level5Hovered = true;
+                level5ButtonRef.getImage().setDrawable(level5OverDrawable);
+            } else if (!nowOver5 && level5Hovered) {
+                level5Hovered = false;
+                level5ButtonRef.getImage().setDrawable(level5UpDrawable);
+            }
+        }
         if (animatedBg != null && bgRegions != null && bgRegions.length > 0) {
             bgAnimTime += delta;
             int frame = (int)(bgAnimTime / BG_FRAME_DURATION) % bgRegions.length;
             animatedBg.setDrawable(new TextureRegionDrawable(bgRegions[frame]));
         }
-
-        // Update and draw stage
         stage.act(delta);
         stage.draw();
-    }
-
-    /**
-     * Handle keyboard input for level selection
-     */
-    private void handleKeyboardInput() {
-        // Arrow keys to select level
-        if (Gdx.input.isKeyJustPressed(Input.Keys.UP)) {
-            selectedLevel = Math.max(1, selectedLevel - 1);
-        }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN)) {
-            selectedLevel = Math.min(5, selectedLevel + 1);
-        }
-        
-        // Enter to confirm selection
-        if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
-            goToLevel(selectedLevel);
-        }
-        
-        // Escape to go back
-        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            game.setScreen(new MainMenuScreen(game));
-            dispose();
-        }
     }
 
     @Override
@@ -450,17 +639,63 @@ public class LevelSelectScreen implements Screen {
     @Override
     public void dispose() {
         stage.dispose();
-        if (uiAtlas != null) {
-            uiAtlas.dispose();
-        }
-        if (buttonFont != null) {
-            buttonFont.dispose();
-        }
+        if (uiAtlas != null) uiAtlas.dispose();
+        if (buttonFont != null) buttonFont.dispose();
         if (bgTextures != null) {
-            for (com.badlogic.gdx.graphics.Texture t : bgTextures) {
-                if (t != null) t.dispose();
-            }
+            for (Texture t : bgTextures) if (t != null) t.dispose();
             bgTextures = null;
+        }
+        if (level1ButtonTexture != null) {
+            level1ButtonTexture.dispose();
+            level1ButtonTexture = null;
+        }
+        if (level2ButtonTexture != null) {
+            level2ButtonTexture.dispose();
+            level2ButtonTexture = null;
+        }
+        if (level3ButtonTexture != null) {
+            level3ButtonTexture.dispose();
+            level3ButtonTexture = null;
+        }
+        if (level4ButtonTexture != null) {
+            level4ButtonTexture.dispose();
+            level4ButtonTexture = null;
+        }
+        if (level5ButtonTexture != null) {
+            level5ButtonTexture.dispose();
+            level5ButtonTexture = null;
+        }
+        if (level1HoverTexture != null) {
+            level1HoverTexture.dispose();
+            level1HoverTexture = null;
+        }
+        if (level2HoverTexture != null) {
+            level2HoverTexture.dispose();
+            level2HoverTexture = null;
+        }
+        if (level3HoverTexture != null) {
+            level3HoverTexture.dispose();
+            level3HoverTexture = null;
+        }
+        if (level4HoverTexture != null) {
+            level4HoverTexture.dispose();
+            level4HoverTexture = null;
+        }
+        if (level5HoverTexture != null) {
+            level5HoverTexture.dispose();
+            level5HoverTexture = null;
+        }
+        if (backButtonTexture != null) {
+            backButtonTexture.dispose();
+            backButtonTexture = null;
+        }
+        if (backButtonHoverTexture != null) {
+            backButtonHoverTexture.dispose();
+            backButtonHoverTexture = null;
+        }
+        if (levelsFont != null) {
+            levelsFont.dispose();
+            levelsFont = null;
         }
     }
 }
