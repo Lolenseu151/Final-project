@@ -107,22 +107,8 @@ public class LevelSelectScreen implements Screen {
         this.game = game;
         this.stage = new Stage(new ScreenViewport());
 
-        // Load atlas (try internal then absolute)
-        try {
-            String atlasPath = "ui select original/ui.atlas";
-            com.badlogic.gdx.files.FileHandle handle = null;
-            if (Gdx.files.internal(atlasPath).exists()) handle = Gdx.files.internal(atlasPath);
-            else {
-                String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/" + atlasPath;
-                if (Gdx.files.absolute(abs).exists()) handle = Gdx.files.absolute(abs);
-            }
-            if (handle == null) throw new RuntimeException("ui.atlas not found");
-            uiAtlas = new TextureAtlas(handle);
-        } catch (Exception e) {
-            Gdx.app.error("[LevelSelectScreen]", "Failed to load atlas", e);
-            throw new RuntimeException(e);
-        }
+        // Atlas loading removed - now using individual PNG files for level buttons
+        // The uiAtlas field is kept for backward compatibility but not used
 
         buttonFont = new BitmapFont();
         buttonFont.getData().setScale(1.5f);
@@ -307,27 +293,9 @@ public class LevelSelectScreen implements Screen {
             animatedBg = new Image(bgRegions[0]);
             animatedBg.setFillParent(true);
             stage.addActor(animatedBg);
-        } else {
-            TextureRegion bgRegion = uiAtlas.findRegion("level_bg");
-            if (bgRegion != null) {
-                Image bg = new Image(bgRegion);
-                bg.setFillParent(true);
-                stage.addActor(bg);
-            }
         }
 
-        // Title
-        TextureRegion titleRegion = uiAtlas.findRegion("title_selectlevel");
-        if (titleRegion != null) {
-            Image title = new Image(titleRegion);
-            float titleW = titleRegion.getRegionWidth();
-            float titleH = titleRegion.getRegionHeight();
-            title.setSize(titleW, titleH);
-            title.setPosition((screenWidth - titleW) / 2f, screenHeight - titleH - TITLE_TOP_MARGIN);
-            stage.addActor(title);
-        }
-
-        // Load bitmap font for the top-center "Levels" label (internal first, then project assets)
+        // Title - now using individual PNG approach (removed atlas fallback)
         try {
             String fontPath = "fonts/bold/Bold.fnt";
             com.badlogic.gdx.files.FileHandle fh = null;
@@ -360,15 +328,12 @@ public class LevelSelectScreen implements Screen {
 
         // debugPointerLabel not added in normal runs
 
-        // Back button: prefer custom textures (assets/back button/7.png, 8.png), fallback to atlas
+        // Back button: using custom textures (assets/back button/7.png, 8.png)
         TextureRegion arrow = null;
         TextureRegion arrowHover = null;
         if (backButtonTexture != null) {
             arrow = new TextureRegion(backButtonTexture);
             arrowHover = (backButtonHoverTexture != null) ? new TextureRegion(backButtonHoverTexture) : arrow;
-        } else {
-            arrow = uiAtlas.findRegion("arrow_back");
-            arrowHover = uiAtlas.findRegion("arrow_back_hover");
         }
         if (arrow != null) {
             ImageButton back = createBackButton(arrow, arrowHover, screenHeight);
@@ -454,14 +419,9 @@ public class LevelSelectScreen implements Screen {
             ib.setSize(BUTTON_WIDTH, BUTTON_HEIGHT);
             ib.setPosition(x, y);
         } else {
-            TextureRegion btn = uiAtlas.findRegion("level_button");
-            TextureRegion btnHover = uiAtlas.findRegion("level_button_hover");
-            if (btn == null) return;
-            TextureRegionDrawable up = new TextureRegionDrawable(btn);
-            TextureRegionDrawable over = (btnHover != null) ? new TextureRegionDrawable(btnHover) : up;
-            ib = new ImageButton(up, over, over);
-            ib.setSize(BUTTON_WIDTH, BUTTON_HEIGHT);
-            ib.setPosition(x, y);
+            // No texture found for this level button - skip creating button
+            Gdx.app.error("[LevelSelectScreen]", "No button texture found for Level " + levelNum);
+            return;
         }
         // enable transform origin so scaling centers on the button
         ib.setTransform(true);
