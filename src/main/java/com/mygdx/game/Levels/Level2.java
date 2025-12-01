@@ -67,10 +67,11 @@ public class Level2 implements Level, BackgroundedLevel {
 
 
         // === Your existing items ===
-        documents.add(new Rectangle(200, 30, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(900, 100, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(500, 40, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(300, 270, DOC_SIZE, DOC_SIZE));
-         documents.add(new Rectangle(350, 270, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(350, 270, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(900, 500, DOC_SIZE, DOC_SIZE));
 
 
         //obstacles.add(new Rectangle(250, 150, 60, 10));
