@@ -28,7 +28,24 @@ import com.mygdx.game.Levels.Shredder;
  * LevelManager - Manages all level elements including obstacles, documents, and shredders
  * Responsible for level layout, collision detection, and objective tracking
  */
+<<<<<<< HEAD
+public class LevelManager {
+    /** Listener callback for level completion events. */
+    public interface LevelCompleteListener {
+        void onLevelComplete();
+    }
+
+    private LevelCompleteListener levelCompleteListener = null;
+
+    /**
+     * Register a listener to be notified when the level completes (shredding finished).
+     */
+    public void setLevelCompleteListener(LevelCompleteListener l) {
+        this.levelCompleteListener = l;
+    }
+=======
 public class LevelManager implements ILevelManager {
+>>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
     // Level elements
     private final Array<Rectangle> documents;      // Incriminating documents to collect
     private final Array<Rectangle> obstacles;      // Red Tape obstacles (slow player)
@@ -427,7 +444,7 @@ public class LevelManager implements ILevelManager {
         // If a shred sequence is pending, advance its timer and complete the level when elapsed
         if (shredPending && !levelComplete) {
             shredTimer += deltaTime;
-            if (shredTimer >= SHRED_DELAY_SECONDS) {
+                if (shredTimer >= SHRED_DELAY_SECONDS) {
                 levelComplete = true;
                 shredPending = false;
                 Gdx.app.log("LevelManager", "LEVEL COMPLETE! All documents shredded! (after delay)");
@@ -444,6 +461,10 @@ public class LevelManager implements ILevelManager {
                             } catch (NoSuchMethodException ignored) {}
                         }
                     }
+                } catch (Exception ignored) {}
+                // Notify listener (if any) that the level has completed so UI can react immediately
+                try {
+                    if (levelCompleteListener != null) levelCompleteListener.onLevelComplete();
                 } catch (Exception ignored) {}
             }
         }
@@ -913,6 +934,9 @@ public class LevelManager implements ILevelManager {
             if (!levelComplete) {
                 levelComplete = true;
                 Gdx.app.log("LevelManager", "LEVEL COMPLETE! All documents shredded!");
+                try {
+                    if (levelCompleteListener != null) levelCompleteListener.onLevelComplete();
+                } catch (Exception ignored) {}
             }
         }
     }
