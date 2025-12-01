@@ -5,6 +5,7 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import com.mygdx.game.Fixer;
 import com.mygdx.game.LevelManager;
+import com.mygdx.game.ILevelManager;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
@@ -67,10 +68,11 @@ public class Level2 implements Level, BackgroundedLevel {
 
 
         // === Your existing items ===
-        documents.add(new Rectangle(200, 30, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(900, 100, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(500, 40, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(300, 270, DOC_SIZE, DOC_SIZE));
-         documents.add(new Rectangle(350, 270, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(350, 270, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(900, 500, DOC_SIZE, DOC_SIZE));
 
 
         //obstacles.add(new Rectangle(250, 150, 60, 10));
@@ -125,7 +127,7 @@ public class Level2 implements Level, BackgroundedLevel {
     }
 
     @Override
-    public void updateBackground(float deltaTime, LevelManager levelMgr, Array<Rectangle> documents,
+    public void updateBackground(float deltaTime, ILevelManager levelMgr, Array<Rectangle> documents,
                                  Array<Rectangle> obstacles, Fixer player) {
         // Advance shredder animation state time
         if (shredderVisual != null) {
