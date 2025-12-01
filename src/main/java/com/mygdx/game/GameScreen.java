@@ -46,13 +46,27 @@ public class GameScreen implements Screen {
     private float accumulator = 0f;
     private boolean pKeyWasPressed = false;
     
-    // Floating UI icons (timer and document counter)
-    private Texture timerIconTexture;
-    private Texture documentIconTexture;
-    private float timerIconY;
+    // Floating UI icons (document counter)
+    // Documents spritesheet (2 cols x 3 rows = 6 frames)
+    private Texture documentSheetTexture;
+    private com.badlogic.gdx.graphics.g2d.TextureRegion[] documentFrames;
+    private float docAnimTime = 0f;
+    private float docFrameDuration = 0.12f; // seconds per frame
+    // Background image for the audit timer (centered above the timer)
+    private Texture auditBgTexture;
+    // Small clock icon to display beside the time (replaces the audit background)
+    private Texture clockTexture;
+    // Pause UI
+    private Texture pauseButtonTexture;
+    private Texture overlayPauseTex;
+    private Texture btnRestartTex; // assets/buttons/10.png
+    private Texture btnResumeTex;  // assets/buttons/11.png
+    private Texture btnMenuTex;    // assets/buttons/12.png
+    private boolean pauseOverlayVisible = false;
     private float docIconY;
     private float floatTimer = 0f;  // Track time for floating animation
     private BitmapFont uiFont;  // Font for timer and doc counter text
+    private BitmapFont docFont; // Smaller font for document count only
         private com.badlogic.gdx.graphics.Texture overlayArrowTex;
         private com.badlogic.gdx.graphics.Texture overlayFullTex;
         private boolean overlayFullVisible = false;
@@ -79,6 +93,8 @@ public class GameScreen implements Screen {
         public static float TALKING_BUTTON_Y = 60f;
         public static float TALKING_BUTTON_WIDTH = 160f;
         public static float TALKING_BUTTON_HEIGHT = 28f;
+        // Vertical offset for the audit time relative to the document baseline (pixels)
+        public static float AUDIT_TIME_VERTICAL_OFFSET = 14f;
         // If false, do not draw the filled background rectangle (transparent button)
         public static boolean TALKING_BUTTON_DRAW_BG = false;
         // If false, do not draw the button border/stroke (transparent border)
@@ -232,31 +248,112 @@ public class GameScreen implements Screen {
                         Gdx.files.internal("assets/smallwhite/Small_white.fnt"),
                         Gdx.files.internal("assets/smallwhite/Small_white.png"),
                         false);
-                uiFont.getData().setScale(1.2f);  // Slightly larger for readability
+                uiFont.getData().setScale(1.9f);  // Slightly larger for readability
             } catch (Exception e) {
                 uiFont = new BitmapFont();  // Use default if loading fails
             }
-            
-            // Load timer and document icons
+
+            // Load a smaller font for the document counter so it doesn't share the large uiFont scale
             try {
-                timerIconTexture = new Texture(Gdx.files.internal("assets/timer.png"));
-                Gdx.app.log("GameScreen", "Loaded timer icon");
+                docFont = new BitmapFont(
+                        Gdx.files.internal("assets/smallwhite/Small_white.fnt"),
+                        Gdx.files.internal("assets/smallwhite/Small_white.png"),
+                        false);
+                docFont.getData().setScale(1.3f); // smaller than uiFont
             } catch (Exception e) {
-                timerIconTexture = null;
-                Gdx.app.log("GameScreen", "Timer icon not found");
+                try {
+                    docFont = new BitmapFont(
+                            Gdx.files.internal("smallwhite/Small_white.fnt"),
+                            Gdx.files.internal("smallwhite/Small_white.png"),
+                            false);
+                    docFont.getData().setScale(1.05f);
+                } catch (Exception ex) {
+                    docFont = new BitmapFont();
+                    docFont.getData().setScale(0.9f);
+                }
             }
             
-            try {
-                documentIconTexture = new Texture(Gdx.files.internal("assets/documents.png"));
-                Gdx.app.log("GameScreen", "Loaded document icon");
-            } catch (Exception e) {
-                documentIconTexture = null;
-                Gdx.app.log("GameScreen", "Document icon not found");
-            }
+            // (Removed) timer icon - we now render the audit timer centered using the audit background image
             
-            // Initialize icon positions (top-right corner)
-            timerIconY = Gdx.graphics.getHeight() - 60f;
-            docIconY = Gdx.graphics.getHeight() - 120f;
+            try {
+                documentSheetTexture = new Texture(Gdx.files.internal("assets/documents.png"));
+                // Split into 2 columns x 3 rows
+                int cols = 2, rows = 3;
+                int frameW = documentSheetTexture.getWidth() / cols;
+                int frameH = documentSheetTexture.getHeight() / rows;
+                com.badlogic.gdx.graphics.g2d.TextureRegion[][] tmp = com.badlogic.gdx.graphics.g2d.TextureRegion.split(documentSheetTexture, frameW, frameH);
+                documentFrames = new com.badlogic.gdx.graphics.g2d.TextureRegion[cols * rows];
+                int idx = 0;
+                for (int r = 0; r < rows; r++) {
+                    for (int c = 0; c < cols; c++) {
+                        documentFrames[idx++] = tmp[r][c];
+                    }
+                }
+                Gdx.app.log("GameScreen", "Loaded document spritesheet (2x3): assets/documents.png");
+            } catch (Exception e) {
+                // fallback to other path
+                try {
+                    documentSheetTexture = new Texture(Gdx.files.internal("documents.png"));
+                    int cols = 2, rows = 3;
+                    int frameW = documentSheetTexture.getWidth() / cols;
+                    int frameH = documentSheetTexture.getHeight() / rows;
+                    com.badlogic.gdx.graphics.g2d.TextureRegion[][] tmp = com.badlogic.gdx.graphics.g2d.TextureRegion.split(documentSheetTexture, frameW, frameH);
+                    documentFrames = new com.badlogic.gdx.graphics.g2d.TextureRegion[cols * rows];
+                    int idx = 0;
+                    for (int r = 0; r < rows; r++) {
+                        for (int c = 0; c < cols; c++) {
+                            documentFrames[idx++] = tmp[r][c];
+                        }
+                    }
+                    Gdx.app.log("GameScreen", "Loaded document spritesheet fallback: documents.png");
+                } catch (Exception ex) {
+                    documentSheetTexture = null;
+                    documentFrames = null;
+                    Gdx.app.log("GameScreen", "Document spritesheet not found");
+                }
+            }
+
+            // Load audit timer background image (centered above the timer)
+            try {
+                auditBgTexture = new Texture(Gdx.files.internal("assets/buttons/Audit time.png"));
+                Gdx.app.log("GameScreen", "Loaded audit timer background: assets/buttons/Audit time.png");
+            } catch (Exception e) {
+                try {
+                    auditBgTexture = new Texture(Gdx.files.internal("buttons/Audit time.png"));
+                    Gdx.app.log("GameScreen", "Loaded audit timer background from fallback: buttons/Audit time.png");
+                } catch (Exception ex) {
+                    auditBgTexture = null;
+                    Gdx.app.log("GameScreen", "Audit timer background not found");
+                }
+            }
+
+            // Load pause button and overlay
+            try {
+                pauseButtonTexture = new Texture(Gdx.files.internal("assets/overlay/pause.png"));
+            } catch (Exception e) {
+                try { pauseButtonTexture = new Texture(Gdx.files.internal("overlay/pause.png")); } catch (Exception ex) { pauseButtonTexture = null; }
+            }
+            try {
+                overlayPauseTex = new Texture(Gdx.files.internal("assets/overlay/Pause overlay.png"));
+            } catch (Exception e) {
+                try { overlayPauseTex = new Texture(Gdx.files.internal("overlay/Pause overlay.png")); } catch (Exception ex) { overlayPauseTex = null; }
+            }
+
+            // Load pause overlay buttons: restart(10), resume(11), menu(12)
+            try { btnRestartTex = new Texture(Gdx.files.internal("assets/buttons/10.png")); } catch (Exception e) { try { btnRestartTex = new Texture(Gdx.files.internal("buttons/10.png")); } catch (Exception ex) { btnRestartTex = null; } }
+            try { btnResumeTex  = new Texture(Gdx.files.internal("assets/buttons/11.png")); } catch (Exception e) { try { btnResumeTex = new Texture(Gdx.files.internal("buttons/11.png")); } catch (Exception ex) { btnResumeTex = null; } }
+            try { btnMenuTex    = new Texture(Gdx.files.internal("assets/buttons/12.png")); } catch (Exception e) { try { btnMenuTex = new Texture(Gdx.files.internal("buttons/12.png")); } catch (Exception ex) { btnMenuTex = null; } }
+            
+            // Load small clock icon to display beside the time (replaces audit background)
+            try {
+                clockTexture = new Texture(Gdx.files.internal("assets/overlay/Clock.png"));
+            } catch (Exception e) {
+                try { clockTexture = new Texture(Gdx.files.internal("overlay/Clock.png")); } catch (Exception ex) { clockTexture = null; }
+            }
+
+                // Initialize icon positions (document counter remains top-right)
+                // Lower the document icon a bit to improve vertical placement
+                docIconY = Gdx.graphics.getHeight() - 120f;
     }
 
     @Override
@@ -393,6 +490,130 @@ public class GameScreen implements Screen {
         drawFullOverlayIfActive();
         // Draw the talking overlay if the tutorial level requested it (first doc collected)
         drawTalkingOverlayIfActive();
+        // Draw pause overlay if active
+        drawPauseOverlayIfActive();
+    }
+
+    // Draw the pause overlay and its buttons
+    private void drawPauseOverlayIfActive() {
+        if (!pauseOverlayVisible) return;
+        if (game == null || game.batch == null) return;
+
+        float w = Gdx.graphics.getWidth();
+        float h = Gdx.graphics.getHeight();
+
+        game.batch.begin();
+        if (overlayPauseTex != null) {
+            // Draw the overlay full-screen (the asset likely contains the darkened background)
+            game.batch.draw(overlayPauseTex, 0, 0, w, h);
+        } else {
+            // fallback: semi-transparent dark quad handled by ShapeRenderer
+        }
+
+        // Button sizes (use texture native size but fit to max while preserving aspect ratio)
+        // Increased max to allow larger buttons; upscaling allowed so small assets can be enlarged.
+        float btnMaxW = 300f;
+        float btnMaxH = 112f;
+        // compute per-texture draw widths/heights preserving aspect ratio
+        float rW = btnMaxW, rH = btnMaxH, sW = btnMaxW, sH = btnMaxH, mW = btnMaxW, mH = btnMaxH;
+        if (btnRestartTex != null) {
+            float tw = btnRestartTex.getWidth();
+            float th = btnRestartTex.getHeight();
+            float scale = Math.min(btnMaxW / tw, btnMaxH / th);
+            rW = tw * scale;
+            rH = th * scale;
+        }
+        if (btnResumeTex != null) {
+            float tw = btnResumeTex.getWidth();
+            float th = btnResumeTex.getHeight();
+            float scale = Math.min(btnMaxW / tw, btnMaxH / th);
+            sW = tw * scale;
+            sH = th * scale;
+        }
+        if (btnMenuTex != null) {
+            float tw = btnMenuTex.getWidth();
+            float th = btnMenuTex.getHeight();
+            float scale = Math.min(btnMaxW / tw, btnMaxH / th);
+            mW = tw * scale;
+            mH = th * scale;
+        }
+
+        float spacing = 24f;
+        float totalW = rW + spacing + sW + spacing + mW;
+        float baseX = w * 0.5f - totalW * 0.5f;
+        float btnY = h * 0.5f - Math.max(Math.max(rH, sH), mH) * 0.5f - 40f; // slightly above center
+
+        // Base positions (left-to-right)
+        float rx = baseX;
+        float sx = rx + rW + spacing;
+        float mx = sx + sW + spacing;
+
+        // Mouse position in world coords (screen coordinates)
+        float mouseX = Gdx.input.getX();
+        float mouseY = Gdx.graphics.getHeight() - Gdx.input.getY();
+
+        // Determine hover state using base rects (hover detection uses base sizes)
+        boolean hoverR = (mouseX >= rx && mouseX <= rx + rW && mouseY >= btnY && mouseY <= btnY + rH);
+        boolean hoverS = (mouseX >= sx && mouseX <= sx + sW && mouseY >= btnY && mouseY <= btnY + sH);
+        boolean hoverM = (mouseX >= mx && mouseX <= mx + mW && mouseY >= btnY && mouseY <= btnY + mH);
+
+        // Hover scale factor (tweak to change effect strength)
+        float hoverScale = 1.08f; // 8% scale up on hover
+
+        // Compute drawn sizes and positions, centering scaled images on their original centers
+        float drawRW = rW * (hoverR ? hoverScale : 1f);
+        float drawRH = rH * (hoverR ? hoverScale : 1f);
+        float drawRX = rx - (drawRW - rW) * 0.5f;
+
+        float drawSW = sW * (hoverS ? hoverScale : 1f);
+        float drawSH = sH * (hoverS ? hoverScale : 1f);
+        float drawSX = sx - (drawSW - sW) * 0.5f;
+
+        float drawMW = mW * (hoverM ? hoverScale : 1f);
+        float drawMH = mH * (hoverM ? hoverScale : 1f);
+        float drawMX = mx - (drawMW - mW) * 0.5f;
+
+        // Draw restart (left)
+        if (btnRestartTex != null) game.batch.draw(btnRestartTex, drawRX, btnY - (drawRH - rH) * 0.5f, drawRW, drawRH);
+        // Draw resume (middle)
+        if (btnResumeTex != null) game.batch.draw(btnResumeTex, drawSX, btnY - (drawSH - sH) * 0.5f, drawSW, drawSH);
+        // Draw menu (right)
+        if (btnMenuTex != null) game.batch.draw(btnMenuTex, drawMX, btnY - (drawMH - mH) * 0.5f, drawMW, drawMH);
+
+        game.batch.end();
+
+        // Handle clicks on overlay buttons
+        if (Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
+            float mxIn = Gdx.input.getX();
+            float myIn = Gdx.graphics.getHeight() - Gdx.input.getY();
+            if (overlaySuppressNextClick) {
+                overlaySuppressNextClick = false;
+                return;
+            }
+
+            // Restart (use drawn rect)
+            if (mxIn >= drawRX && mxIn <= drawRX + drawRW && myIn >= btnY - (drawRH - rH) * 0.5f && myIn <= btnY - (drawRH - rH) * 0.5f + drawRH) {
+                // restart current level
+                pauseOverlayVisible = false;
+                currentState = GameState.RUNNING;
+                show();
+                return;
+            }
+            // Resume
+            if (mxIn >= drawSX && mxIn <= drawSX + drawSW && myIn >= btnY - (drawSH - sH) * 0.5f && myIn <= btnY - (drawSH - sH) * 0.5f + drawSH) {
+                pauseOverlayVisible = false;
+                currentState = GameState.RUNNING;
+                return;
+            }
+            // Menu
+            if (mxIn >= drawMX && mxIn <= drawMX + drawMW && myIn >= btnY - (drawMH - mH) * 0.5f && myIn <= btnY - (drawMH - mH) * 0.5f + drawMH) {
+                try {
+                    game.setScreen(new LevelSelectScreen(game));
+                    dispose();
+                } catch (Exception ignored) {}
+                return;
+            }
+        }
     }
 
     /**
@@ -492,40 +713,125 @@ public class GameScreen implements Screen {
     private void drawFloatingUI(com.badlogic.gdx.graphics.g2d.SpriteBatch batch) {
         if (batch == null || uiFont == null) return;
         
-        // Calculate floating offset using sine wave (smooth up/down movement)
-        float floatOffset = (float) Math.sin(floatTimer * 2.0f) * 8f;  // +/- 8 pixels
+        // No floating motion: keep icons and audit timer stationary
+        float floatOffset = 0f;
         
         int screenWidth = Gdx.graphics.getWidth();
-        int iconSize = 40;
-        int rightMargin = 20;
+        int iconSize = 90;
+        int rightMargin = 20; // kept for potential future use
         
-        // Timer icon and text (top-right)
-        float timerX = screenWidth - iconSize - rightMargin;
-        float currentTimerY = timerIconY + floatOffset;
-        
-        if (timerIconTexture != null) {
-            batch.draw(timerIconTexture, timerX, currentTimerY, iconSize, iconSize);
-        }
-        
-        // Timer text next to icon
+        // Timer (centered at top) and document counter (top-right)
+        float centerX = screenWidth * 0.5f;
+        float floatOffsetY = floatOffset;
+
+        // Draw audit timer background and centered timer text
         int minutes = (int) (remainingTime / 60);
         int seconds = (int) (remainingTime % 60);
         String timeText = String.format("%d:%02d", minutes, seconds);
-        uiFont.draw(batch, timeText, timerX - 80, currentTimerY + iconSize / 2 + 8);
-        
-        // Document counter icon and text (below timer)
-        float docX = screenWidth - iconSize - rightMargin;
+        // Time drawing will be positioned beside the document icon/text on the left side.
+        // (Actual drawing occurs after document text is measured and drawn below.)
+
+        // Draw pause button at top-right with hover-scale effect
+        int pauseSize = 80;
+        float pauseX = screenWidth - pauseSize - 40f;
+        float pauseY = Gdx.graphics.getHeight() - pauseSize - 20f;
+
+        // Mouse coordinates (screen space, with Y flipped)
+        float mouseX = Gdx.input.getX();
+        float mouseY = Gdx.graphics.getHeight() - Gdx.input.getY();
+
+        // Hover detection on base rect
+        boolean pauseHover = (mouseX >= pauseX && mouseX <= pauseX + pauseSize && mouseY >= pauseY && mouseY <= pauseY + pauseSize);
+        float pauseHoverScale = 1.08f; // how much to scale on hover
+        float pauseScale = pauseHover ? pauseHoverScale : 1f;
+        float pauseDrawSize = pauseSize * pauseScale;
+        // Center scaled image around original center
+        float pauseDrawX = pauseX - (pauseDrawSize - pauseSize) * 0.5f;
+        float pauseDrawY = pauseY - (pauseDrawSize - pauseSize) * 0.5f;
+
+        if (pauseButtonTexture != null) {
+            batch.draw(pauseButtonTexture, pauseDrawX, pauseDrawY, pauseDrawSize, pauseDrawSize);
+        }
+
+        // Handle pause button click using drawn rect (so hitbox matches visual)
+        if (Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
+            float mx = mouseX;
+            float my = mouseY;
+            if (mx >= pauseDrawX && mx <= pauseDrawX + pauseDrawSize && my >= pauseDrawY && my <= pauseDrawY + pauseDrawSize) {
+                if (overlaySuppressNextClick) {
+                    overlaySuppressNextClick = false;
+                } else {
+                    pauseOverlayVisible = true;
+                    currentState = GameState.PAUSED;
+                    overlaySuppressNextClick = true; // ignore the click that opened overlay
+                }
+            }
+        }
+
+        // Document counter icon and text (left side)
+        float docX = 10f; // left margin
         float currentDocY = docIconY + floatOffset;
-        
-        if (documentIconTexture != null) {
-            batch.draw(documentIconTexture, docX, currentDocY, iconSize, iconSize);
+        // Keep the document count text at the original visual baseline (was at height-110f)
+        // so lowering the icon does not move the text.
+        float docTextBaselineY = Gdx.graphics.getHeight() - 100f + floatOffset;
+        // Display only the specific frame: column 2, row 3 (1-based).
+        // With a 2x3 sheet, this corresponds to zero-based r=2, c=1 -> index = 2*2 + 1 = 5.
+        if (documentFrames != null && documentFrames.length > 5) {
+            com.badlogic.gdx.graphics.g2d.TextureRegion frame = documentFrames[5];
+            batch.draw(frame, docX, currentDocY, iconSize, iconSize);
+        } else if (documentSheetTexture != null) {
+            // fallback: draw whole texture scaled
+            batch.draw(documentSheetTexture, docX, currentDocY, iconSize, iconSize);
         }
-        
-        // Document count text next to icon
+
+        // Document count text next to icon (to the right of the icon)
+        String docText = "";
+        com.badlogic.gdx.graphics.g2d.GlyphLayout glDoc = null;
         if (levelManager != null) {
-            String docText = levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments();
-            uiFont.draw(batch, docText, docX - 60, currentDocY + iconSize / 2 + 8);
+            docText = levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments();
+            // Draw the text at the fixed baseline so it does not move when the icon Y changes
+            float textY = docTextBaselineY + iconSize / 2 + 8;
+            if (docFont != null) {
+                glDoc = new com.badlogic.gdx.graphics.g2d.GlyphLayout(docFont, docText);
+                docFont.draw(batch, docText, docX + iconSize + 8, textY);
+            } else {
+                glDoc = new com.badlogic.gdx.graphics.g2d.GlyphLayout(uiFont, docText);
+                uiFont.draw(batch, docText, docX + iconSize + 8, textY);
+            }
         }
+
+        // Now draw the time (clock + text) to the right of the document text
+        // Position it with a small gap after the doc text
+        float gapAfterDoc = 12f;
+        float timeStartX = docX + iconSize + 8 + (glDoc != null ? glDoc.width : 0f) + gapAfterDoc;
+        // Time baseline should match the doc text baseline
+        float timeBaselineY = docTextBaselineY + iconSize / 2 + AUDIT_TIME_VERTICAL_OFFSET;
+
+        // Prepare time glyph
+        com.badlogic.gdx.graphics.g2d.GlyphLayout glTime = new com.badlogic.gdx.graphics.g2d.GlyphLayout(uiFont, timeText);
+        float padding = 9f;
+        // Determine desired clock height to match font height (so the icon aligns with text)
+        float desiredClockH = glTime.height * 1.9f; // increase to ~60% larger than font height
+        float clockW = 0f, clockH = 0f;
+        if (clockTexture != null) {
+            float texW = clockTexture.getWidth();
+            float texH = clockTexture.getHeight();
+            float scale = desiredClockH / texH;
+            clockW = texW * scale;
+            clockH = desiredClockH;
+        }
+
+        // Draw clock icon (left) then time text
+        if (clockTexture != null && clockW > 0f) {
+            float clockX = timeStartX;
+            // Lower the clock icon slightly so it visually lines up better with the text
+            float clockYOffset = -8f; // negative moves the icon down
+            float clockY = timeBaselineY - clockH * 0.5f + clockYOffset;
+            batch.draw(clockTexture, clockX, clockY, clockW, clockH);
+        }
+
+        float timeTextX = timeStartX + (clockW > 0f ? clockW + padding : 0f);
+        uiFont.draw(batch, glTime, timeTextX, timeBaselineY);
     }
 
     // If the full-screen overlay is active, draw it on top of everything and allow dismissal
@@ -942,5 +1248,14 @@ public class GameScreen implements Screen {
         if (overlayFullTex != null) overlayFullTex.dispose();
         if (overlayTalkingTex != null) overlayTalkingTex.dispose();
         if (overlayTalkingFont != null) overlayTalkingFont.dispose();
+        if (auditBgTexture != null) auditBgTexture.dispose();
+        if (clockTexture != null) clockTexture.dispose();
+        if (documentSheetTexture != null) documentSheetTexture.dispose();
+        if (pauseButtonTexture != null) pauseButtonTexture.dispose();
+        if (overlayPauseTex != null) overlayPauseTex.dispose();
+        if (btnRestartTex != null) btnRestartTex.dispose();
+        if (btnResumeTex != null) btnResumeTex.dispose();
+        if (btnMenuTex != null) btnMenuTex.dispose();
+        if (docFont != null) docFont.dispose();
     }
 }
