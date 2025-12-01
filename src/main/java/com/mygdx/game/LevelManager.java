@@ -15,8 +15,8 @@ import com.badlogic.gdx.math.Rectangle;
 // import com.badlogic.gdx.utils.reflect.Method;
 import com.badlogic.gdx.utils.Array;
 // ADDED: BackgroundedLevel lives in com.mygdx.game.Levels
-import com.mygdx.game.Levels.BackgroundedLevel;
-import com.mygdx.game.Levels.Level;
+import com.mygdx.game.BackgroundedLevel;
+import com.mygdx.game.Level;
 
 /**
  * LevelManager - Manages all level elements including obstacles, documents, and shredders
@@ -799,3 +799,4 @@ public class LevelManager {
         Gdx.app.log("LevelManager", "addDocumentsAtPositions: added " + added + " docs, total=" + totalDocuments);
     }
 }
+
