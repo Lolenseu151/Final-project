@@ -73,6 +73,8 @@ public class LevelSelectScreen implements Screen {
     private TextureRegionDrawable level5UpDrawable = null;
     private TextureRegionDrawable level5OverDrawable = null;
     private boolean level5Hovered = false;
+    // Reusable vector to avoid allocations during hover polling
+    private final com.badlogic.gdx.math.Vector2 tmpStageCoords = new com.badlogic.gdx.math.Vector2();
 
     // Layout
     private static final float BUTTON_WIDTH = 220f;
@@ -442,6 +444,21 @@ public class LevelSelectScreen implements Screen {
             ib.setPosition(x, y);
         }
         stage.addActor(ib);
+        // Add enter/exit listener to swap inner drawable immediately on mouse hover
+        ib.addListener(new InputListener() {
+            @Override
+            public void enter(InputEvent event, float x, float y, int pointer, Actor from) {
+                if (ib.getStyle().imageOver != null) {
+                    ib.getImage().setDrawable((TextureRegionDrawable) ib.getStyle().imageOver);
+                }
+            }
+            @Override
+            public void exit(InputEvent event, float x, float y, int pointer, Actor to) {
+                if (ib.getStyle().imageUp != null) {
+                    ib.getImage().setDrawable((TextureRegionDrawable) ib.getStyle().imageUp);
+                }
+            }
+        });
 
         if (levelNum != 1 && levelNum != 2 && levelNum != 3 && levelNum != 4 && levelNum != 5) {
             Label.LabelStyle ls = new Label.LabelStyle(buttonFont, Color.WHITE);
@@ -505,115 +522,19 @@ public class LevelSelectScreen implements Screen {
     public void render(float delta) {
         Gdx.gl.glClearColor(0.15f, 0.15f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-        // Poll mouse position and update Level 1 hover drawable (works even if enter/exit events aren't firing)
-        if (level1ButtonRef != null && level1UpDrawable != null && level1OverDrawable != null) {
-            com.badlogic.gdx.math.Vector2 sp = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
-            stage.screenToStageCoordinates(sp);
-            Actor hit = stage.hit(sp.x, sp.y, true);
-            boolean nowOver = false;
-            if (hit != null) {
-                Actor a = hit;
-                while (a != null) {
-                    if (a == level1ButtonRef) { nowOver = true; break; }
-                    a = a.getParent();
-                }
-            }
-            if (nowOver && !level1Hovered) {
-                level1Hovered = true;
-                level1ButtonRef.getImage().setDrawable(level1OverDrawable);
-            } else if (!nowOver && level1Hovered) {
-                level1Hovered = false;
-                level1ButtonRef.getImage().setDrawable(level1UpDrawable);
-            }
-        }
-
-        // Poll for Level 2 as well
-        if (level2ButtonRef != null && level2UpDrawable != null && level2OverDrawable != null) {
-            com.badlogic.gdx.math.Vector2 sp2 = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
-            stage.screenToStageCoordinates(sp2);
-            Actor hit2 = stage.hit(sp2.x, sp2.y, true);
-            boolean nowOver2 = false;
-            if (hit2 != null) {
-                Actor a2 = hit2;
-                while (a2 != null) {
-                    if (a2 == level2ButtonRef) { nowOver2 = true; break; }
-                    a2 = a2.getParent();
-                }
-            }
-            if (nowOver2 && !level2Hovered) {
-                level2Hovered = true;
-                level2ButtonRef.getImage().setDrawable(level2OverDrawable);
-            } else if (!nowOver2 && level2Hovered) {
-                level2Hovered = false;
-                level2ButtonRef.getImage().setDrawable(level2UpDrawable);
-            }
-        }
-
-        // Poll for Level 3
-        if (level3ButtonRef != null && level3UpDrawable != null && level3OverDrawable != null) {
-            com.badlogic.gdx.math.Vector2 sp3 = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
-            stage.screenToStageCoordinates(sp3);
-            Actor hit3 = stage.hit(sp3.x, sp3.y, true);
-            boolean nowOver3 = false;
-            if (hit3 != null) {
-                Actor a3 = hit3;
-                while (a3 != null) {
-                    if (a3 == level3ButtonRef) { nowOver3 = true; break; }
-                    a3 = a3.getParent();
-                }
-            }
-            if (nowOver3 && !level3Hovered) {
-                level3Hovered = true;
-                level3ButtonRef.getImage().setDrawable(level3OverDrawable);
-            } else if (!nowOver3 && level3Hovered) {
-                level3Hovered = false;
-                level3ButtonRef.getImage().setDrawable(level3UpDrawable);
-            }
-        }
-
-        // Poll for Level 4
-        if (level4ButtonRef != null && level4UpDrawable != null && level4OverDrawable != null) {
-            com.badlogic.gdx.math.Vector2 sp4 = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
-            stage.screenToStageCoordinates(sp4);
-            Actor hit4 = stage.hit(sp4.x, sp4.y, true);
-            boolean nowOver4 = false;
-            if (hit4 != null) {
-                Actor a4 = hit4;
-                while (a4 != null) {
-                    if (a4 == level4ButtonRef) { nowOver4 = true; break; }
-                    a4 = a4.getParent();
-                }
-            }
-            if (nowOver4 && !level4Hovered) {
-                level4Hovered = true;
-                level4ButtonRef.getImage().setDrawable(level4OverDrawable);
-            } else if (!nowOver4 && level4Hovered) {
-                level4Hovered = false;
-                level4ButtonRef.getImage().setDrawable(level4UpDrawable);
-            }
-        }
-
-        // Poll for Level 5
-        if (level5ButtonRef != null && level5UpDrawable != null && level5OverDrawable != null) {
-            com.badlogic.gdx.math.Vector2 sp5 = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
-            stage.screenToStageCoordinates(sp5);
-            Actor hit5 = stage.hit(sp5.x, sp5.y, true);
-            boolean nowOver5 = false;
-            if (hit5 != null) {
-                Actor a5 = hit5;
-                while (a5 != null) {
-                    if (a5 == level5ButtonRef) { nowOver5 = true; break; }
-                    a5 = a5.getParent();
-                }
-            }
-            if (nowOver5 && !level5Hovered) {
-                level5Hovered = true;
-                level5ButtonRef.getImage().setDrawable(level5OverDrawable);
-            } else if (!nowOver5 && level5Hovered) {
-                level5Hovered = false;
-                level5ButtonRef.getImage().setDrawable(level5UpDrawable);
-            }
-        }
+        // Poll mouse position once and update all level hover states immediately (no per-frame allocations)
+        tmpStageCoords.set(Gdx.input.getX(), Gdx.input.getY());
+        stage.screenToStageCoordinates(tmpStageCoords);
+        if (level1ButtonRef != null && level1UpDrawable != null && level1OverDrawable != null)
+            level1Hovered = updateButtonHover(level1ButtonRef, level1UpDrawable, level1OverDrawable, level1Hovered, tmpStageCoords);
+        if (level2ButtonRef != null && level2UpDrawable != null && level2OverDrawable != null)
+            level2Hovered = updateButtonHover(level2ButtonRef, level2UpDrawable, level2OverDrawable, level2Hovered, tmpStageCoords);
+        if (level3ButtonRef != null && level3UpDrawable != null && level3OverDrawable != null)
+            level3Hovered = updateButtonHover(level3ButtonRef, level3UpDrawable, level3OverDrawable, level3Hovered, tmpStageCoords);
+        if (level4ButtonRef != null && level4UpDrawable != null && level4OverDrawable != null)
+            level4Hovered = updateButtonHover(level4ButtonRef, level4UpDrawable, level4OverDrawable, level4Hovered, tmpStageCoords);
+        if (level5ButtonRef != null && level5UpDrawable != null && level5OverDrawable != null)
+            level5Hovered = updateButtonHover(level5ButtonRef, level5UpDrawable, level5OverDrawable, level5Hovered, tmpStageCoords);
         if (animatedBg != null && bgRegions != null && bgRegions.length > 0) {
             bgAnimTime += delta;
             int frame = (int)(bgAnimTime / BG_FRAME_DURATION) % bgRegions.length;
@@ -621,6 +542,23 @@ public class LevelSelectScreen implements Screen {
         }
         stage.act(delta);
         stage.draw();
+    }
+
+    // Helper: update hover state for an ImageButton using an existing stage-coordinate point
+    private boolean updateButtonHover(ImageButton ref, TextureRegionDrawable up, TextureRegionDrawable over, boolean wasHovered, com.badlogic.gdx.math.Vector2 stagePoint) {
+        float bx = ref.getX();
+        float by = ref.getY();
+        float bw = ref.getWidth();
+        float bh = ref.getHeight();
+        boolean nowOver = (stagePoint.x >= bx && stagePoint.x <= bx + bw && stagePoint.y >= by && stagePoint.y <= by + bh);
+        if (nowOver && !wasHovered) {
+            ref.getImage().setDrawable(over);
+            return true;
+        } else if (!nowOver && wasHovered) {
+            ref.getImage().setDrawable(up);
+            return false;
+        }
+        return wasHovered;
     }
 
     @Override
