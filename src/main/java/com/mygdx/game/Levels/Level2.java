@@ -8,6 +8,9 @@ import com.mygdx.game.LevelManager;
 import com.mygdx.game.ILevelManager;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.Game;
+import com.badlogic.gdx.Screen;
 
 /**
  * Level2 - edit positions to design
@@ -36,6 +39,25 @@ public class Level2 implements Level, BackgroundedLevel {
     private static final int SHREDDER_FRAME_COUNT = 9;
     private static final float SHREDDER_FRAME_DURATION = 0.08f; // tweak speed if needed
 
+    // === JS (walking obstacle) fields and tunables ===
+    // Public tunables for easy tweaking: edit these values to adjust patrol, speed, and size.
+    public static float JS_LEFT_X = 70f;                      // left patrol X
+    public static float JS_RIGHT_X = 400f;                     // right patrol X
+    public static float JS_Y = 220f + PLATFORM_H + 2f;         // Y position (on second-level platform)
+    public static float JS_W = 55;                            // draw / collision width
+    public static float JS_H = 110f;                            // draw / collision height
+    public static float JS_SPEED = 60f;                        // px/sec walking speed
+    public static float JS_FRAME_DURATION = 0.12f;             // animation frame duration
+
+    private static final int JS_FRAME_COUNT = 4;                // expected frame count
+    private TextureRegion[] jsFrames = null;
+    private Texture jsSheetTex = null; // if textures are single images we'll still load as a sheet
+    private float jsAnimTime = 0f;
+    // walking state
+    private float jsX = JS_LEFT_X;
+    private boolean jsFacingRight = true;
+    private Rectangle jsRect = null;
+
     
 
     public void init() {
@@ -44,6 +66,19 @@ public class Level2 implements Level, BackgroundedLevel {
         obstacles.clear();
         beams.clear();
 
+            // dispose JS textures if any
+            try {
+                if (jsFrames != null) {
+                    for (TextureRegion tr : jsFrames) {
+                        if (tr == null) continue;
+                        try {
+                            Texture t = tr.getTexture();
+                            if (t != null) { t.dispose(); }
+                        } catch (Exception ignored) {}
+                    }
+                    jsFrames = null;
+                }
+            } catch (Exception ignored) {}
         float w = 1280;
         float h = 800;
 
@@ -97,6 +132,34 @@ public class Level2 implements Level, BackgroundedLevel {
                 if (!shredderVisual.hasVisual()) shredderVisual.loadSingle("assets/shredder.png");
             }
         } catch (Exception ignored) {}
+        // === Initialize JS (walking obstacle) textures/frames ===
+        try {
+            // Try to load a small sprite-sheet folder first (assets/kmjs/1.png ...)
+            java.util.ArrayList<TextureRegion> tmp = new java.util.ArrayList<TextureRegion>();
+            for (int i = 1; i <= 4; i++) {
+                String p = String.format("assets/kmjs/%d.png", i);
+                try {
+                    if (Gdx.files.internal(p).exists()) {
+                        Texture t = new Texture(Gdx.files.internal(p));
+                        t.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                        tmp.add(new TextureRegion(t));
+                    } else if (Gdx.files.absolute(p).exists()) {
+                        Texture t = new Texture(Gdx.files.absolute(p));
+                        t.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                        tmp.add(new TextureRegion(t));
+                    }
+                } catch (Exception e) {
+                    // ignore and try next
+                }
+            }
+            if (tmp.size() > 0) {
+                jsFrames = new TextureRegion[tmp.size()];
+                tmp.toArray(jsFrames);
+            }
+        } catch (Exception ignored) {}
+
+        // Ensure collision rect exists for JS
+        if (jsRect == null) jsRect = new Rectangle(jsX, JS_Y, JS_W, JS_H);
     }
 
     @Override public Array<Rectangle> getDocuments() { return documents; }
@@ -133,7 +196,64 @@ public class Level2 implements Level, BackgroundedLevel {
         if (shredderVisual != null) {
             shredderVisual.update(deltaTime);
         }
-        // Example: track documents collected and adjust visual state
+        // Update JS (walking obstacle) animation and movement
+        try {
+            if (jsFrames != null && jsFrames.length > 0) {
+                jsAnimTime += deltaTime;
+                // advance position
+                float move = JS_SPEED * deltaTime * (jsFacingRight ? 1f : -1f);
+                jsX += move;
+                if (jsX > JS_RIGHT_X) {
+                    jsX = JS_RIGHT_X;
+                    jsFacingRight = false;
+                } else if (jsX < JS_LEFT_X) {
+                    jsX = JS_LEFT_X;
+                    jsFacingRight = true;
+                }
+                // update rect
+                if (jsRect == null) jsRect = new Rectangle(jsX, JS_Y, JS_W, JS_H);
+                else jsRect.setPosition(jsX, JS_Y);
+
+                // collision: if overlaps player and JS is facing the player -> GAME OVER
+                if (player != null && player.getBounds() != null && jsRect.overlaps(player.getBounds())) {
+                    float playerCenterX = player.getBounds().x + player.getBounds().width * 0.5f;
+                    float jsCenterX = jsX + JS_W * 0.5f;
+                    boolean playerIsInFront = (jsFacingRight && playerCenterX > jsCenterX) || (!jsFacingRight && playerCenterX < jsCenterX);
+                    if (playerIsInFront) {
+                        // Try to set the active GameScreen to GAMEOVER via reflection on the current screen
+                        try {
+                            Object app = Gdx.app.getApplicationListener();
+                            if (app instanceof com.badlogic.gdx.Game) {
+                                Screen screen = ((com.badlogic.gdx.Game) app).getScreen();
+                                if (screen != null) {
+                                    java.lang.reflect.Field f = null;
+                                    try {
+                                        f = screen.getClass().getDeclaredField("currentState");
+                                    } catch (NoSuchFieldException nsf) {
+                                        // try superclass if obfuscated or wrapped
+                                        Class<?> sc = screen.getClass().getSuperclass();
+                                        if (sc != null) {
+                                            try { f = sc.getDeclaredField("currentState"); } catch (Exception ignored) {}
+                                        }
+                                    }
+                                    if (f != null) {
+                                        f.setAccessible(true);
+                                        Class<?> enumType = f.getType();
+                                        if (enumType.isEnum()) {
+                                            Object val = java.lang.Enum.valueOf((Class) enumType, "GAMEOVER");
+                                            f.set(screen, val);
+                                            Gdx.app.log("Level2", "JS caught the player — forcing GAMEOVER via reflection");
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (Exception ignored) {}
+                    } else {
+                        // player is behind JS; no effect (safe)
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     @Override
@@ -153,6 +273,18 @@ public class Level2 implements Level, BackgroundedLevel {
         } else {
             // No shredder visual to draw.
         }
+
+        // Draw JS (walking obstacle) on top of background/shredder
+        try {
+            if (jsFrames != null && jsFrames.length > 0) {
+                int idx = (int)((jsAnimTime / Math.max(0.0001f, JS_FRAME_DURATION)) % jsFrames.length);
+                TextureRegion fr = jsFrames[idx];
+                // Ensure frame facing matches jsFacingRight (flip if necessary)
+                boolean wantFlip = !jsFacingRight; // TextureRegion flip semantics: flipX==true means mirrored horizontally
+                if (fr.isFlipX() != wantFlip) fr.flip(true, false);
+                batch.draw(fr, jsX, JS_Y, JS_W, JS_H);
+            }
+        } catch (Exception ignored) {}
     }
 
 }
