@@ -4,6 +4,8 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 
 /**
@@ -13,6 +15,13 @@ public class SettingsScreen implements Screen {
     
     private final MyGdxGame game;
     private final ShapeRenderer shapeRenderer;
+    
+    // Animated background
+    private Texture[] bgTextures = new Texture[121];
+    private TextureRegion[] bgRegions = new TextureRegion[121];
+    private int loadedFrameCount = 0;  // Track how many frames actually loaded
+    private float bgAnimTime = 0f;
+    private static final float BG_FRAME_DURATION = 0.1f;  // 0.1 seconds per frame = 12.1 seconds total loop
     
     private enum SettingOption {
         SOUND_EFFECTS,
@@ -34,15 +43,83 @@ public class SettingsScreen implements Screen {
     public SettingsScreen(MyGdxGame game) {
         this.game = game;
         this.shapeRenderer = new ShapeRenderer();
+        
+        // Load animated Setting Background frames
+        // Files exist as: 11-19 (9 frames) and 110-131 (22 frames) = 31 total frames
+        int[] frameNumbers = new int[31];
+        int idx = 0;
+        // Add frames 11-19
+        for (int i = 11; i <= 19; i++) {
+            frameNumbers[idx++] = i;
+        }
+        // Add frames 110-131
+        for (int i = 110; i <= 131; i++) {
+            frameNumbers[idx++] = i;
+        }
+        
+        bgTextures = new Texture[31];
+        bgRegions = new TextureRegion[31];
+        
+        String userDir = System.getProperty("user.dir");
+        for (int i = 0; i < frameNumbers.length; i++) {
+            try {
+                String framePath = "Setting Background/setting_background" + frameNumbers[i] + ".png";
+                com.badlogic.gdx.files.FileHandle fh = null;
+                if (Gdx.files.internal(framePath).exists()) {
+                    fh = Gdx.files.internal(framePath);
+                } else if (Gdx.files.absolute(userDir + "/assets/" + framePath).exists()) {
+                    fh = Gdx.files.absolute(userDir + "/assets/" + framePath);
+                } else {
+                    Gdx.app.error("[SettingsScreen]", "✗ Setting Background frame " + (i + 1) + " NOT FOUND: " + framePath);
+                }
+                
+                if (fh != null) {
+                    bgTextures[i] = new Texture(fh);
+                    bgTextures[i].setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                    bgRegions[i] = new TextureRegion(bgTextures[i]);
+                    loadedFrameCount++;
+                    Gdx.app.log("[SettingsScreen]", "✓ Loaded Setting Background frame " + (i + 1));
+                }
+            } catch (Exception e) {
+                Gdx.app.error("[SettingsScreen]", "Error loading background frame " + (i + 1), e);
+            }
+        }
+        Gdx.app.log("[SettingsScreen]", "Total loaded frames: " + loadedFrameCount + "/31");
     }
     
     @Override
     public void render(float delta) {
         handleInput();
         
+        // Update background animation (continuous, modulo handles looping)
+        bgAnimTime += delta;
+        
         // Clear screen
         Gdx.gl.glClearColor(0.1f, 0.15f, 0.1f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+        
+        // Draw animated background first (behind UI)
+        game.batch.begin();
+        
+        // Find a valid frame to display (skip null frames)
+        int frameIndex = (int)(bgAnimTime / BG_FRAME_DURATION) % bgRegions.length;
+        TextureRegion frameToRender = bgRegions[frameIndex];
+        
+        // If current frame is null, find the nearest valid frame
+        if (frameToRender == null) {
+            for (int i = 0; i < bgRegions.length; i++) {
+                if (bgRegions[i] != null) {
+                    frameToRender = bgRegions[i];
+                    break;
+                }
+            }
+        }
+        
+        // Draw the frame if we found a valid one
+        if (frameToRender != null) {
+            game.batch.draw(frameToRender, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        }
+        game.batch.end();
         
         drawSettings();
     }
@@ -220,5 +297,11 @@ public class SettingsScreen implements Screen {
     @Override
     public void dispose() {
         shapeRenderer.dispose();
+        // Dispose background textures
+        for (int i = 0; i < bgTextures.length; i++) {
+            if (bgTextures[i] != null) {
+                bgTextures[i].dispose();
+            }
+        }
     }
 }
