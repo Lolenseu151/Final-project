@@ -208,32 +208,6 @@ public class GameScreen implements Screen {
             default: level = new Level1(); break;
         }
         
-<<<<<<< HEAD
-        if (level != null) {
-            levelManager.loadLevel(level);
-            // Register for direct level-complete callbacks so the overlay can be shown
-            try {
-                levelManager.setLevelCompleteListener(new com.mygdx.game.LevelManager.LevelCompleteListener() {
-                    @Override
-                    public void onLevelComplete() {
-                        // Ensure overlay state is updated on the main thread
-                        try {
-                            Gdx.app.postRunnable(new Runnable() {
-                                @Override
-                                public void run() {
-                                    try {
-                                        levelComplete();
-                                    } catch (Exception ignored) {}
-                                }
-                            });
-                        } catch (Exception e) {
-                            // Fallback: call directly if postRunnable is unavailable
-                            try { levelComplete(); } catch (Exception ignored) {}
-                        }
-                    }
-                });
-            } catch (Exception ignored) {}
-=======
         // Use LevelManager2 for multi-map levels (3 and 5) to enable map transitions with shared progress
         if (currentLevel == 3 || currentLevel == 5) {
             levelManager = null;
@@ -248,8 +222,29 @@ public class GameScreen implements Screen {
             levelManager = new LevelManager();
             if (level != null) {
                 levelManager.loadLevel(level);
+                // Register for direct level-complete callbacks so the overlay can be shown
+                try {
+                    levelManager.setLevelCompleteListener(new com.mygdx.game.LevelManager.LevelCompleteListener() {
+                        @Override
+                        public void onLevelComplete() {
+                            // Ensure overlay state is updated on the main thread
+                            try {
+                                Gdx.app.postRunnable(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        try {
+                                            levelComplete();
+                                        } catch (Exception ignored) {}
+                                    }
+                                });
+                            } catch (Exception e) {
+                                // Fallback: call directly if postRunnable is unavailable
+                                try { levelComplete(); } catch (Exception ignored) {}
+                            }
+                        }
+                    });
+                } catch (Exception ignored) {}
             }
->>>>>>> 17185a40425c8cebb55c1ef3cab179f2d2213632
         }
 
         // Ensure raw keyboard input is delivered to Fixer (prevents UI stage or other processors
