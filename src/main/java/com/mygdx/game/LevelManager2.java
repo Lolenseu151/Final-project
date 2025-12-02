@@ -553,7 +553,11 @@ public class LevelManager2 implements ILevelManager {
                 boolean isLevel3Only = (currentLevelA != null && 
                                        currentLevelA.getClass().getSimpleName().equals("Level3") && 
                                        currentLevelB == null);
-                if (!isLevel3Only) {
+                // Don't render shredder in Level5_1 (only show in Level5 map)
+                boolean isLevel5_1 = (currentLevelB != null && 
+                                     currentLevelB.getClass().getSimpleName().equals("Level5_1"));
+                
+                if (!isLevel3Only && !isLevel5_1) {
                     batch.begin();
                     try { sharedShredder.update(Gdx.graphics.getDeltaTime()); } catch (Exception ignored) {}
                     try { sharedShredder.render(batch); } catch (Exception ignored) {}
@@ -566,7 +570,7 @@ public class LevelManager2 implements ILevelManager {
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        boolean debugPlatformRender = true;
+        boolean debugPlatformRender = false;
         if (debugPlatformRender) {
             shapeRenderer.setColor(153f/255f, 170f/255f, 187f/255f, 1f);
             for (Rectangle platform : platforms) {
@@ -589,7 +593,11 @@ public class LevelManager2 implements ILevelManager {
             boolean isLevel3Only = (currentLevelA != null && 
                                    currentLevelA.getClass().getSimpleName().equals("Level3") && 
                                    currentLevelB == null);
-            if (!isLevel3Only) {
+            // Don't render shredder collision box in Level5_1 (only show in Level5 map)
+            boolean isLevel5_1 = (currentLevelB != null && 
+                                 currentLevelB.getClass().getSimpleName().equals("Level5_1"));
+            
+            if (!isLevel3Only && !isLevel5_1) {
                 if (documentsCollected >= totalDocuments) {
                     shapeRenderer.setColor(0f, 1f, 0f, 0f);
                 } else {

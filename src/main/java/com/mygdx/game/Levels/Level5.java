@@ -33,6 +33,7 @@ public class Level5 implements Level, BackgroundedLevel {
 
     // Background switching state
     private boolean switchedToContinuation = false;
+    private float transitionCooldown = 0f;
     private static final String BG_FIRST = "Level5Map.png";
     private static final String BG_CONTINUATION = "Level5.1Map.png";
 
@@ -55,24 +56,28 @@ public class Level5 implements Level, BackgroundedLevel {
         float w = 1280;
         float h = 800;
         
-        // No shredder in Level5 - only Level5_1 has the shredder
-        shredder = null;
+        // Initialize shredder for Level5 (shared between Level5 and Level5_1)
+        shredder = new Rectangle(shredderX, shredderY, shredderW, shredderH);
         
         // === Invisible Platforms Matching Level5Map.png ===
         platforms.clear();
+        
+        // === LEFT BOUNDARY WALL (Vertical wall at leftmost pillar) ===
+        platforms.add(new Rectangle(90, 0, 20, 800)); // Vertical wall from bottom to top
         
         // === FLOOR 1 (Bottom floor) ===
         platforms.add(new Rectangle(130, 75, 1160, 20)); // LEFT SIDE
        
 
         // === FLOOR 2 ===
-        platforms.add(new Rectangle(710, 245,575, 20)); // left section
-        platforms.add(new Rectangle(135, 245,480, 20)); // Left section
+        platforms.add(new Rectangle(115, 245, 80, 20)); // left section
+         platforms.add(new Rectangle(320, 245,945, 20)); // left section
+         
        
-
+        
         // === FLOOR 3 ===
-        platforms.add(new Rectangle(710, 395, 575, 20));
-         platforms.add(new Rectangle(135, 395, 480, 20));
+        platforms.add(new Rectangle(720, 395, 575, 20));
+         platforms.add(new Rectangle(115, 395, 480, 20));
 
         // === FLOOR 4 (Roof inside section) ===
         platforms.add(new Rectangle(75, 560, 1280, 20));
@@ -137,9 +142,14 @@ public class Level5 implements Level, BackgroundedLevel {
             }
         } catch (Exception ignored) {}
 
+        // Update cooldown timer
+        if (transitionCooldown > 0) {
+            transitionCooldown -= deltaTime;
+        }
+
         // Check if player reaches the right edge to transition to Level5_1
         try {
-            if (player != null && player.getBounds() != null && platforms.size > 0) {
+            if (player != null && player.getBounds() != null && platforms.size > 0 && transitionCooldown <= 0) {
                 Rectangle pb = player.getBounds();
                 final float TOL = 20f;
                 final float SCREEN_WIDTH = 1280f;
@@ -160,6 +170,7 @@ public class Level5 implements Level, BackgroundedLevel {
                             try { player.reset(sp[0], sp[1]); } catch (Exception ignored) {}
                         }
                         switchedToContinuation = true;
+                        transitionCooldown = 1.0f; // 1 second cooldown
                         Gdx.app.log("Level5", "Loaded continuation Level5_1");
                     } catch (Exception e) {
                         Gdx.app.error("Level5", "Failed to load continuation level", e);
@@ -184,12 +195,11 @@ public class Level5 implements Level, BackgroundedLevel {
     public float[] getReturnSpawn() {
         if (platforms.size > 0) {
             Rectangle firstFloor = platforms.get(0);
-            float rightEdge = firstFloor.x + firstFloor.width;
-            float x = rightEdge - 64f - 20f; // assume player width ~64
+            float x = firstFloor.x + firstFloor.width - 150f; // spawn 150 pixels from right edge
             float y = firstFloor.y + firstFloor.height; // top of platform
             return new float[]{ x, y };
         }
-        return new float[]{ 100f, 90f };
+        return new float[]{ 1000f, 95f };
     }
 
     @Override
