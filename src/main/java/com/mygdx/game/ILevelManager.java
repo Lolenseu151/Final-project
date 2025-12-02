@@ -16,4 +16,5 @@ public interface ILevelManager {
     int getDocumentsRemaining();
     void loadLevel(Level level);
     Shredder getSharedShredder(); // LevelManager2 has this, LevelManager can return null
+    float update(float deltaTime, Fixer player); // Returns time penalty from auditor beams
 }
