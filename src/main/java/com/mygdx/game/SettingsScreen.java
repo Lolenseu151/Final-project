@@ -380,9 +380,9 @@ public class SettingsScreen implements Screen {
         float boardCenterY = boardY + boardHeight / 2f;
         
         // ===== TOP SECTION: Sound, Music, Menu buttons =====
-        float buttonSize = 110f;
+        float buttonSize = 120f;
         float topRowY = boardCenterY - buttonSize / 8.5f;  // Center vertically
-        float topRowSpacing = 110f;  // Distance between buttons
+        float topRowSpacing = 100f;  // Distance between buttons
         
         // Draw Sound button
         float soundX = boardCenterX - topRowSpacing - buttonSize / 2f;
@@ -416,8 +416,8 @@ public class SettingsScreen implements Screen {
         
         // ===== BOTTOM SECTION: Quality Level buttons (inside board) =====
         float qualityRowY = boardCenterY - 200f;  // Adjusted for board
-        float qualitySpacing = 90f;  // Distance between buttons
-        float qualitySize = 70f;
+        float qualitySpacing = 100f;  // Distance between buttons
+        float qualitySize = 90f;
         
         // Low Quality
         float lowX = boardCenterX - qualitySpacing - qualitySize / 2f;
@@ -465,8 +465,8 @@ public class SettingsScreen implements Screen {
         if (graphicsTextTexture != null) {
             float textWidth = 220f;  // Increased size
             float textHeight = 120f;  // Increased size
-            float graphicsTextX = boardCenterX - textWidth / 1.9f;
-            float graphicsTextY = (topRowY + qualityRowY) / 2f - textHeight / 2f;  // Middle between top and bottom sections
+            float graphicsTextX = boardCenterX - textWidth / 1.8f;
+            float graphicsTextY = (topRowY + qualityRowY) / 1.8f - textHeight / 2f;  // Middle between top and bottom sections
             game.batch.setColor(1f, 1f, 1f, 1f);
             game.batch.draw(graphicsTextTexture, graphicsTextX, graphicsTextY, textWidth, textHeight);
         }
