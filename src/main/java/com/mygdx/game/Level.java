@@ -13,4 +13,5 @@ public interface Level {
     int getTotalDocuments();
     void dispose();
     String getBackgroundPath();
+    String getMusicPath();                // return path to level background music
 }

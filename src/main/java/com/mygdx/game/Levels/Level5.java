@@ -122,6 +122,7 @@ public class Level5 implements Level, BackgroundedLevel {
     }
 
     @Override
+<<<<<<< HEAD
     public void updateBackground(float deltaTime, ILevelManager levelMgr, 
                                  Array<Rectangle> documents, Array<Rectangle> obstacles, 
                                  Fixer player) {
@@ -203,4 +204,9 @@ public class Level5 implements Level, BackgroundedLevel {
         // shared shredder visuals are handled by LevelManager (no per-level shredder draw)
     }
 
+=======
+    public String getMusicPath() {
+        return "assets/Sounds/Level Music.mp3";
+    }
+>>>>>>> 387d60d5faffe19c11061ef140c3f71f74925593
 }

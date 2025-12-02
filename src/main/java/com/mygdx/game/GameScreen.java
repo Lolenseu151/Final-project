@@ -40,6 +40,7 @@ public class GameScreen implements Screen {
 
     // Game logic
     private LevelManager levelManager;
+    private LevelMusicManager musicManager;
     private LevelManager2 levelManager2;
     private Fixer fixer;
     private ShapeRenderer shapeRenderer;
@@ -195,6 +196,7 @@ public class GameScreen implements Screen {
             Gdx.app.log("GameScreen", "show() called but already initialized - skipping re-init");
             return;
         }
+         musicManager = new LevelMusicManager();
         
         // Load level based on currentLevel
         Level level = null;
@@ -222,7 +224,12 @@ public class GameScreen implements Screen {
             levelManager = new LevelManager();
             if (level != null) {
                 levelManager.loadLevel(level);
-                // Register for direct level-complete callbacks so the overlay can be shown
+                // Start playing background music for the level
+            String musicPath = level.getMusicPath();
+            if (musicPath != null && !musicPath.isEmpty()) {
+                musicManager.playMusic(musicPath);
+            }
+            // Register for direct level-complete callbacks so the overlay can be shown
                 try {
                     // Use reflection to avoid a compile-time dependency on the nested listener type
                     try {
@@ -620,6 +627,9 @@ public class GameScreen implements Screen {
 
         if (currentState == GameState.GAMEOVER &&
                 (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.Q))) {
+            if (musicManager != null) {
+                musicManager.stopMusic();
+            }
             game.setScreen(new LevelSelectScreen(game));
             dispose();
         }
@@ -877,11 +887,17 @@ public class GameScreen implements Screen {
             if (mxIn >= drawSX && mxIn <= drawSX + drawSW && myIn >= btnY - (drawSH - sH) * 0.5f && myIn <= btnY - (drawSH - sH) * 0.5f + drawSH) {
                 pauseOverlayVisible = false;
                 currentState = GameState.RUNNING;
+                if (musicManager != null) {
+                    musicManager.resumeMusic();
+                }
                 return;
             }
             // Menu
             if (mxIn >= drawMX && mxIn <= drawMX + drawMW && myIn >= btnY - (drawMH - mH) * 0.5f && myIn <= btnY - (drawMH - mH) * 0.5f + drawMH) {
                 try {
+                    if (musicManager != null) {
+                        musicManager.stopMusic();
+                    }
                     game.setScreen(new LevelSelectScreen(game));
                     dispose();
                 } catch (Exception ignored) {}
@@ -1037,6 +1053,9 @@ public class GameScreen implements Screen {
                 } else {
                     pauseOverlayVisible = true;
                     currentState = GameState.PAUSED;
+                    if (musicManager != null) {
+                        musicManager.pauseMusic();
+                    }
                     overlaySuppressNextClick = true; // ignore the click that opened overlay
                 }
             }
@@ -1514,7 +1533,13 @@ public class GameScreen implements Screen {
                     return;
                 }
                 if (mxIn >= drawMX && mxIn <= drawMX + drawMW && myIn >= btnY - (drawMH - mH) * 0.5f && myIn <= btnY - (drawMH - mH) * 0.5f + drawMH) {
-                    try { game.setScreen(new LevelSelectScreen(game)); dispose(); } catch (Exception ignored) {}
+                    try {
+                        if (musicManager != null) {
+                            musicManager.stopMusic();
+                        }
+                        game.setScreen(new LevelSelectScreen(game));
+                        dispose();
+                    } catch (Exception ignored) {}
                     return;
                 }
             }
@@ -1660,7 +1685,14 @@ public class GameScreen implements Screen {
                     winOverlayVisible = false; showLevelComplete = false; proceedToNextLevel(); return;
                 }
                 if (mxIn >= drawMX && mxIn <= drawMX + drawMW && myIn >= btnY - (drawMH - mH) * 0.5f && myIn <= btnY - (drawMH - mH) * 0.5f + drawMH) {
-                    try { game.setScreen(new LevelSelectScreen(game)); dispose(); } catch (Exception ignored) {} return;
+                    try {
+                        if (musicManager != null) {
+                            musicManager.stopMusic();
+                        }
+                        game.setScreen(new LevelSelectScreen(game));
+                        dispose();
+                    } catch (Exception ignored) {}
+                    return;
                 }
             }
         } catch (Exception ignored) {}
@@ -1669,6 +1701,10 @@ public class GameScreen implements Screen {
     private void levelComplete() {
         showLevelComplete = true;
         levelCompleteTimer = 0f;
+        // Stop music after documents are shredded
+        if (musicManager != null) {
+            musicManager.stopMusic();
+        }
         // record event stats for the win overlay
         try {
             lastEventDocs = (levelManager != null) ? levelManager.getDocumentsCollected() : 0;
@@ -1698,10 +1734,16 @@ public class GameScreen implements Screen {
         if (currentLevel >= MAX_LEVEL) {
             // All levels completed
             Gdx.app.log("GameScreen", "All levels completed!");
+            if (musicManager != null) {
+                musicManager.stopMusic();
+            }
             game.setScreen(new MainMenuScreen(game));
             dispose();
         } else {
             // Load next level
+            if (musicManager != null) {
+                musicManager.stopMusic();
+            }
             currentLevel++;
             initialized = false;  // Allow show() to reinitialize for the new level
             show();  // reinit for next level
@@ -1804,6 +1846,7 @@ public class GameScreen implements Screen {
     @Override
     public void dispose() {
         if (levelManager != null) levelManager.dispose();
+        if (musicManager != null) musicManager.dispose();
         if (levelManager2 != null) levelManager2.dispose();
         if (shapeRenderer != null) shapeRenderer.dispose();
         if (uiStage != null) uiStage.dispose();
