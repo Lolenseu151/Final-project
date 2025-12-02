@@ -768,6 +768,15 @@ public class LevelManager implements ILevelManager {
             }
             batch.end();  // *** END BATCH ***
         }
+
+        // === PHASE 4: Level-specific overlays (draw on top of documents) ===
+        try {
+            if (currentLevel instanceof BackgroundedLevel) {
+                batch.begin();
+                ((BackgroundedLevel) currentLevel).renderOverlay(batch);
+                batch.end();
+            }
+        } catch (Exception ignored) {}
     }
 
     /**

@@ -746,6 +746,34 @@ public class GameScreen implements Screen {
         // Update floating animation timer
         floatTimer += deltaTime;
         
+        // If the active level provides a blocking overlay, do not advance gameplay
+        try {
+            Object activeLevel = null;
+            if (levelManager != null) {
+                try { activeLevel = levelManager.getCurrentLevel(); } catch (Exception ignored) {}
+            } else if (levelManager2 != null) {
+                try {
+                    // prefer currentLevelB if present, otherwise A
+                    com.mygdx.game.Levels.Level b = levelManager2.getCurrentLevelB();
+                    com.mygdx.game.Levels.Level a = levelManager2.getCurrentLevelA();
+                    activeLevel = (b != null) ? b : a;
+                } catch (Exception ignored) {}
+            }
+            if (activeLevel instanceof com.mygdx.game.Levels.BackgroundedLevel) {
+                com.mygdx.game.Levels.BackgroundedLevel bl = (com.mygdx.game.Levels.BackgroundedLevel) activeLevel;
+                if (bl.isOverlayBlocking()) {
+                    // Allow the level to process its overlay input/update, but skip
+                    // the rest of the gameplay updates (physics, timer, collisions).
+                    try {
+                        ILevelManager lm = (levelManager != null) ? (ILevelManager) levelManager : (ILevelManager) levelManager2;
+                        // Call updateBackground directly so the level can handle clicks/keys
+                        bl.updateBackground(deltaTime, lm, null, null, fixer);
+                    } catch (Exception ignored) {}
+                    return;
+                }
+            }
+        } catch (Exception ignored) {}
+
         // Player physics FIRST
         if (fixer != null) fixer.update(deltaTime);
         
