@@ -943,6 +943,8 @@ public class GameScreen implements Screen {
                 // restart current level
                 pauseOverlayVisible = false;
                 currentState = GameState.RUNNING;
+                // Stop the current music completely before restarting
+                BackgroundMusicManager.getInstance().stopMusic();
                 // ensure show() actually reinitializes
                 initialized = false;
                 show();
@@ -952,17 +954,15 @@ public class GameScreen implements Screen {
             if (mxIn >= drawSX && mxIn <= drawSX + drawSW && myIn >= btnY - (drawSH - sH) * 0.5f && myIn <= btnY - (drawSH - sH) * 0.5f + drawSH) {
                 pauseOverlayVisible = false;
                 currentState = GameState.RUNNING;
-                if (musicManager != null) {
-                    musicManager.resumeMusic();
-                }
+                // Resume the music
+                BackgroundMusicManager.getInstance().resumeMusic();
                 return;
             }
             // Menu
             if (mxIn >= drawMX && mxIn <= drawMX + drawMW && myIn >= btnY - (drawMH - mH) * 0.5f && myIn <= btnY - (drawMH - mH) * 0.5f + drawMH) {
                 try {
-                    if (musicManager != null) {
-                        musicManager.stopMusic();
-                    }
+                    // Stop the level music when going back to menu
+                    BackgroundMusicManager.getInstance().stopMusic();
                     game.setScreen(new LevelSelectScreen(game));
                     dispose();
                 } catch (Exception ignored) {}
@@ -1120,9 +1120,8 @@ public class GameScreen implements Screen {
                 } else {
                     pauseOverlayVisible = true;
                     currentState = GameState.PAUSED;
-                    if (musicManager != null) {
-                        musicManager.pauseMusic();
-                    }
+                    // Pause the background music
+                    BackgroundMusicManager.getInstance().pauseMusic();
                     overlaySuppressNextClick = true; // ignore the click that opened overlay
                 }
             }
