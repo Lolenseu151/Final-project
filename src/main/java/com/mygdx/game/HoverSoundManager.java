@@ -8,6 +8,7 @@ public class HoverSoundManager {
     private Sound shredSound;
     private Sound winSound;
     private Sound gameOverSound;
+    private Sound documentSound;
 
     public HoverSoundManager() {
         loadHoverSound();
@@ -93,6 +94,26 @@ public class HoverSoundManager {
         }
     }
 
+    private void loadDocumentSound() {
+        try {
+            com.badlogic.gdx.files.FileHandle fh = Gdx.files.internal("Sounds/document.mp3");
+            if (fh.exists()) {
+                documentSound = Gdx.audio.newSound(fh);
+                Gdx.app.log("HoverSoundManager", "Loaded internal document sound");
+                return;
+            }
+            String abs = System.getProperty("user.dir") + "/assets/Sounds/document.mp3";
+            com.badlogic.gdx.files.FileHandle fha = Gdx.files.absolute(abs);
+            if (fha.exists()) {
+                documentSound = Gdx.audio.newSound(fha);
+                Gdx.app.log("HoverSoundManager", "Loaded absolute document sound: " + abs);
+            }
+        } catch (Exception e) {
+            Gdx.app.log("HoverSoundManager", "Failed to load document sound", e);
+            documentSound = null;
+        }
+    }
+
     public void playHover() {
         try {
             if (hoverSound != null) hoverSound.play(0.9f);
@@ -128,6 +149,15 @@ public class HoverSoundManager {
         }
     }
 
+    public void playDocument() {
+        try {
+            if (documentSound == null) loadDocumentSound();
+            if (documentSound != null) documentSound.play(1.0f);
+        } catch (Exception e) {
+            Gdx.app.log("HoverSoundManager", "Failed to play document sound", e);
+        }
+    }
+
     public void dispose() {
         try {
             if (hoverSound != null) {
@@ -149,6 +179,11 @@ public class HoverSoundManager {
                 gameOverSound.stop();
                 gameOverSound.dispose();
                 gameOverSound = null;
+            }
+            if (documentSound != null) {
+                documentSound.stop();
+                documentSound.dispose();
+                documentSound = null;
             }
         } catch (Exception e) {
             Gdx.app.log("HoverSoundManager", "Error disposing hover sound", e);

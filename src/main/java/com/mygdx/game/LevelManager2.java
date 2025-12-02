@@ -35,6 +35,9 @@ public class LevelManager2 implements ILevelManager {
     private int documentsCollected;
     private int totalDocuments;
     private boolean levelComplete;
+    // Document-collected callback (optional)
+    public interface DocumentCollectedListener { void onDocumentCollected(int collected, int total); }
+    private DocumentCollectedListener documentCollectedListener = null;
     private boolean shredPending = false;
     private float shredTimer = 0f;
     private static final float SHRED_DELAY_SECONDS = 3.0f;
@@ -152,6 +155,10 @@ public class LevelManager2 implements ILevelManager {
         ACTIVE = this; // register active instance
 
         initializeLevel();
+    }
+
+    public void setDocumentCollectedListener(DocumentCollectedListener l) {
+        this.documentCollectedListener = l;
     }
 
     private void initializeLevel() {
@@ -292,6 +299,11 @@ public class LevelManager2 implements ILevelManager {
                 documentsCollected++;
                 Gdx.app.log("LevelManager2", String.format("Document collected! (%d/%d)", 
                     documentsCollected, totalDocuments));
+                try {
+                    if (documentCollectedListener != null) {
+                        try { documentCollectedListener.onDocumentCollected(documentsCollected, totalDocuments); } catch (Exception ignored) {}
+                    }
+                } catch (Exception ignored) {}
                 try {
                     if (currentLevelA != null && currentLevelA.getClass().getSimpleName().toLowerCase().contains("tutorial") && documentsCollected == 1) {
                         try {

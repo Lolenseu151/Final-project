@@ -34,8 +34,14 @@ public class LevelManager implements ILevelManager {
         void onShredStart();
     }
 
+    /** Listener notified when a document is collected */
+    public interface DocumentCollectedListener {
+        void onDocumentCollected(int collected, int total);
+    }
+
     private LevelCompleteListener levelCompleteListener = null;
     private ShredStartListener shredStartListener = null;
+    private DocumentCollectedListener documentCollectedListener = null;
 
     /**
      * Register a listener to be notified when the level completes (shredding finished).
@@ -49,6 +55,10 @@ public class LevelManager implements ILevelManager {
      */
     public void setShredStartListener(ShredStartListener l) {
         this.shredStartListener = l;
+    }
+
+    public void setDocumentCollectedListener(DocumentCollectedListener l) {
+        this.documentCollectedListener = l;
     }
     // Level elements
     private final Array<Rectangle> documents;      // Incriminating documents to collect
@@ -416,6 +426,11 @@ public class LevelManager implements ILevelManager {
                 documentsCollected++;
                 Gdx.app.log("LevelManager", String.format("Document collected! (%d/%d)", 
                     documentsCollected, totalDocuments));
+                try {
+                    if (documentCollectedListener != null) {
+                        try { documentCollectedListener.onDocumentCollected(documentsCollected, totalDocuments); } catch (Exception ignored) {}
+                    }
+                } catch (Exception ignored) {}
                 // If this is the tutorial level and this is the first document, trigger talking overlay
                 try {
                     if (currentLevel instanceof LevelTutorial && documentsCollected == 1) {
