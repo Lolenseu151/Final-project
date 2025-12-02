@@ -221,6 +221,11 @@ public class GameScreen implements Screen {
             // Load only the first map initially - the level will handle transitioning to the second map
             if (level != null) {
                 levelManager2.loadLevel(level);
+                // Start playing background music for the level using global manager
+                String musicPath = level.getMusicPath();
+                if (musicPath != null && !musicPath.isEmpty()) {
+                    BackgroundMusicManager.getInstance().playLevelMusic(musicPath);
+                }
             }
         } else {
             // Use regular LevelManager for single-map levels
@@ -228,11 +233,11 @@ public class GameScreen implements Screen {
             levelManager = new LevelManager();
             if (level != null) {
                 levelManager.loadLevel(level);
-                // Start playing background music for the level
-            String musicPath = level.getMusicPath();
-            if (musicPath != null && !musicPath.isEmpty()) {
-                musicManager.playMusic(musicPath);
-            }
+                // Start playing background music for the level using global manager
+                String musicPath = level.getMusicPath();
+                if (musicPath != null && !musicPath.isEmpty()) {
+                    BackgroundMusicManager.getInstance().playLevelMusic(musicPath);
+                }
             // Register for direct level-complete callbacks so the overlay can be shown
                 try {
                     // Use reflection to avoid a compile-time dependency on the nested listener type
@@ -1768,9 +1773,7 @@ public class GameScreen implements Screen {
         try {
             if (game != null && game.getHoverSoundManager() != null) game.getHoverSoundManager().playWin();
         } catch (Exception ignored) {}
-        if (musicManager != null) {
-            musicManager.stopMusic();
-        }
+        BackgroundMusicManager.getInstance().stopMusic();
         // record event stats for the win overlay
         try {
             lastEventDocs = (levelManager != null) ? levelManager.getDocumentsCollected() : 0;
@@ -1800,16 +1803,11 @@ public class GameScreen implements Screen {
         if (currentLevel >= MAX_LEVEL) {
             // All levels completed
             Gdx.app.log("GameScreen", "All levels completed!");
-            if (musicManager != null) {
-                musicManager.stopMusic();
-            }
+            BackgroundMusicManager.getInstance().playScreenMusic();
             game.setScreen(new MainMenuScreen(game));
             dispose();
         } else {
             // Load next level
-            if (musicManager != null) {
-                musicManager.stopMusic();
-            }
             currentLevel++;
             initialized = false;  // Allow show() to reinitialize for the new level
             show();  // reinit for next level
