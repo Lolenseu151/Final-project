@@ -269,6 +269,43 @@ public class GameScreen implements Screen {
                         // Listener type not present - skip registering the callback
                     }
                 } catch (Exception ignored) {}
+                // Also register a ShredStartListener (fires when shredding becomes ACTIVE)
+                try {
+                    try {
+                        Class<?> shredClass = Class.forName("com.mygdx.game.LevelManager$ShredStartListener");
+                        java.lang.reflect.Method setShredMethod = levelManager.getClass().getMethod("setShredStartListener", shredClass);
+                        Object shredProxy = java.lang.reflect.Proxy.newProxyInstance(
+                                shredClass.getClassLoader(),
+                                new Class<?>[] { shredClass },
+                                new java.lang.reflect.InvocationHandler() {
+                                    @Override
+                                    public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) throws Throwable {
+                                        if ("onShredStart".equals(method.getName())) {
+                                            try {
+                                                Gdx.app.postRunnable(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        try {
+                                                            if (game != null && game.getHoverSoundManager() != null) game.getHoverSoundManager().playShred();
+                                                            try { if (musicManager != null) musicManager.stopMusic(); } catch (Exception ignored) {}
+                                                        } catch (Exception ignored) {}
+                                                    }
+                                                });
+                                            } catch (Exception e) {
+                                                try {
+                                                    if (game != null && game.getHoverSoundManager() != null) game.getHoverSoundManager().playShred();
+                                                    try { if (musicManager != null) musicManager.stopMusic(); } catch (Exception ignored) {}
+                                                } catch (Exception ignored) {}
+                                            }
+                                        }
+                                        return null;
+                                    }
+                                });
+                        setShredMethod.invoke(levelManager, shredProxy);
+                    } catch (ClassNotFoundException cnfe) {
+                        // Not present - ignore
+                    }
+                } catch (Exception ignored) {}
             }
         }
 
@@ -651,6 +688,9 @@ public class GameScreen implements Screen {
             try {
                 lastEventDocs = (levelManager != null) ? levelManager.getDocumentsCollected() : 0;
                 lastEventTime = remainingTime;
+                try {
+                    if (game != null && game.getHoverSoundManager() != null) game.getHoverSoundManager().playGameOver();
+                } catch (Exception ignored) {}
             } catch (Exception ignored) {}
             lastEventRecorded = true;
         }
@@ -1724,7 +1764,10 @@ public class GameScreen implements Screen {
     private void levelComplete() {
         showLevelComplete = true;
         levelCompleteTimer = 0f;
-        // Stop music after documents are shredded
+        // Play win sound and stop music after documents are shredded
+        try {
+            if (game != null && game.getHoverSoundManager() != null) game.getHoverSoundManager().playWin();
+        } catch (Exception ignored) {}
         if (musicManager != null) {
             musicManager.stopMusic();
         }

@@ -29,13 +29,26 @@ public class LevelManager implements ILevelManager {
         void onLevelComplete();
     }
 
+    /** Listener notified when shredding becomes active (shred start) */
+    public interface ShredStartListener {
+        void onShredStart();
+    }
+
     private LevelCompleteListener levelCompleteListener = null;
+    private ShredStartListener shredStartListener = null;
 
     /**
      * Register a listener to be notified when the level completes (shredding finished).
      */
     public void setLevelCompleteListener(LevelCompleteListener l) {
         this.levelCompleteListener = l;
+    }
+
+    /**
+     * Register a listener to be notified when shredding begins (visual ACTIVE state).
+     */
+    public void setShredStartListener(ShredStartListener l) {
+        this.shredStartListener = l;
     }
     // Level elements
     private final Array<Rectangle> documents;      // Incriminating documents to collect
@@ -465,6 +478,12 @@ public class LevelManager implements ILevelManager {
                 shredPending = true;
                 shredTimer = 0f;
                 Gdx.app.log("LevelManager", "Shredding sequence started ΓÇö delaying completion for " + SHRED_DELAY_SECONDS + "s");
+                // Notify any registered listener that shredding has started
+                try {
+                    if (shredStartListener != null) {
+                        try { shredStartListener.onShredStart(); } catch (Exception ignored) {}
+                    }
+                } catch (Exception ignored) {}
                 // Try to set shredder visual to ACTIVE via reflection if present on the level
                 try {
                     if (currentLevel != null) {
