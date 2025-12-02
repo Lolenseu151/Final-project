@@ -34,8 +34,14 @@ public class LevelManager implements ILevelManager {
         void onShredStart();
     }
 
+    /** Listener notified when a document is collected */
+    public interface DocumentCollectedListener {
+        void onDocumentCollected(int collected, int total);
+    }
+
     private LevelCompleteListener levelCompleteListener = null;
     private ShredStartListener shredStartListener = null;
+    private DocumentCollectedListener documentCollectedListener = null;
 
     /**
      * Register a listener to be notified when the level completes (shredding finished).
@@ -49,6 +55,10 @@ public class LevelManager implements ILevelManager {
      */
     public void setShredStartListener(ShredStartListener l) {
         this.shredStartListener = l;
+    }
+
+    public void setDocumentCollectedListener(DocumentCollectedListener l) {
+        this.documentCollectedListener = l;
     }
     // Level elements
     private final Array<Rectangle> documents;      // Incriminating documents to collect
@@ -352,23 +362,22 @@ public class LevelManager implements ILevelManager {
             float maxAllowedX = Gdx.graphics.getWidth() - pb.width;
             
             for (Rectangle platform : platforms) {
-                // Check if this is a vertical wall (height > 20 to catch short walls too)
-                if (platform.height > 20) {
-                    // Left wall
+                // Treat narrow platforms as vertical walls. Previously this used height
+                // which misclassified the ground (wide, low platforms) as walls and pushed
+                // the player to the far right each frame. Use width-based heuristic instead.
+                if (platform.width < 100f) {
+                    // Left wall (near left edge)
                     if (platform.x < 50) {
                         minAllowedX = Math.max(minAllowedX, platform.x + platform.width);
                     }
-                    // Right wall
+                    // Right wall (near right edge)
                     if (platform.x > Gdx.graphics.getWidth() - 200) {
                         maxAllowedX = Math.min(maxAllowedX, platform.x - pb.width);
                     }
-                    // Interior walls (check all other walls)
+                    // Interior narrow walls - check collision and push player out
                     if (platform.x >= 50 && platform.x <= Gdx.graphics.getWidth() - 200) {
-                        // Check if player is overlapping this wall horizontally
                         if (pb.x + pb.width > platform.x && pb.x < platform.x + platform.width) {
-                            // Player is in the wall's x-range, need to check vertical overlap
                             if (pb.y < platform.y + platform.height && pb.y + pb.height > platform.y) {
-                                // Player is overlapping the wall, push them out
                                 float overlapLeft = (pb.x + pb.width) - platform.x;
                                 float overlapRight = (platform.x + platform.width) - pb.x;
                                 if (overlapLeft < overlapRight) {
@@ -408,6 +417,11 @@ public class LevelManager implements ILevelManager {
                 documentsCollected++;
                 Gdx.app.log("LevelManager", String.format("Document collected! (%d/%d)", 
                     documentsCollected, totalDocuments));
+                try {
+                    if (documentCollectedListener != null) {
+                        try { documentCollectedListener.onDocumentCollected(documentsCollected, totalDocuments); } catch (Exception ignored) {}
+                    }
+                } catch (Exception ignored) {}
                 // If this is the tutorial level and this is the first document, trigger talking overlay
                 try {
                     if (currentLevel instanceof LevelTutorial && documentsCollected == 1) {
@@ -736,6 +750,7 @@ public class LevelManager implements ILevelManager {
             batch.end();  // *** END BATCH ***
         }
 
+<<<<<<< HEAD
         // === PHASE 4: Draw animated lasers (SpriteBatch) ===
         if (laserFXList.size > 0) {
             batch.begin();
@@ -745,6 +760,16 @@ public class LevelManager implements ILevelManager {
             }
             batch.end();
         }
+=======
+        // === PHASE 4: Level-specific overlays (draw on top of documents) ===
+        try {
+            if (currentLevel instanceof BackgroundedLevel) {
+                batch.begin();
+                ((BackgroundedLevel) currentLevel).renderOverlay(batch);
+                batch.end();
+            }
+        } catch (Exception ignored) {}
+>>>>>>> e26ed73c29c3dcf9c36661c0e85521bb0ee89993
     }
 
     /**

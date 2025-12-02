@@ -41,4 +41,20 @@ public interface BackgroundedLevel {
     default void renderBackground(SpriteBatch batch, Texture backgroundTexture) {
         // default: LevelManager handles rendering
     }
+
+    /**
+     * Optional: render overlays that must appear on top of level objects (documents, platforms).
+     * Called by LevelManager after documents and sprites are drawn so overlays appear above gameplay.
+     * @param batch SpriteBatch for drawing
+     */
+    default void renderOverlay(SpriteBatch batch) {
+        // default: no overlay
+    }
+
+    /**
+     * If true the level's overlay should block core gameplay updates (player movement,
+     * timers, collisions). Default is false. Levels that show blocking dialogs should
+     * return true while the dialog is visible.
+     */
+    default boolean isOverlayBlocking() { return false; }
 }
