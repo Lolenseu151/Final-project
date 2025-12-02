@@ -568,6 +568,8 @@ public class LevelSelectScreen implements Screen {
             try {
                 ref.getImage().setDrawable(over);
                 if (ENABLE_HOVER_DIAGNOSTICS) ref.getImage().setColor(Color.LIGHT_GRAY);
+                // play centralized hover sound on enter
+                try { game.getHoverSoundManager().playHover(); } catch (Exception ignored) {}
                 if (ENABLE_HOVER_DIAGNOSTICS) Gdx.app.log("[HoverDiag]", "ENTER at " + (int)stagePoint.x + "," + (int)stagePoint.y + " for button " + ref);
             } catch (Exception e) {}
             return true;
