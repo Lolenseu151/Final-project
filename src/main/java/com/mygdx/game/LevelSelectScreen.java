@@ -484,40 +484,40 @@ public class LevelSelectScreen implements Screen {
 
         // For Level 1/2, if hover textures exist, keep references and use polling in render()
         if (levelNum == 1 && level1HoverTexture != null) {
-            level1UpDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
-            level1OverDrawable = (TextureRegionDrawable) ib.getStyle().imageOver;
-            level1ButtonRef = ib;
-            level1Hovered = false;
+                level1UpDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
+                level1OverDrawable = (TextureRegionDrawable) ib.getStyle().imageOver;
+             level1ButtonRef = ib;
+             level1Hovered = false;
         }
         if (levelNum == 2 && level2HoverTexture != null) {
-            level2UpDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
-            level2OverDrawable = (TextureRegionDrawable) ib.getStyle().imageOver;
-            level2ButtonRef = ib;
-            level2Hovered = false;
+                level2UpDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
+                level2OverDrawable = (TextureRegionDrawable) ib.getStyle().imageOver;
+             level2ButtonRef = ib;
+             level2Hovered = false;
         }
         if (levelNum == 3 && level3HoverTexture != null) {
-            level3UpDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
-            level3OverDrawable = (TextureRegionDrawable) ib.getStyle().imageOver;
-            level3ButtonRef = ib;
-            level3Hovered = false;
+                level3UpDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
+                level3OverDrawable = (TextureRegionDrawable) ib.getStyle().imageOver;
+             level3ButtonRef = ib;
+             level3Hovered = false;
         }
         if (levelNum == 4 && level4HoverTexture != null) {
-            level4UpDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
-            level4OverDrawable = (TextureRegionDrawable) ib.getStyle().imageOver;
-            level4ButtonRef = ib;
-            level4Hovered = false;
+                level4UpDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
+                level4OverDrawable = (TextureRegionDrawable) ib.getStyle().imageOver;
+             level4ButtonRef = ib;
+             level4Hovered = false;
         }
         if (levelNum == 5 && level5HoverTexture != null) {
-            level5UpDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
-            level5OverDrawable = (TextureRegionDrawable) ib.getStyle().imageOver;
-            level5ButtonRef = ib;
-            level5Hovered = false;
+                level5UpDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
+                level5OverDrawable = (TextureRegionDrawable) ib.getStyle().imageOver;
+             level5ButtonRef = ib;
+             level5Hovered = false;
         }
         // Register this button for unified hover polling (works with touchpads)
         try {
-            TextureRegionDrawable upDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
+                TextureRegionDrawable upDrawable = (TextureRegionDrawable) ib.getStyle().imageUp;
             TextureRegionDrawable overDrawable = (ib.getStyle().imageOver != null) ? (TextureRegionDrawable) ib.getStyle().imageOver : upDrawable;
-            hoverInfos.add(new HoverInfo(levelNum, ib, upDrawable, overDrawable));
+                hoverInfos.add(new HoverInfo(levelNum, ib, upDrawable, overDrawable));
         } catch (Exception e) {
             // ignore if style drawables are not TextureRegionDrawable
         }
@@ -537,7 +537,7 @@ public class LevelSelectScreen implements Screen {
         stage.screenToStageCoordinates(tmpStageCoords);
         // Update hoverInfos for unified hover polling
         for (HoverInfo hi : hoverInfos) {
-            hi.hovered = updateButtonHover(hi.button, hi.up, hi.over, hi.hovered, tmpStageCoords);
+                hi.hovered = updateButtonHover(hi.button, hi.up, hi.over, hi.hovered, tmpStageCoords);
         }
         // (hover polling done above as part of debug label update)
         if (animatedBg != null && bgRegions != null && bgRegions.length > 0) {
