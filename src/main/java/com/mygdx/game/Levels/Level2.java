@@ -41,13 +41,21 @@ public class Level2 implements Level, BackgroundedLevel {
 
     // === JS (walking obstacle) fields and tunables ===
     // Public tunables for easy tweaking: edit these values to adjust patrol, speed, and size.
-    public static float JS_LEFT_X = 70f;                      // left patrol X
-    public static float JS_RIGHT_X = 400f;                     // right patrol X
-    public static float JS_Y = 220f + PLATFORM_H + 2f;         // Y position (on second-level platform)
+    public static float JS_LEFT_X = -200f;                      // left patrol X
+    public static float JS_RIGHT_X = 300f;                     // right patrol X
+    public static float JS_Y = -10f + PLATFORM_H + 2f;         // Y position (on second-level platform)
+    // Vertical offset (pixels). Negative moves JS lower on the screen.
+    public static float JS_Y_OFFSET = -270f;
     public static float JS_W = 55;                            // draw / collision width
     public static float JS_H = 110f;                            // draw / collision height
     public static float JS_SPEED = 60f;                        // px/sec walking speed
     public static float JS_FRAME_DURATION = 0.12f;             // animation frame duration
+    // Visual scale multiplier for JS (increase to make the sprite larger)
+    public static float JS_SCALE = 10.2f;
+    // Sight parameters: horizontal distance in pixels in front of JS that it can "see"
+    public static float JS_SIGHT_DISTANCE = 35f;
+    // Vertical tolerance as fraction of JS height for sight (0..1)
+    public static float JS_SIGHT_VERTICAL_TOLERANCE = 0.1f;
 
     private static final int JS_FRAME_COUNT = 4;                // expected frame count
     private TextureRegion[] jsFrames = null;
@@ -158,8 +166,20 @@ public class Level2 implements Level, BackgroundedLevel {
             }
         } catch (Exception ignored) {}
 
-        // Ensure collision rect exists for JS
-        if (jsRect == null) jsRect = new Rectangle(jsX, JS_Y, JS_W, JS_H);
+        // Reset JS patrol state so edits to JS_LEFT_X/JS_RIGHT_X apply when init() runs
+        jsX = JS_LEFT_X;
+        jsFacingRight = true;
+        jsAnimTime = 0f;
+        // Ensure collision rect exists for JS (use scaled size)
+        float effWInit = JS_W * JS_SCALE;
+        float effHInit = JS_H * JS_SCALE;
+        float baseJSY = JS_Y + JS_Y_OFFSET;
+        if (jsRect == null) {
+            jsRect = new Rectangle(jsX, baseJSY, effWInit, effHInit);
+        } else {
+            jsRect.setPosition(jsX, baseJSY);
+            jsRect.setSize(effWInit, effHInit);
+        }
     }
 
     @Override public Array<Rectangle> getDocuments() { return documents; }
@@ -210,46 +230,83 @@ public class Level2 implements Level, BackgroundedLevel {
                     jsX = JS_LEFT_X;
                     jsFacingRight = true;
                 }
-                // update rect
-                if (jsRect == null) jsRect = new Rectangle(jsX, JS_Y, JS_W, JS_H);
-                else jsRect.setPosition(jsX, JS_Y);
+                // update rect: prefer to match the actual drawn sprite (so large source images center correctly)
+                float effW = JS_W * JS_SCALE;
+                float effH = JS_H * JS_SCALE;
+                float baseY = JS_Y + JS_Y_OFFSET;
+                float drawX = jsX;
+                float drawY = baseY;
+                float drawW = effW;
+                float drawH = effH;
+                // If we have frames, compute how the current frame will be drawn (preserve aspect ratio)
+                try {
+                    int idx = (int)((jsAnimTime / Math.max(0.0001f, JS_FRAME_DURATION)) % jsFrames.length);
+                    TextureRegion fr = jsFrames[idx];
+                    float texW = fr.getRegionWidth();
+                    float texH = fr.getRegionHeight();
+                    if (texW > 0f && texH > 0f) {
+                        float scale = Math.min(effW / texW, effH / texH);
+                        drawW = texW * scale;
+                        drawH = texH * scale;
+                        drawX = jsX + (effW - drawW) * 0.5f;
+                        drawY = baseY + (effH - drawH) * 0.5f;
+                    }
+                } catch (Exception ignored) {}
+                if (jsRect == null) jsRect = new Rectangle(drawX, drawY, drawW, drawH);
+                else {
+                    jsRect.setPosition(drawX, drawY);
+                    jsRect.setSize(drawW, drawH);
+                }
 
-                // collision: if overlaps player and JS is facing the player -> GAME OVER
-                if (player != null && player.getBounds() != null && jsRect.overlaps(player.getBounds())) {
-                    float playerCenterX = player.getBounds().x + player.getBounds().width * 0.5f;
-                    float jsCenterX = jsX + JS_W * 0.5f;
+                // collision: JS only catches the player if player is BOTH in front AND inside JS's sight
+                if (player != null && player.getBounds() != null) {
+                    Rectangle playerBounds = player.getBounds();
+                    float playerCenterX = playerBounds.x + playerBounds.width * 0.5f;
+                    float jsCenterX = jsX + (JS_W * JS_SCALE) * 0.5f;
                     boolean playerIsInFront = (jsFacingRight && playerCenterX > jsCenterX) || (!jsFacingRight && playerCenterX < jsCenterX);
                     if (playerIsInFront) {
-                        // Try to set the active GameScreen to GAMEOVER via reflection on the current screen
-                        try {
-                            Object app = Gdx.app.getApplicationListener();
-                            if (app instanceof com.badlogic.gdx.Game) {
-                                Screen screen = ((com.badlogic.gdx.Game) app).getScreen();
-                                if (screen != null) {
-                                    java.lang.reflect.Field f = null;
-                                    try {
-                                        f = screen.getClass().getDeclaredField("currentState");
-                                    } catch (NoSuchFieldException nsf) {
-                                        // try superclass if obfuscated or wrapped
-                                        Class<?> sc = screen.getClass().getSuperclass();
-                                        if (sc != null) {
-                                            try { f = sc.getDeclaredField("currentState"); } catch (Exception ignored) {}
+                        // build a frontal sight rectangle originating from the DRAWN sprite center
+                        float centerX = jsRect.x + jsRect.width * 0.5f; // center of visible sprite
+                        float sightW = JS_SIGHT_DISTANCE;
+                        float sightX = jsFacingRight ? centerX : (centerX - sightW);
+                        float sightH = jsRect.height * JS_SIGHT_VERTICAL_TOLERANCE; // base on drawn height
+                        // ensure sight has at least a small vertical size
+                        if (sightH < 2f) sightH = 2f;
+                        float sightY = jsRect.y + (jsRect.height - sightH) * 0.5f;
+                        Rectangle sightRect = new Rectangle(sightX, sightY, sightW, sightH);
+
+                        boolean directOverlap = (jsRect != null && jsRect.overlaps(playerBounds));
+                        boolean inSight = sightRect.overlaps(playerBounds);
+                        if (directOverlap || inSight) {
+                            // Try to set the active GameScreen to GAMEOVER via reflection on the current screen
+                            try {
+                                Object app = Gdx.app.getApplicationListener();
+                                if (app instanceof com.badlogic.gdx.Game) {
+                                    Screen screen = ((com.badlogic.gdx.Game) app).getScreen();
+                                    if (screen != null) {
+                                        java.lang.reflect.Field f = null;
+                                        try {
+                                            f = screen.getClass().getDeclaredField("currentState");
+                                        } catch (NoSuchFieldException nsf) {
+                                            // try superclass if obfuscated or wrapped
+                                            Class<?> sc = screen.getClass().getSuperclass();
+                                            if (sc != null) {
+                                                try { f = sc.getDeclaredField("currentState"); } catch (Exception ignored) {}
+                                            }
                                         }
-                                    }
-                                    if (f != null) {
-                                        f.setAccessible(true);
-                                        Class<?> enumType = f.getType();
-                                        if (enumType.isEnum()) {
-                                            Object val = java.lang.Enum.valueOf((Class) enumType, "GAMEOVER");
-                                            f.set(screen, val);
-                                            Gdx.app.log("Level2", "JS caught the player — forcing GAMEOVER via reflection");
+                                        if (f != null) {
+                                            f.setAccessible(true);
+                                            Class<?> enumType = f.getType();
+                                            if (enumType.isEnum()) {
+                                                Object val = java.lang.Enum.valueOf((Class) enumType, "GAMEOVER");
+                                                f.set(screen, val);
+                                                Gdx.app.log("Level2", "JS caught the player — forcing GAMEOVER via reflection");
+                                            }
                                         }
                                     }
                                 }
-                            }
-                        } catch (Exception ignored) {}
-                    } else {
-                        // player is behind JS; no effect (safe)
+                            } catch (Exception ignored) {}
+                        }
                     }
                 }
             }
@@ -282,9 +339,33 @@ public class Level2 implements Level, BackgroundedLevel {
                 // Ensure frame facing matches jsFacingRight (flip if necessary)
                 boolean wantFlip = !jsFacingRight; // TextureRegion flip semantics: flipX==true means mirrored horizontally
                 if (fr.isFlipX() != wantFlip) fr.flip(true, false);
-                batch.draw(fr, jsX, JS_Y, JS_W, JS_H);
+                // Preserve aspect ratio: compute scale to fit within scaled JS_W x JS_H without stretching
+                try {
+                    float effW = JS_W * JS_SCALE;
+                    float effH = JS_H * JS_SCALE;
+                    float texW = fr.getRegionWidth();
+                    float texH = fr.getRegionHeight();
+                    float baseY = JS_Y + JS_Y_OFFSET;
+                    if (texW <= 0f || texH <= 0f) {
+                        batch.draw(fr, jsX, baseY, effW, effH);
+                    } else {
+                        float scale = Math.min(effW / texW, effH / texH);
+                        float drawW = texW * scale;
+                        float drawH = texH * scale;
+                        float drawX = jsX + (effW - drawW) * 0.5f;
+                        float drawY = baseY + (effH - drawH) * 0.5f;
+                        batch.draw(fr, drawX, drawY, drawW, drawH);
+                    }
+                } catch (Exception e) {
+                    // fallback to stretched draw if something unexpected happens
+                    float effW = JS_W * JS_SCALE;
+                    float effH = JS_H * JS_SCALE;
+                    float baseY = JS_Y + JS_Y_OFFSET;
+                    batch.draw(fr, jsX, baseY, effW, effH);
+                }
             }
         } catch (Exception ignored) {}
     }
+
 
 }
