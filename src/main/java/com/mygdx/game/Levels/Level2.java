@@ -7,6 +7,10 @@ import com.mygdx.game.Fixer;
 import com.mygdx.game.LevelManager;
 import com.mygdx.game.ILevelManager;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.Game;
@@ -31,6 +35,27 @@ public class Level2 implements Level, BackgroundedLevel {
 
     // centralized shredder visual
     private Shredder shredderVisual = null;
+
+    // --- Intro/dialogue overlay fields (KMJS) ---
+    private Texture introBg = null; // assets/overlay/kmjs dialouge.png
+    private BitmapFont introFont = null;
+    private final String[] introLines = new String[] {
+        "Hold it right there. I'm KMJS, and I'm not security. I've been tracking this 'Paper Panic Trail,' and that file is the final piece to expose Loloy.",
+        "I know why you're here. But if you walk away now if you leave that evidence alone I guarantee I will destroy him legally. He won't be able to touch you or anyone else again.",
+        "So, what's your choice, Fixer? Are you covering a criminal, or are you handing the truth to the city? Avoid being caught by me."
+    };
+    private boolean showIntro = true;
+    private int introIndex = 0;
+    // Positioning for the intro block (top baseline)
+    public float introTextX = 1400f;
+    public float introTextY = 200f;
+    public float introTextWidth = 850f;
+    private final String continueLabel = "Continue";
+    private float continueX = 1200f;
+    private float continueY = 200f;
+    private Texture underlineTex = null;
+    private float introTypingElapsed = 0f;
+    private static final float INTRO_TYPING_DURATION = 4f;
 
     private static final float DOC_SIZE = 36f;
     private static final float PLATFORM_H = 15f;
@@ -170,6 +195,57 @@ public class Level2 implements Level, BackgroundedLevel {
                 if (!shredderVisual.hasVisual()) shredderVisual.loadSingle("assets/shredder.png");
             }
         } catch (Exception ignored) {}
+        // --- load KMJS intro assets (defensive) ---
+        try {
+            String[] tryPaths = new String[]{"assets/overlay/kmjs dialouge.png", "overlay/kmjs dialouge.png", "assets/kmjs dialouge.png", "kmjs dialouge.png"};
+            for (String p : tryPaths) {
+                try {
+                    if (Gdx.files.internal(p).exists()) { introBg = new Texture(Gdx.files.internal(p)); break; }
+                    if (Gdx.files.absolute(p).exists()) { introBg = new Texture(Gdx.files.absolute(p)); break; }
+                } catch (Exception ignored2) {}
+            }
+            if (introBg != null) Gdx.app.log("Level2", "Loaded KMJS introBg from available path");
+            else Gdx.app.log("Level2", "KMJS intro background not found in known paths");
+        } catch (Exception ignored) {}
+        try {
+            if (introFont == null) {
+                String[][] fontPaths = new String[][]{
+                    {"fonts/Pexelify_Sans.fnt","fonts/Pexelify_Sans.png"},
+                    {"assets/fonts/Pexelify_Sans.fnt","assets/fonts/Pexelify_Sans.png"}
+                };
+                for (String[] p : fontPaths) {
+                    try {
+                        String fnt = p[0]; String png = p[1];
+                        if (Gdx.files.internal(fnt).exists() && Gdx.files.internal(png).exists()) {
+                            introFont = new BitmapFont(Gdx.files.internal(fnt), Gdx.files.internal(png), false);
+                            break;
+                        } else if (Gdx.files.internal(fnt).exists()) {
+                            introFont = new BitmapFont(Gdx.files.internal(fnt));
+                            break;
+                        }
+                    } catch (Exception ignored2) {}
+                }
+                if (introFont == null) introFont = new BitmapFont();
+                introFont.setColor(com.badlogic.gdx.graphics.Color.WHITE);
+                Gdx.app.log("Level2","Loaded intro font (or default)");
+            }
+        } catch (Exception ignored) {}
+        try {
+            Pixmap pm = new Pixmap(1,1, Pixmap.Format.RGBA8888);
+            pm.setColor(1f,1f,1f,1f);
+            pm.fill();
+            underlineTex = new Texture(pm);
+            pm.dispose();
+        } catch (Exception ignored) { underlineTex = null; }
+        // position text/continue
+        try {
+            if (introFont != null) {
+                try { introFont.getData().setScale(0.9f); } catch (Exception ignored) {}
+                introTextX = (1280f - introTextWidth) / 2f + 40f;
+                try { GlyphLayout cont = new GlyphLayout(introFont, continueLabel); continueX = (1280f - cont.width) / 2f + 500f; } catch (Exception ignored) {}
+                continueY = 80f;
+            }
+        } catch (Exception ignored) {}
         // === Initialize JS (walking obstacle) textures/frames ===
         try {
             // Try to load a small sprite-sheet folder first (assets/kmjs/1.png ...)
@@ -252,6 +328,10 @@ public class Level2 implements Level, BackgroundedLevel {
             jsCaughtTex = null;
             jsCaughtRegion = null;
         }
+        // dispose intro assets
+        if (introBg != null) { try { introBg.dispose(); } catch (Exception ignored) {} introBg = null; }
+        if (introFont != null) { try { introFont.dispose(); } catch (Exception ignored) {} introFont = null; }
+        if (underlineTex != null) { try { underlineTex.dispose(); } catch (Exception ignored) {} underlineTex = null; }
     }
 
     @Override
@@ -270,6 +350,32 @@ public class Level2 implements Level, BackgroundedLevel {
         // Advance shredder animation state time
         if (shredderVisual != null) {
             shredderVisual.update(deltaTime);
+        }
+        // If the KMJS intro/dialogue is visible, handle its input and pause gameplay
+        if (showIntro) {
+            try {
+                boolean advanced = false;
+                if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE) || Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) advanced = true;
+                if (Gdx.input.justTouched()) {
+                    int tx = Gdx.input.getX();
+                    int ty = Gdx.graphics.getHeight() - Gdx.input.getY();
+                    GlyphLayout cont = new GlyphLayout(introFont, continueLabel);
+                    float cx = continueX;
+                    float cy = continueY;
+                    float pad = 8f;
+                    if (tx >= cx - pad && tx <= cx + cont.width + pad && ty >= (cy - cont.height) - pad && ty <= cy + pad) advanced = true;
+                }
+                if (advanced) {
+                    if (introTypingElapsed < INTRO_TYPING_DURATION) {
+                        introTypingElapsed = INTRO_TYPING_DURATION;
+                    } else {
+                        introIndex++;
+                        introTypingElapsed = 0f;
+                        if (introIndex >= introLines.length) showIntro = false;
+                    }
+                }
+            } catch (Exception ignored) {}
+            return; // pause the rest of Level2 while intro is shown
         }
         // If we are in a caught pending state, advance timer and only set GAMEOVER after delay
         if (caughtPending) {
@@ -503,6 +609,40 @@ public class Level2 implements Level, BackgroundedLevel {
             }
         } catch (Exception ignored) {}
     }
+
+    /**
+     * Draw overlays that must appear on top of gameplay (documents/platforms).
+     * Called by LevelManager after documents are drawn.
+     */
+    @Override
+    public void renderOverlay(SpriteBatch batch) {
+        if (!showIntro) return;
+        try {
+            if (introBg != null) batch.draw(introBg, 0, 0, 1280, 800);
+            if (introFont != null) {
+                introTypingElapsed += Gdx.graphics.getDeltaTime();
+                String full = introLines[introIndex];
+                float frac = (INTRO_TYPING_DURATION <= 0f) ? 1f : Math.min(1f, introTypingElapsed / INTRO_TYPING_DURATION);
+                int chars = Math.max(0, Math.min(full.length(), (int) (full.length() * frac)));
+                String visible = full.substring(0, chars);
+                GlyphLayout layout = new GlyphLayout();
+                layout.setText(introFont, visible, com.badlogic.gdx.graphics.Color.WHITE, introTextWidth, com.badlogic.gdx.utils.Align.left, true);
+                introFont.draw(batch, layout, introTextX, introTextY);
+                GlyphLayout cont = new GlyphLayout(introFont, continueLabel);
+                float cx = continueX; float cy = continueY;
+                introFont.draw(batch, continueLabel, cx, cy);
+                int mx = Gdx.input.getX(); int my = Gdx.graphics.getHeight() - Gdx.input.getY();
+                boolean hover = mx >= cx && mx <= cx + cont.width && my >= (cy - cont.height) && my <= cy;
+                if (hover && underlineTex != null) {
+                    float pad2 = 2f;
+                    batch.draw(underlineTex, cx, cy - cont.height - pad2, cont.width, 2f);
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    public boolean isOverlayBlocking() { return showIntro; }
 
 
 }
