@@ -1,13 +1,12 @@
 package com.mygdx.game.Levels;
  
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import com.mygdx.game.Fixer;
-import com.mygdx.game.LevelManager;
 import com.mygdx.game.ILevelManager;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 /**
  * Level2 - edit positions to design
@@ -172,4 +171,9 @@ public class Level4 implements Level, BackgroundedLevel {
         }
     }
 
+
+    @Override
+    public String getMusicPath() {
+        return "assets/Sounds/Level Music.mp3";
+    }
 }

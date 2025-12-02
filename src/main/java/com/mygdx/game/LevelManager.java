@@ -24,6 +24,42 @@ import com.mygdx.game.Levels.Shredder;
  * Responsible for level layout, collision detection, and objective tracking
  */
 public class LevelManager implements ILevelManager {
+    /** Listener callback for level completion events. */
+    public interface LevelCompleteListener {
+        void onLevelComplete();
+    }
+
+    /** Listener notified when shredding becomes active (shred start) */
+    public interface ShredStartListener {
+        void onShredStart();
+    }
+
+    /** Listener notified when a document is collected */
+    public interface DocumentCollectedListener {
+        void onDocumentCollected(int collected, int total);
+    }
+
+    private LevelCompleteListener levelCompleteListener = null;
+    private ShredStartListener shredStartListener = null;
+    private DocumentCollectedListener documentCollectedListener = null;
+
+    /**
+     * Register a listener to be notified when the level completes (shredding finished).
+     */
+    public void setLevelCompleteListener(LevelCompleteListener l) {
+        this.levelCompleteListener = l;
+    }
+
+    /**
+     * Register a listener to be notified when shredding begins (visual ACTIVE state).
+     */
+    public void setShredStartListener(ShredStartListener l) {
+        this.shredStartListener = l;
+    }
+
+    public void setDocumentCollectedListener(DocumentCollectedListener l) {
+        this.documentCollectedListener = l;
+    }
     // Level elements
     private final Array<Rectangle> documents;      // Incriminating documents to collect
     private final Array<Rectangle> obstacles;      // Red Tape obstacles (slow player)
@@ -45,7 +81,7 @@ public class LevelManager implements ILevelManager {
     private static final float OBSTACLE_WIDTH = 60f;
     private static final float OBSTACLE_HEIGHT = 10f;
     private static final float BEAM_WIDTH = 5f;
-    private static final float SHREDDER_SIZE = 36f; // was 50f — smaller collision rect
+    private static final float SHREDDER_SIZE = 36f; // was 50f ΓÇö smaller collision rect
     private static final float PLATFORM_HEIGHT = 15f;
 
     // NEW: texture for document visuals (spritesheet)
@@ -334,23 +370,22 @@ public class LevelManager implements ILevelManager {
             float maxAllowedX = Gdx.graphics.getWidth() - pb.width;
             
             for (Rectangle platform : platforms) {
-                // Check if this is a vertical wall (height > 20 to catch short walls too)
-                if (platform.height > 20) {
-                    // Left wall
+                // Treat narrow platforms as vertical walls. Previously this used height
+                // which misclassified the ground (wide, low platforms) as walls and pushed
+                // the player to the far right each frame. Use width-based heuristic instead.
+                if (platform.width < 100f) {
+                    // Left wall (near left edge)
                     if (platform.x < 50) {
                         minAllowedX = Math.max(minAllowedX, platform.x + platform.width);
                     }
-                    // Right wall
+                    // Right wall (near right edge)
                     if (platform.x > Gdx.graphics.getWidth() - 200) {
                         maxAllowedX = Math.min(maxAllowedX, platform.x - pb.width);
                     }
-                    // Interior walls (check all other walls)
+                    // Interior narrow walls - check collision and push player out
                     if (platform.x >= 50 && platform.x <= Gdx.graphics.getWidth() - 200) {
-                        // Check if player is overlapping this wall horizontally
                         if (pb.x + pb.width > platform.x && pb.x < platform.x + platform.width) {
-                            // Player is in the wall's x-range, need to check vertical overlap
                             if (pb.y < platform.y + platform.height && pb.y + pb.height > platform.y) {
-                                // Player is overlapping the wall, push them out
                                 float overlapLeft = (pb.x + pb.width) - platform.x;
                                 float overlapRight = (platform.x + platform.width) - pb.x;
                                 if (overlapLeft < overlapRight) {
@@ -390,6 +425,11 @@ public class LevelManager implements ILevelManager {
                 documentsCollected++;
                 Gdx.app.log("LevelManager", String.format("Document collected! (%d/%d)", 
                     documentsCollected, totalDocuments));
+                try {
+                    if (documentCollectedListener != null) {
+                        try { documentCollectedListener.onDocumentCollected(documentsCollected, totalDocuments); } catch (Exception ignored) {}
+                    }
+                } catch (Exception ignored) {}
                 // If this is the tutorial level and this is the first document, trigger talking overlay
                 try {
                     if (currentLevel instanceof LevelTutorial && documentsCollected == 1) {
@@ -451,7 +491,13 @@ public class LevelManager implements ILevelManager {
             if (!levelComplete && !shredPending) {
                 shredPending = true;
                 shredTimer = 0f;
-                Gdx.app.log("LevelManager", "Shredding sequence started — delaying completion for " + SHRED_DELAY_SECONDS + "s");
+                Gdx.app.log("LevelManager", "Shredding sequence started ΓÇö delaying completion for " + SHRED_DELAY_SECONDS + "s");
+                // Notify any registered listener that shredding has started
+                try {
+                    if (shredStartListener != null) {
+                        try { shredStartListener.onShredStart(); } catch (Exception ignored) {}
+                    }
+                } catch (Exception ignored) {}
                 // Try to set shredder visual to ACTIVE via reflection if present on the level
                 try {
                     if (currentLevel != null) {
@@ -472,7 +518,7 @@ public class LevelManager implements ILevelManager {
         // If a shred sequence is pending, advance its timer and complete the level when elapsed
         if (shredPending && !levelComplete) {
             shredTimer += deltaTime;
-            if (shredTimer >= SHRED_DELAY_SECONDS) {
+                if (shredTimer >= SHRED_DELAY_SECONDS) {
                 levelComplete = true;
                 shredPending = false;
                 Gdx.app.log("LevelManager", "LEVEL COMPLETE! All documents shredded! (after delay)");
@@ -489,6 +535,10 @@ public class LevelManager implements ILevelManager {
                             } catch (NoSuchMethodException ignored) {}
                         }
                     }
+                } catch (Exception ignored) {}
+                // Notify listener (if any) that the level has completed so UI can react immediately
+                try {
+                    if (levelCompleteListener != null) levelCompleteListener.onLevelComplete();
                 } catch (Exception ignored) {}
             }
         }
@@ -651,7 +701,7 @@ public class LevelManager implements ILevelManager {
         // Platforms are intentionally not rendered (invisible platforms)
         // They remain in `platforms` for collision detection but are not drawn.
         // If you want to debug them, set debugPlatformRender to true.
-        boolean debugPlatformRender = true;              // set to true to visualize platforms
+        boolean debugPlatformRender = false;              // set to true to visualize platforms
         if (debugPlatformRender) {
             shapeRenderer.setColor(153f/255f, 170f/255f, 187f/255f, 1f);
             for (Rectangle platform : platforms) {
@@ -671,7 +721,7 @@ public class LevelManager implements ILevelManager {
             shapeRenderer.rect(beam.x, beam.y, beam.width, beam.height);
         }
 
-        // Shredder (collision rect) — keep invisible so the sprite/animation shows through
+        // Shredder (collision rect) ΓÇö keep invisible so the sprite/animation shows through
         if (shredder != null) {
             // Use same RGB but zero alpha so it's not visible
             if (documentsCollected >= totalDocuments) {
@@ -717,6 +767,15 @@ public class LevelManager implements ILevelManager {
             }
             batch.end();  // *** END BATCH ***
         }
+
+        // === PHASE 4: Level-specific overlays (draw on top of documents) ===
+        try {
+            if (currentLevel instanceof BackgroundedLevel) {
+                batch.begin();
+                ((BackgroundedLevel) currentLevel).renderOverlay(batch);
+                batch.end();
+            }
+        } catch (Exception ignored) {}
     }
 
     /**
@@ -766,6 +825,15 @@ public class LevelManager implements ILevelManager {
                 if (!sharedShredder.hasVisual()) {
                     try { sharedShredder.loadFromFolder("shredderFx", 9); } catch (Exception ignored) {}
                 }
+                    // If the level defines a `shredderVisual` field, point it at the sharedShredder
+                    try {
+                        java.lang.reflect.Field f = level.getClass().getDeclaredField("shredderVisual");
+                        f.setAccessible(true);
+                        Object curr = f.get(level);
+                        if (curr == null || curr != sharedShredder) {
+                            try { f.set(level, sharedShredder); } catch (Exception ignored) {}
+                        }
+                    } catch (Exception ignored) {}
             }
         } catch (Exception ignored) {}
 
@@ -895,8 +963,8 @@ public class LevelManager implements ILevelManager {
 
     @Override
     public Shredder getSharedShredder() { 
-        // LevelManager doesn't use shared shredder, return null
-        return null; 
+        // Return the shared shredder instance if present
+        return sharedShredder;
     }
 
     // Expose current level for debugging/inspection
@@ -984,6 +1052,9 @@ public class LevelManager implements ILevelManager {
             if (!levelComplete) {
                 levelComplete = true;
                 Gdx.app.log("LevelManager", "LEVEL COMPLETE! All documents shredded!");
+                try {
+                    if (levelCompleteListener != null) levelCompleteListener.onLevelComplete();
+                } catch (Exception ignored) {}
             }
         }
     }

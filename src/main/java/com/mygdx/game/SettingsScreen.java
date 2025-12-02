@@ -45,6 +45,13 @@ public class SettingsScreen implements Screen {
     private boolean lowQualityHovered = false;
     private boolean mediumQualityHovered = false;
     private boolean highQualityHovered = false;
+    // previous hover states to detect hover-enter
+    private boolean prevSoundHovered = false;
+    private boolean prevMusicHovered = false;
+    private boolean prevMenuHovered = false;
+    private boolean prevLowQualityHovered = false;
+    private boolean prevMediumQualityHovered = false;
+    private boolean prevHighQualityHovered = false;
     
     // Settings state
     private boolean soundEnabled = true;
@@ -68,6 +75,9 @@ public class SettingsScreen implements Screen {
     
     private boolean upKeyWasPressed = false;
     private boolean downKeyWasPressed = false;
+    
+    // Track if music has been started for this screen instance
+    private boolean musicStarted = false;
     
     public SettingsScreen(MyGdxGame game) {
         this.game = game;
@@ -193,6 +203,12 @@ public class SettingsScreen implements Screen {
     
     @Override
     public void render(float delta) {
+        // Start music on first render if not already started
+        if (!musicStarted) {
+            BackgroundMusicManager.getInstance().playScreenMusic();
+            musicStarted = true;
+        }
+        
         handleInput();
         handleMouseInput();
         
@@ -240,6 +256,34 @@ public class SettingsScreen implements Screen {
         lowQualityHovered = lowQualityRect.contains(mouseX, mouseY);
         mediumQualityHovered = mediumQualityRect.contains(mouseX, mouseY);
         highQualityHovered = highQualityRect.contains(mouseX, mouseY);
+
+        // Play hover sound on enter transitions
+        try {
+            if (soundHovered && !prevSoundHovered) game.getHoverSoundManager().playHover();
+        } catch (Exception ignored) {}
+        try {
+            if (musicHovered && !prevMusicHovered) game.getHoverSoundManager().playHover();
+        } catch (Exception ignored) {}
+        try {
+            if (menuHovered && !prevMenuHovered) game.getHoverSoundManager().playHover();
+        } catch (Exception ignored) {}
+        try {
+            if (lowQualityHovered && !prevLowQualityHovered) game.getHoverSoundManager().playHover();
+        } catch (Exception ignored) {}
+        try {
+            if (mediumQualityHovered && !prevMediumQualityHovered) game.getHoverSoundManager().playHover();
+        } catch (Exception ignored) {}
+        try {
+            if (highQualityHovered && !prevHighQualityHovered) game.getHoverSoundManager().playHover();
+        } catch (Exception ignored) {}
+
+        // update previous hover trackers
+        prevSoundHovered = soundHovered;
+        prevMusicHovered = musicHovered;
+        prevMenuHovered = menuHovered;
+        prevLowQualityHovered = lowQualityHovered;
+        prevMediumQualityHovered = mediumQualityHovered;
+        prevHighQualityHovered = highQualityHovered;
         
         // Handle clicks
         if (Gdx.input.isButtonJustPressed(0)) { // Left mouse button
@@ -380,9 +424,9 @@ public class SettingsScreen implements Screen {
         float boardCenterY = boardY + boardHeight / 2f;
         
         // ===== TOP SECTION: Sound, Music, Menu buttons =====
-        float buttonSize = 110f;
+        float buttonSize = 120f;
         float topRowY = boardCenterY - buttonSize / 8.5f;  // Center vertically
-        float topRowSpacing = 110f;  // Distance between buttons
+        float topRowSpacing = 100f;  // Distance between buttons
         
         // Draw Sound button
         float soundX = boardCenterX - topRowSpacing - buttonSize / 2f;
@@ -416,8 +460,8 @@ public class SettingsScreen implements Screen {
         
         // ===== BOTTOM SECTION: Quality Level buttons (inside board) =====
         float qualityRowY = boardCenterY - 200f;  // Adjusted for board
-        float qualitySpacing = 90f;  // Distance between buttons
-        float qualitySize = 70f;
+        float qualitySpacing = 100f;  // Distance between buttons
+        float qualitySize = 90f;
         
         // Low Quality
         float lowX = boardCenterX - qualitySpacing - qualitySize / 2f;
@@ -465,8 +509,8 @@ public class SettingsScreen implements Screen {
         if (graphicsTextTexture != null) {
             float textWidth = 220f;  // Increased size
             float textHeight = 120f;  // Increased size
-            float graphicsTextX = boardCenterX - textWidth / 1.9f;
-            float graphicsTextY = (topRowY + qualityRowY) / 2f - textHeight / 2f;  // Middle between top and bottom sections
+            float graphicsTextX = boardCenterX - textWidth / 1.8f;
+            float graphicsTextY = (topRowY + qualityRowY) / 1.8f - textHeight / 2f;  // Middle between top and bottom sections
             game.batch.setColor(1f, 1f, 1f, 1f);
             game.batch.draw(graphicsTextTexture, graphicsTextX, graphicsTextY, textWidth, textHeight);
         }

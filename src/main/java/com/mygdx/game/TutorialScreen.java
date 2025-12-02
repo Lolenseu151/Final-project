@@ -175,6 +175,9 @@ public class TutorialScreen implements Screen {
     private Color btnHoverColor = new Color(20f/255f, 50f/255f, 70f/255f, 1f); // Hover color
     private float cornerRadius = 10f; // Rounded corners
 
+    // Hover state tracking for buttons (used to detect hover-enter)
+    private boolean hoverPrevContinue = false;
+    private boolean hoverPrevSkip = false;
     public TutorialScreen(MyGdxGame game) {
         this.game = game;
     }
@@ -484,6 +487,14 @@ public class TutorialScreen implements Screen {
             Gdx.app.log("TutorialScreen", "Failed to load TALING music", e);
             talingMusic = null;
         }
+
+        // Stop the background music from MainMenuScreen/SettingsScreen/LevelSelectScreen
+        // Tutorial has its own music tracks
+        try {
+            BackgroundMusicManager.getInstance().stopMusic();
+        } catch (Exception ignored) {}
+
+        // (Hover sound is provided centrally via HoverSoundManager on MyGdxGame)
     }
 
     @Override
@@ -1104,11 +1115,28 @@ public class TutorialScreen implements Screen {
             Color cContinue = btnColor;
             Color cSkip = btnColor;
 
-            // Hover detection
-            if (mx >= btnContinueX && mx <= btnContinueX + btnW && my >= btnContinueY && my <= btnContinueY + btnH)
-                cContinue = btnHoverColor;
-            if (mx >= btnSkipX && mx <= btnSkipX + btnW && my >= btnSkipY && my <= btnSkipY + btnH)
-                cSkip = btnHoverColor;
+            // Hover detection booleans
+            boolean hoveredContinue = (mx >= btnContinueX && mx <= btnContinueX + btnW && my >= btnContinueY && my <= btnContinueY + btnH);
+            boolean hoveredSkip = (mx >= btnSkipX && mx <= btnSkipX + btnW && my >= btnSkipY && my <= btnSkipY + btnH);
+
+            if (hoveredContinue) cContinue = btnHoverColor;
+            if (hoveredSkip) cSkip = btnHoverColor;
+
+            // Play hover sound on hover-enter (transition false->true) via central manager
+            try {
+                if (hoveredContinue && !hoverPrevContinue) {
+                    if (game.getHoverSoundManager() != null) game.getHoverSoundManager().playHover();
+                }
+            } catch (Exception e) { Gdx.app.log("TutorialScreen", "Failed to play hover sound (continue)", e); }
+            try {
+                if (hoveredSkip && !hoverPrevSkip) {
+                    if (game.getHoverSoundManager() != null) game.getHoverSoundManager().playHover();
+                }
+            } catch (Exception e) { Gdx.app.log("TutorialScreen", "Failed to play hover sound (skip)", e); }
+
+            // store hover state for next frame
+            hoverPrevContinue = hoveredContinue;
+            hoverPrevSkip = hoveredSkip;
 
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 

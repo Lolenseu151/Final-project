@@ -19,6 +19,8 @@ import com.badlogic.gdx.utils.Array;
 public class Fixer {
     private enum State { IDLE, RUN, JUMP, FALL, DASH }
 
+    // Toggle to enable debug logging inside update() (set to true when diagnosing input/freeze issues)
+    public static boolean DEBUG_LOG_INPUTS = true; // enabled temporarily for diagnosis
     // physics tunables
     private static final float MOVE_ACCEL = 1500f;   // px/s^2
     private static final float MAX_MOVE_SPEED = 220f; // px/s
@@ -31,7 +33,7 @@ public class Fixer {
     private static final float DASH_COOLDOWN = 10.0f;  // 10 second cooldown
 
     // Sprite / collision sizes (frames are 64x64 in assets)
-    private static final float SPRITE_SIZE = 64f;
+    private static final float SPRITE_SIZE = 96f;  // Increased from 64f to 96f (1.5x larger)
     private static final float WIDTH = SPRITE_SIZE;
     private static final float HEIGHT = SPRITE_SIZE;
 
@@ -76,6 +78,10 @@ public class Fixer {
         if (onGround) {
             this.canJump = true;  // Can jump when landing on ground
         }
+    }
+
+    public boolean isOnGround() {
+        return this.isOnGround;
     }
 
     public float getDashCooldown() {
@@ -200,7 +206,10 @@ public class Fixer {
     }
 
     public void update(float dt) {
-        if (frozen) return; // do not integrate physics while frozen (pause/minimize)
+        if (frozen) {
+            if (DEBUG_LOG_INPUTS) Gdx.app.log("Fixer", "update skipped because frozen=true");
+            return; // do not integrate physics while frozen (pause/minimize)
+        }
         // accumulate state time for animations
         stateTime += dt;
 
@@ -219,6 +228,12 @@ public class Fixer {
         // SPACE is dash, W/UP are jump (only trigger on key press, not hold)
         boolean dashPressed = Gdx.input.isKeyJustPressed(Input.Keys.SPACE);
         boolean jumpPressed = Gdx.input.isKeyJustPressed(Input.Keys.W) || Gdx.input.isKeyJustPressed(Input.Keys.UP);
+
+        if (DEBUG_LOG_INPUTS) {
+            try {
+                Gdx.app.log("Fixer", String.format("Inputs: left=%b right=%b jumpJust=%b dashJust=%b isOnGround=%b", left, right, jumpPressed, dashPressed, isOnGround));
+            } catch (Exception ignored) {}
+        }
         
         // Horizontal movement (kinematic) - disabled during dash
         if (dashTimer <= 0f) {  // Only allow normal movement when NOT dashing

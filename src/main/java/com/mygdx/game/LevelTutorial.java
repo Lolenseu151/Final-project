@@ -4,23 +4,20 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
-import com.mygdx.game.Levels.BackgroundedLevel;
-import com.mygdx.game.Levels.Level;
-import com.mygdx.game.Levels.Shredder;
 
 /**
  * Tutorial map for the Archive floor. Simple layout with a highlighted light area
  * near the 'property files' to teach movement.
  */
-public class LevelTutorial implements Level, BackgroundedLevel {
+public class LevelTutorial implements com.mygdx.game.Levels.Level, com.mygdx.game.Levels.BackgroundedLevel {
 
     private final Array<Rectangle> documents = new Array<>();
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
     private final Array<Rectangle> beams = new Array<>();
     private Rectangle shredder;
-    // centralized shredder visual
-    private Shredder shredderVisual = null;
+    // centralized shredder visual (assigned by LevelManager as the shared animated shredder)
+    private com.mygdx.game.Levels.Shredder shredderVisual = null;
     private static final int SHREDDER_FRAME_COUNT = 9;
     private static final float SHREDDER_FRAME_DURATION = 0.08f;
     // scale factor to enlarge the shredder visual in this level
@@ -80,35 +77,24 @@ public class LevelTutorial implements Level, BackgroundedLevel {
         documents.add(new Rectangle(200, 500, DOC_SIZE, DOC_SIZE));
 
 
-        // Shredder off to the right
+        // Shredder off to the right (collision rect only).
+        // NOTE: do NOT create a local Shredder visual here — the animated
+        // shared Shredder (with frames/motion) is created by LevelManager
+        // and assigned into this level (via reflection). Keeping a local
+        // Shredder here caused duplicate visuals.
         shredder = new Rectangle(w - 80, 65, 50, 50);
-        // initialize centralized shredder visual
-        shredderVisual = new Shredder(shredder);
-        shredderVisual.setFrameDuration(SHREDDER_FRAME_DURATION);
-        shredderVisual.loadFromFolder("shredderFx", SHREDDER_FRAME_COUNT);
-        // if no animation frames found, try a single-image fallback
-        try {
-            if (!shredderVisual.hasVisual()) {
-                shredderVisual.loadSingle("shredder.png");
-                if (!shredderVisual.hasVisual()) {
-                    shredderVisual.loadSingle("assets/shredder.png");
-                }
-            }
-        } catch (Exception ignored) {}
-        // Enforce a scale-up of the shredder collision/visual rect for visibility.
-        try {
-            if (SHREDDER_SCALE > 0f && shredder != null) {
-                float cx = shredder.x + shredder.width * 0.5f;
-                float cy = shredder.y + shredder.height * 0.5f;
-                float newW = shredder.width * SHREDDER_SCALE;
-                float newH = shredder.height * SHREDDER_SCALE;
-                float newX = cx - newW * 0.5f;
-                float newY = cy - newH * 0.5f;
-                shredder.set(newX, newY, newW, newH);
-                // enforce on visual as well
-                try { shredderVisual.setRect(shredder); } catch (Exception ignored2) {}
-            }
-        } catch (Exception ignored) {}
+        shredderVisual = null; // allow LevelManager to provide the animated Shredder
+
+        // Enforce a scale-up of the shredder collision rect for visibility.
+        if (SHREDDER_SCALE > 0f && shredder != null) {
+            float cx = shredder.x + shredder.width * 0.5f;
+            float cy = shredder.y + shredder.height * 0.5f;
+            float newW = shredder.width * SHREDDER_SCALE;
+            float newH = shredder.height * SHREDDER_SCALE;
+            float newX = cx - newW * 0.5f;
+            float newY = cy - newH * 0.5f;
+            shredder.set(newX, newY, newW, newH);
+        }
 
         // Property files light area (player should move into this light)
         float lightW = 160f, lightH = 120f;
@@ -131,20 +117,19 @@ public class LevelTutorial implements Level, BackgroundedLevel {
     }
 
     @Override
+    public String getMusicPath() {
+        return "";  // No music for tutorial
+    }
+
+    @Override
     public void renderBackground(SpriteBatch batch, com.badlogic.gdx.graphics.Texture backgroundTex) {
         // Draw the default background via LevelManager, then overlay a subtle light at propertyFilesLight
         if (backgroundTex != null) {
             batch.draw(backgroundTex, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         }
-        // Always advance and draw the shredder visual (so it's visible even when overlay is hidden)
-        try {
-            if (shredderVisual != null) {
-                // ensure shredderVisual is positioned at the gameplay shredder rect
-                try { shredderVisual.setRect(shredder); } catch (Exception ignored) {}
-                shredderVisual.update(Gdx.graphics.getDeltaTime());
-                shredderVisual.render(batch);
-            }
-        } catch (Exception ignored) {}
+        // The shared shredder visual is rendered by LevelManager; do not draw it here
+        // to avoid duplicate visuals. LevelManager will assign its `sharedShredder`
+        // into this level's `shredderVisual` field (via reflection) when available.
         // Debug: log visibility and shredder state each time background is rendered
         try {
             Gdx.app.log("LevelTutorial", "renderBackground called; finalOverlayVisible=" + finalOverlayVisible + " shredder=" + shredder);
@@ -171,13 +156,7 @@ public class LevelTutorial implements Level, BackgroundedLevel {
                 batch.draw(finalTalkingTex, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
             }
 
-            // advance centralized shredder visual and draw frame
-            try {
-                if (shredderVisual != null && shredder != null) {
-                    shredderVisual.update(Gdx.graphics.getDeltaTime());
-                    shredderVisual.render(batch);
-                }
-            } catch (Exception ignored) {}
+            // The shared shredder visual is drawn by LevelManager; no-op here.
 
             // (Removed debug marker rendering for shredder — keep visual animation only.)
             try {

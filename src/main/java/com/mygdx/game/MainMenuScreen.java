@@ -77,7 +77,7 @@ public class MainMenuScreen implements Screen {
     private float birdX = Float.NaN;
     private float birdY = Float.NaN;
     private float birdSpeed = 45f; // pixels/sec
-    // NEW: horizontal runner state — moves left->right, then resets after a delay
+    // NEW: horizontal runner state ΓÇö moves left->right, then resets after a delay
     private float runX = Float.NaN;            // current x position (initialised on first draw)
     private float runSpeed = 260f;             // pixels per second
     private float runRestartDelay = 0.9f;      // seconds to wait after reaching end before restarting
@@ -107,8 +107,14 @@ public class MainMenuScreen implements Screen {
     private final float RUN_SCREEN_HEIGHT_RATIO = 0.23f; // reduced so character is smaller on the menu
     // Button font scale (1.0 = normal). Set to 0.9 as requested.
     private final float BUTTON_FONT_SCALE = 0.7f;
-    // Scale multiplier for the custom Start button image
-    private final float START_BUTTON_SCALE = 2;
+    // Scale multiplier for the custom Start button image.
+    // Edit this value to change how large the button images draw on-screen.
+    //  - 1.0 = native image pixel size
+    //  - >1.0 increases size, <1.0 reduces size
+    // The available area is further limited by `BOX_W`/`BOX_H` (adjust those
+    // if you want a larger hit/placement box for the button). The rendering
+    // code preserves the image aspect ratio and will not stretch images.
+    private final float START_BUTTON_SCALE = 2.0f;
     
     private enum MenuOption {
         START_GAME,
@@ -121,6 +127,10 @@ public class MainMenuScreen implements Screen {
     private boolean downKeyWasPressed = false;
     // Track which option the mouse is currently hovering over (visual only)
     private MenuOption hoveredOption = null;
+    // track previous hovered option to detect hover-enter transitions
+    private MenuOption prevHoveredOption = null;
+    // Track if music has been started for this screen instance
+    private boolean musicStarted = false;
     
     public MainMenuScreen(MyGdxGame game) {
         this.game = game;
@@ -623,6 +633,49 @@ public class MainMenuScreen implements Screen {
             birdTexture = null;
             birdAnimation = null;
         }
+
+        // Load custom Start/Tutorial/Settings button images from `assets/Start/`.
+        // Mapping (files under assets/Start):
+        //  1.png = Tutorial (base), 2.png = Tutorial (hover)
+        //  3.png = Start game (base), 4.png = Start game (hover)
+        //  5.png = Settings (base), 6.png = Settings (hover)
+        try {
+            String baseDir = "Start/";
+
+            // helper to try internal then absolute
+            java.util.function.Function<String, Texture> loadTex = (rel) -> {
+                try {
+                    if (Gdx.files.internal(rel).exists()) return new Texture(Gdx.files.internal(rel));
+                    String userDir = System.getProperty("user.dir");
+                    String abs = userDir + "/assets/" + rel;
+                    if (Gdx.files.absolute(abs).exists()) return new Texture(Gdx.files.absolute(abs));
+                } catch (Exception ignored) {}
+                return null;
+            };
+
+            // tutorial
+            tutorialButtonTexture = loadTex.apply(baseDir + "1.png");
+            tutorialButtonHoverTexture = loadTex.apply(baseDir + "2.png");
+            // start
+            startButtonTexture = loadTex.apply(baseDir + "3.png");
+            startButtonHoverTexture = loadTex.apply(baseDir + "4.png");
+            // settings
+            settingsButtonTexture = loadTex.apply(baseDir + "5.png");
+            settingsButtonHoverTexture = loadTex.apply(baseDir + "6.png");
+
+            // Apply smoothing filter so scaling looks good while preserving aspect
+            Texture[] texs = new Texture[] { tutorialButtonTexture, tutorialButtonHoverTexture,
+                startButtonTexture, startButtonHoverTexture, settingsButtonTexture, settingsButtonHoverTexture };
+            for (Texture t : texs) {
+                if (t != null) t.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+            }
+
+            Gdx.app.log("MainMenuScreen", "Loaded Start button images (if present) from assets/Start/");
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Error loading Start button images", e);
+            // ensure any partial textures are nulled so dispose is safe
+            // (the individual loaders above already return null on failure)
+        }
     }
 
     private void generateTitleFontWithSize(int size) {
@@ -665,6 +718,12 @@ public class MainMenuScreen implements Screen {
     
     @Override
     public void render(float delta) {
+        // Start music on first render if not already started
+        if (!musicStarted) {
+            BackgroundMusicManager.getInstance().playScreenMusic();
+            musicStarted = true;
+        }
+        
         handleInput();
         // advance running animation timer
         runAnimTime += delta;
@@ -747,15 +806,24 @@ public class MainMenuScreen implements Screen {
             float bottomBot = yBot - (BOX_H / 2f);
 
             // Hover: update hoveredOption (visual only) when pointer is over a box
+            MenuOption newHovered = null;
             if (mx >= left && mx <= left + BOX_W && my >= bottomTop && my <= bottomTop + BOX_H) {
-                hoveredOption = MenuOption.START_GAME;
+                newHovered = MenuOption.START_GAME;
             } else if (mx >= left && mx <= left + BOX_W && my >= bottomMid && my <= bottomMid + BOX_H) {
-                hoveredOption = MenuOption.TUTORIAL;
+                newHovered = MenuOption.TUTORIAL;
             } else if (mx >= left && mx <= left + BOX_W && my >= bottomBot && my <= bottomBot + BOX_H) {
-                hoveredOption = MenuOption.SETTINGS;
+                newHovered = MenuOption.SETTINGS;
             } else {
-                hoveredOption = null;
+                newHovered = null;
             }
+            // on hover-enter play centralized hover sound
+            if (newHovered != null && newHovered != prevHoveredOption) {
+                try {
+                    game.getHoverSoundManager().playHover();
+                } catch (Exception ignored) {}
+            }
+            hoveredOption = newHovered;
+            prevHoveredOption = hoveredOption;
 
             // Click / tap activation
             if (Gdx.input.justTouched()) {
@@ -803,7 +871,7 @@ public class MainMenuScreen implements Screen {
         // Draw menu background panels
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         
-        // Title background removed — text will be drawn without a panel
+        // Title background removed ΓÇö text will be drawn without a panel
         
         // Menu options backgrounds
         drawMenuOptionBox(centerX, centerY + MENU_TOP_OFFSET, MenuOption.START_GAME);
@@ -925,7 +993,7 @@ public class MainMenuScreen implements Screen {
             }
         }
         
-        // NEW: bird drawing (top of screen) — use current frame's bounds and explicit target width
+        // NEW: bird drawing (top of screen) ΓÇö use current frame's bounds and explicit target width
         if (birdTexture != null) {
             float dt = Gdx.graphics.getDeltaTime();
             if (birdAnimation != null) birdAnimTime += dt;
