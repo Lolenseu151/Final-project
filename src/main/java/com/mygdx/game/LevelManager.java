@@ -370,23 +370,22 @@ public class LevelManager implements ILevelManager {
             float maxAllowedX = Gdx.graphics.getWidth() - pb.width;
             
             for (Rectangle platform : platforms) {
-                // Check if this is a vertical wall (height > 20 to catch short walls too)
-                if (platform.height > 20) {
-                    // Left wall
+                // Treat narrow platforms as vertical walls. Previously this used height
+                // which misclassified the ground (wide, low platforms) as walls and pushed
+                // the player to the far right each frame. Use width-based heuristic instead.
+                if (platform.width < 100f) {
+                    // Left wall (near left edge)
                     if (platform.x < 50) {
                         minAllowedX = Math.max(minAllowedX, platform.x + platform.width);
                     }
-                    // Right wall
+                    // Right wall (near right edge)
                     if (platform.x > Gdx.graphics.getWidth() - 200) {
                         maxAllowedX = Math.min(maxAllowedX, platform.x - pb.width);
                     }
-                    // Interior walls (check all other walls)
+                    // Interior narrow walls - check collision and push player out
                     if (platform.x >= 50 && platform.x <= Gdx.graphics.getWidth() - 200) {
-                        // Check if player is overlapping this wall horizontally
                         if (pb.x + pb.width > platform.x && pb.x < platform.x + platform.width) {
-                            // Player is in the wall's x-range, need to check vertical overlap
                             if (pb.y < platform.y + platform.height && pb.y + pb.height > platform.y) {
-                                // Player is overlapping the wall, push them out
                                 float overlapLeft = (pb.x + pb.width) - platform.x;
                                 float overlapRight = (platform.x + platform.width) - pb.x;
                                 if (overlapLeft < overlapRight) {
