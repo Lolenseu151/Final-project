@@ -12,6 +12,8 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+// hover sound is provided centrally via HoverSoundManager on MyGdxGame
+import java.util.HashMap;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
@@ -40,6 +42,7 @@ public class GameScreen implements Screen {
 
     // Game logic
     private LevelManager levelManager;
+    private LevelMusicManager musicManager;
     private LevelManager2 levelManager2;
     private Fixer fixer;
     private ShapeRenderer shapeRenderer;
@@ -73,6 +76,8 @@ public class GameScreen implements Screen {
     private Texture btnMenuTex;    // assets/buttons/12.png
     private boolean pauseOverlayVisible = false;
     private float docIconY;
+    // Previous hover state map (play once on enter). Hover sound provided centrally.
+    private HashMap<String, Boolean> hoverPrev = new HashMap<>();
     // Scale for the overlay stat font (adjust to increase/decrease stat text size)
     public static float STAT_FONT_SCALE = 2.0f;
     private float floatTimer = 0f;  // Track time for floating animation
@@ -195,6 +200,7 @@ public class GameScreen implements Screen {
             Gdx.app.log("GameScreen", "show() called but already initialized - skipping re-init");
             return;
         }
+         musicManager = new LevelMusicManager();
         
         // Load level based on currentLevel
         Level level = null;
@@ -215,6 +221,11 @@ public class GameScreen implements Screen {
             // Load only the first map initially - the level will handle transitioning to the second map
             if (level != null) {
                 levelManager2.loadLevel(level);
+                // Start playing background music for the level using global manager
+                String musicPath = level.getMusicPath();
+                if (musicPath != null && !musicPath.isEmpty()) {
+                    BackgroundMusicManager.getInstance().playLevelMusic(musicPath);
+                }
             }
         } else {
             // Use regular LevelManager for single-map levels
@@ -222,7 +233,12 @@ public class GameScreen implements Screen {
             levelManager = new LevelManager();
             if (level != null) {
                 levelManager.loadLevel(level);
-                // Register for direct level-complete callbacks so the overlay can be shown
+                // Start playing background music for the level using global manager
+                String musicPath = level.getMusicPath();
+                if (musicPath != null && !musicPath.isEmpty()) {
+                    BackgroundMusicManager.getInstance().playLevelMusic(musicPath);
+                }
+            // Register for direct level-complete callbacks so the overlay can be shown
                 try {
                     // Use reflection to avoid a compile-time dependency on the nested listener type
                     try {
@@ -258,6 +274,43 @@ public class GameScreen implements Screen {
                         // Listener type not present - skip registering the callback
                     }
                 } catch (Exception ignored) {}
+                // Also register a ShredStartListener (fires when shredding becomes ACTIVE)
+                try {
+                    try {
+                        Class<?> shredClass = Class.forName("com.mygdx.game.LevelManager$ShredStartListener");
+                        java.lang.reflect.Method setShredMethod = levelManager.getClass().getMethod("setShredStartListener", shredClass);
+                        Object shredProxy = java.lang.reflect.Proxy.newProxyInstance(
+                                shredClass.getClassLoader(),
+                                new Class<?>[] { shredClass },
+                                new java.lang.reflect.InvocationHandler() {
+                                    @Override
+                                    public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) throws Throwable {
+                                        if ("onShredStart".equals(method.getName())) {
+                                            try {
+                                                Gdx.app.postRunnable(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        try {
+                                                            if (game != null && game.getHoverSoundManager() != null) game.getHoverSoundManager().playShred();
+                                                            try { if (musicManager != null) musicManager.stopMusic(); } catch (Exception ignored) {}
+                                                        } catch (Exception ignored) {}
+                                                    }
+                                                });
+                                            } catch (Exception e) {
+                                                try {
+                                                    if (game != null && game.getHoverSoundManager() != null) game.getHoverSoundManager().playShred();
+                                                    try { if (musicManager != null) musicManager.stopMusic(); } catch (Exception ignored) {}
+                                                } catch (Exception ignored) {}
+                                            }
+                                        }
+                                        return null;
+                                    }
+                                });
+                        setShredMethod.invoke(levelManager, shredProxy);
+                    } catch (ClassNotFoundException cnfe) {
+                        // Not present - ignore
+                    }
+                } catch (Exception ignored) {}
             }
         }
 
@@ -277,6 +330,14 @@ public class GameScreen implements Screen {
         lastEventTime = 0f;
         
         if (fixer != null) {
+            // Level-specific adjustments: shrink the player size for Level 1 only
+            try {
+                if (currentLevel == 1) {
+                    // Reduce visual/collision size to 64x64 for this level
+                    fixer.getBounds().setSize(64f, 64f);
+                    Gdx.app.log("GameScreen", "Applied Level1-specific fixer size: 64x64");
+                }
+            } catch (Exception ignored) {}
             // If we are here because the app was paused (minimized), avoid calling reset()
             // which moves the player to a spawn. Instead restore the saved position if available.
             if (wasPaused && !Float.isNaN(savedX)) {
@@ -518,6 +579,7 @@ public class GameScreen implements Screen {
             } catch (Exception e) {
                 try { pauseButtonTexture = new Texture(Gdx.files.internal("overlay/pause.png")); } catch (Exception ex) { pauseButtonTexture = null; }
             }
+            // Hover sound provided centrally via HoverSoundManager on MyGdxGame
             try {
                 overlayPauseTex = new Texture(Gdx.files.internal("assets/overlay/Pause overlay.png"));
             } catch (Exception e) {
@@ -628,6 +690,9 @@ public class GameScreen implements Screen {
 
         if (currentState == GameState.GAMEOVER &&
                 (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.Q))) {
+            if (musicManager != null) {
+                musicManager.stopMusic();
+            }
             game.setScreen(new LevelSelectScreen(game));
             dispose();
         }
@@ -636,6 +701,9 @@ public class GameScreen implements Screen {
             try {
                 lastEventDocs = (levelManager != null) ? levelManager.getDocumentsCollected() : 0;
                 lastEventTime = remainingTime;
+                try {
+                    if (game != null && game.getHoverSoundManager() != null) game.getHoverSoundManager().playGameOver();
+                } catch (Exception ignored) {}
             } catch (Exception ignored) {}
             lastEventRecorded = true;
         }
@@ -825,6 +893,10 @@ public class GameScreen implements Screen {
         boolean hoverR = (mouseX >= rx && mouseX <= rx + rW && mouseY >= btnY && mouseY <= btnY + rH);
         boolean hoverS = (mouseX >= sx && mouseX <= sx + sW && mouseY >= btnY && mouseY <= btnY + sH);
         boolean hoverM = (mouseX >= mx && mouseX <= mx + mW && mouseY >= btnY && mouseY <= btnY + mH);
+        // Play hover sound once when entering hover state
+        playHoverSoundIfHovered("pause_restart", hoverR);
+        playHoverSoundIfHovered("pause_resume", hoverS);
+        playHoverSoundIfHovered("pause_menu", hoverM);
 
         // Hover scale factor (tweak to change effect strength)
         float hoverScale = 1.08f; // 8% scale up on hover
@@ -885,11 +957,17 @@ public class GameScreen implements Screen {
             if (mxIn >= drawSX && mxIn <= drawSX + drawSW && myIn >= btnY - (drawSH - sH) * 0.5f && myIn <= btnY - (drawSH - sH) * 0.5f + drawSH) {
                 pauseOverlayVisible = false;
                 currentState = GameState.RUNNING;
+                if (musicManager != null) {
+                    musicManager.resumeMusic();
+                }
                 return;
             }
             // Menu
             if (mxIn >= drawMX && mxIn <= drawMX + drawMW && myIn >= btnY - (drawMH - mH) * 0.5f && myIn <= btnY - (drawMH - mH) * 0.5f + drawMH) {
                 try {
+                    if (musicManager != null) {
+                        musicManager.stopMusic();
+                    }
                     game.setScreen(new LevelSelectScreen(game));
                     dispose();
                 } catch (Exception ignored) {}
@@ -1024,6 +1102,8 @@ public class GameScreen implements Screen {
 
         // Hover detection on base rect
         boolean pauseHover = (mouseX >= pauseX && mouseX <= pauseX + pauseSize && mouseY >= pauseY && mouseY <= pauseY + pauseSize);
+        // Play hover sound on top-right pause button
+        playHoverSoundIfHovered("pause_top", pauseHover);
         float pauseHoverScale = 1.08f; // how much to scale on hover
         float pauseScale = pauseHover ? pauseHoverScale : 1f;
         float pauseDrawSize = pauseSize * pauseScale;
@@ -1045,6 +1125,9 @@ public class GameScreen implements Screen {
                 } else {
                     pauseOverlayVisible = true;
                     currentState = GameState.PAUSED;
+                    if (musicManager != null) {
+                        musicManager.pauseMusic();
+                    }
                     overlaySuppressNextClick = true; // ignore the click that opened overlay
                 }
             }
@@ -1258,6 +1341,7 @@ public class GameScreen implements Screen {
                     float mx = Gdx.input.getX();
                     float my = Gdx.graphics.getHeight() - Gdx.input.getY();
                     boolean hovered = (mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH);
+                    playHoverSoundIfHovered("talking_continue", hovered);
 
                     if (hovered && TALKING_BUTTON_HOVER_UNDERLINE && shapeRenderer != null) {
                         // Draw underline BELOW the bottom of the laid-out glyphs so it doesn't overlap characters.
@@ -1522,7 +1606,13 @@ public class GameScreen implements Screen {
                     return;
                 }
                 if (mxIn >= drawMX && mxIn <= drawMX + drawMW && myIn >= btnY - (drawMH - mH) * 0.5f && myIn <= btnY - (drawMH - mH) * 0.5f + drawMH) {
-                    try { game.setScreen(new LevelSelectScreen(game)); dispose(); } catch (Exception ignored) {}
+                    try {
+                        if (musicManager != null) {
+                            musicManager.stopMusic();
+                        }
+                        game.setScreen(new LevelSelectScreen(game));
+                        dispose();
+                    } catch (Exception ignored) {}
                     return;
                 }
             }
@@ -1586,6 +1676,9 @@ public class GameScreen implements Screen {
         boolean hoverR = (mouseX >= rx && mouseX <= rx + rW && mouseY >= btnY && mouseY <= btnY + rH);
         boolean hoverS = (mouseX >= sx && mouseX <= sx + sW && mouseY >= btnY && mouseY <= btnY + sH);
         boolean hoverM = (mouseX >= mx && mouseX <= mx + mW && mouseY >= btnY && mouseY <= btnY + mH);
+        playHoverSoundIfHovered("win_restart", hoverR);
+        playHoverSoundIfHovered("win_resume", hoverS);
+        playHoverSoundIfHovered("win_menu", hoverM);
 
         float hoverScale = 1.08f;
 
@@ -1668,7 +1761,14 @@ public class GameScreen implements Screen {
                     winOverlayVisible = false; showLevelComplete = false; proceedToNextLevel(); return;
                 }
                 if (mxIn >= drawMX && mxIn <= drawMX + drawMW && myIn >= btnY - (drawMH - mH) * 0.5f && myIn <= btnY - (drawMH - mH) * 0.5f + drawMH) {
-                    try { game.setScreen(new LevelSelectScreen(game)); dispose(); } catch (Exception ignored) {} return;
+                    try {
+                        if (musicManager != null) {
+                            musicManager.stopMusic();
+                        }
+                        game.setScreen(new LevelSelectScreen(game));
+                        dispose();
+                    } catch (Exception ignored) {}
+                    return;
                 }
             }
         } catch (Exception ignored) {}
@@ -1677,6 +1777,11 @@ public class GameScreen implements Screen {
     private void levelComplete() {
         showLevelComplete = true;
         levelCompleteTimer = 0f;
+        // Play win sound and stop music after documents are shredded
+        try {
+            if (game != null && game.getHoverSoundManager() != null) game.getHoverSoundManager().playWin();
+        } catch (Exception ignored) {}
+        BackgroundMusicManager.getInstance().stopMusic();
         // record event stats for the win overlay
         try {
             lastEventDocs = (levelManager != null) ? levelManager.getDocumentsCollected() : 0;
@@ -1706,6 +1811,7 @@ public class GameScreen implements Screen {
         if (currentLevel >= MAX_LEVEL) {
             // All levels completed
             Gdx.app.log("GameScreen", "All levels completed!");
+            BackgroundMusicManager.getInstance().playScreenMusic();
             game.setScreen(new MainMenuScreen(game));
             dispose();
         } else {
@@ -1812,6 +1918,7 @@ public class GameScreen implements Screen {
     @Override
     public void dispose() {
         if (levelManager != null) levelManager.dispose();
+        if (musicManager != null) musicManager.dispose();
         if (levelManager2 != null) levelManager2.dispose();
         if (shapeRenderer != null) shapeRenderer.dispose();
         if (uiStage != null) uiStage.dispose();
@@ -1832,5 +1939,20 @@ public class GameScreen implements Screen {
         if (docFont != null) docFont.dispose();
         if (timeFont != null) timeFont.dispose();
         if (statFont != null) statFont.dispose();
+        // hoverSound is managed centrally by HoverSoundManager on MyGdxGame
+    }
+
+    // Play hover sound once when entering hover state for a named UI element
+    private void playHoverSoundIfHovered(String key, boolean hovering) {
+        try {
+            Boolean prev = hoverPrev.get(key);
+            if (prev == null) prev = Boolean.FALSE;
+            if (hovering && !prev) {
+                try {
+                    if (game != null && game.getHoverSoundManager() != null) game.getHoverSoundManager().playHover();
+                } catch (Exception ignored) {}
+            }
+            hoverPrev.put(key, hovering);
+        } catch (Exception ignored) {}
     }
 }

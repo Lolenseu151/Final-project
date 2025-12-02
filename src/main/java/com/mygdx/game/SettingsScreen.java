@@ -45,6 +45,13 @@ public class SettingsScreen implements Screen {
     private boolean lowQualityHovered = false;
     private boolean mediumQualityHovered = false;
     private boolean highQualityHovered = false;
+    // previous hover states to detect hover-enter
+    private boolean prevSoundHovered = false;
+    private boolean prevMusicHovered = false;
+    private boolean prevMenuHovered = false;
+    private boolean prevLowQualityHovered = false;
+    private boolean prevMediumQualityHovered = false;
+    private boolean prevHighQualityHovered = false;
     
     // Settings state
     private boolean soundEnabled = true;
@@ -68,6 +75,9 @@ public class SettingsScreen implements Screen {
     
     private boolean upKeyWasPressed = false;
     private boolean downKeyWasPressed = false;
+    
+    // Track if music has been started for this screen instance
+    private boolean musicStarted = false;
     
     public SettingsScreen(MyGdxGame game) {
         this.game = game;
@@ -193,6 +203,12 @@ public class SettingsScreen implements Screen {
     
     @Override
     public void render(float delta) {
+        // Start music on first render if not already started
+        if (!musicStarted) {
+            BackgroundMusicManager.getInstance().playScreenMusic();
+            musicStarted = true;
+        }
+        
         handleInput();
         handleMouseInput();
         
@@ -240,6 +256,34 @@ public class SettingsScreen implements Screen {
         lowQualityHovered = lowQualityRect.contains(mouseX, mouseY);
         mediumQualityHovered = mediumQualityRect.contains(mouseX, mouseY);
         highQualityHovered = highQualityRect.contains(mouseX, mouseY);
+
+        // Play hover sound on enter transitions
+        try {
+            if (soundHovered && !prevSoundHovered) game.getHoverSoundManager().playHover();
+        } catch (Exception ignored) {}
+        try {
+            if (musicHovered && !prevMusicHovered) game.getHoverSoundManager().playHover();
+        } catch (Exception ignored) {}
+        try {
+            if (menuHovered && !prevMenuHovered) game.getHoverSoundManager().playHover();
+        } catch (Exception ignored) {}
+        try {
+            if (lowQualityHovered && !prevLowQualityHovered) game.getHoverSoundManager().playHover();
+        } catch (Exception ignored) {}
+        try {
+            if (mediumQualityHovered && !prevMediumQualityHovered) game.getHoverSoundManager().playHover();
+        } catch (Exception ignored) {}
+        try {
+            if (highQualityHovered && !prevHighQualityHovered) game.getHoverSoundManager().playHover();
+        } catch (Exception ignored) {}
+
+        // update previous hover trackers
+        prevSoundHovered = soundHovered;
+        prevMusicHovered = musicHovered;
+        prevMenuHovered = menuHovered;
+        prevLowQualityHovered = lowQualityHovered;
+        prevMediumQualityHovered = mediumQualityHovered;
+        prevHighQualityHovered = highQualityHovered;
         
         // Handle clicks
         if (Gdx.input.isButtonJustPressed(0)) { // Left mouse button
