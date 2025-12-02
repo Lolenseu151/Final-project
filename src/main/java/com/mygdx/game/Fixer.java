@@ -31,7 +31,7 @@ public class Fixer {
     private static final float DASH_COOLDOWN = 10.0f;  // 10 second cooldown
 
     // Sprite / collision sizes (frames are 64x64 in assets)
-    private static final float SPRITE_SIZE = 84f;  // Increased from 64f to 96f (1.5x larger)
+    private static final float SPRITE_SIZE = 74f;  // Increased from 64f to 96f (1.5x larger)
     private static final float WIDTH = SPRITE_SIZE;
     private static final float HEIGHT = SPRITE_SIZE;
 

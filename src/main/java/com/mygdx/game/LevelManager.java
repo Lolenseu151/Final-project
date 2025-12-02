@@ -668,7 +668,7 @@ public class LevelManager implements ILevelManager {
         // Platforms are intentionally not rendered (invisible platforms)
         // They remain in `platforms` for collision detection but are not drawn.
         // If you want to debug them, set debugPlatformRender to true.
-        boolean debugPlatformRender = true;              // set to true to visualize platforms
+        boolean debugPlatformRender = false;              // set to true to visualize platforms
         if (debugPlatformRender) {
             shapeRenderer.setColor(153f/255f, 170f/255f, 187f/255f, 1f);
             for (Rectangle platform : platforms) {
