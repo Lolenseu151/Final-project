@@ -78,6 +78,10 @@ public class Fixer {
         }
     }
 
+    public boolean isOnGround() {
+        return this.isOnGround;
+    }
+
     public float getDashCooldown() {
         return Math.max(0f, dashCooldownTimer);  // Return remaining cooldown time
     }
