@@ -284,6 +284,14 @@ public class GameScreen implements Screen {
         lastEventTime = 0f;
         
         if (fixer != null) {
+            // Level-specific adjustments: shrink the player size for Level 1 only
+            try {
+                if (currentLevel == 1) {
+                    // Reduce visual/collision size to 64x64 for this level
+                    fixer.getBounds().setSize(64f, 64f);
+                    Gdx.app.log("GameScreen", "Applied Level1-specific fixer size: 64x64");
+                }
+            } catch (Exception ignored) {}
             // If we are here because the app was paused (minimized), avoid calling reset()
             // which moves the player to a spawn. Instead restore the saved position if available.
             if (wasPaused && !Float.isNaN(savedX)) {
