@@ -808,6 +808,9 @@ public class GameScreen implements Screen {
             drawFloatingUI(game.batch);
             
             game.batch.end();
+            
+            // Draw instructions and dash cooldown indicator
+            drawText();
         }
 
         // If tutorial overlay is active, draw it on top of everything
@@ -1396,60 +1399,77 @@ public class GameScreen implements Screen {
         if (game == null || game.batch == null || game.font == null) return;
 
         game.batch.begin();
-        game.font.draw(game.batch, "WASD/Arrows: Move | SPACE: Dash | P: Pause | Level: " + currentLevel,
-                10, Gdx.graphics.getHeight() - 30);
+        // Instructions removed - no longer displayed
+        game.batch.end();
         
-        // Draw dash cooldown bar and text
-        if (fixer != null && shapeRenderer != null) {
-            float cooldown = fixer.getDashCooldown();
-            float maxCooldown = 10.0f;  // Match DASH_COOLDOWN from Fixer (10 seconds)
-            float barWidth = 150f;
-            float barHeight = 20f;
-            float barX = 10f;
-            float barY = Gdx.graphics.getHeight() - 80f;
-            
-            // Draw dash effect glow if currently dashing
-            if (fixer.isDashing()) {
-                game.batch.end();
-                shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
-                shapeRenderer.setColor(0.2f, 1f, 1f, 0.3f);  // Cyan glow during dash
-                shapeRenderer.rect(barX - 5, barY - 5, barWidth + 10, barHeight + 10);
-                shapeRenderer.end();
-                game.batch.begin();
-            }
-            
-            // Draw cooldown bar background
-            game.batch.end();
-            shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
-            shapeRenderer.setColor(0.2f, 0.2f, 0.2f, 1f);  // Dark gray background
-            shapeRenderer.rect(barX, barY, barWidth, barHeight);
-            
-            // Draw cooldown bar fill
-            if (cooldown > 0f) {
-                float fillWidth = barWidth * (1f - (cooldown / maxCooldown));
-                shapeRenderer.setColor(1f, 0f, 0f, 1f);  // Red for cooldown
-                shapeRenderer.rect(barX, barY, fillWidth, barHeight);
-            } else {
-                shapeRenderer.setColor(0f, 1f, 0f, 1f);  // Green for ready
-                shapeRenderer.rect(barX, barY, barWidth, barHeight);
-            }
-            
-            // Draw bar border
-            shapeRenderer.setColor(1f, 1f, 1f, 0.5f);  // White semi-transparent border
-            shapeRenderer.rect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
-            shapeRenderer.end();
-            
-            game.batch.begin();
-            // Draw cooldown text
-            String cooldownText;
-            if (cooldown > 0f) {
-                cooldownText = String.format("DASH: %.1fs", cooldown);
-            } else {
-                cooldownText = "DASH: READY";
-            }
-            game.font.draw(game.batch, cooldownText, barX + 10f, barY + barHeight - 5f);
+        // Draw dash cooldown bar beside the clock at top-right
+        drawDashCooldownIndicator();
+    }
+    
+    /**
+     * Draw dash cooldown indicator bar beside the clock at top-right
+     */
+    private void drawDashCooldownIndicator() {
+        if (fixer == null || shapeRenderer == null) {
+            return;
         }
         
+        float cooldown = fixer.getDashCooldown();
+        float maxCooldown = 10.0f;  // Match DASH_COOLDOWN from Fixer (10 seconds)
+        float barWidth = 120f;
+        float barHeight = 16f;
+        
+        // Position to the right of the clock/timer area at top-right
+        // The clock/timer is positioned at the right, so position the dash indicator below it
+        float barX = Gdx.graphics.getWidth() - barWidth - 800f;
+        float barY = Gdx.graphics.getHeight() - 60f;  // Below the clock/timer
+        
+        // Draw dash effect glow if currently dashing
+        if (fixer.isDashing()) {
+            shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(0.2f, 1f, 1f, 0.3f);  // Cyan glow during dash
+            shapeRenderer.rect(barX - 4, barY - 4, barWidth + 8, barHeight + 8);
+            shapeRenderer.end();
+        }
+        
+        // Draw cooldown bar background
+        shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0.2f, 0.2f, 0.2f, 1f);  // Dark gray background
+        shapeRenderer.rect(barX, barY, barWidth, barHeight);
+        
+        // Draw cooldown bar fill
+        if (cooldown > 0f) {
+            float fillWidth = barWidth * (1f - (cooldown / maxCooldown));
+            shapeRenderer.setColor(1f, 0.4f, 0f, 1f);  // Orange/red for cooldown
+            shapeRenderer.rect(barX, barY, fillWidth, barHeight);
+        } else {
+            shapeRenderer.setColor(0f, 1f, 0f, 1f);  // Green for ready
+            shapeRenderer.rect(barX, barY, barWidth, barHeight);
+        }
+        
+        // White border removed - only draw the filled bar
+        shapeRenderer.end();
+        
+        // Draw status text
+        game.batch.begin();
+        if (cooldown > 0f) {
+            // Show remaining cooldown time while cooling down
+            String cooldownText = String.format("%.1fs", cooldown);
+            float textX = barX + barWidth / 2 - 10f;
+            float textY = barY + barHeight + 5f;
+            BitmapFont fontToUse = (uiFont != null) ? uiFont : game.font;
+            if (fontToUse != null) {
+                fontToUse.draw(game.batch, cooldownText, textX, textY);
+            }
+        } else {
+            // Show "READY" when dash is available
+            float textX = barX + barWidth / 2 - 15f;
+            float textY = barY + barHeight + 5f;
+            BitmapFont fontToUse = (uiFont != null) ? uiFont : game.font;
+            if (fontToUse != null) {
+                fontToUse.draw(game.batch, "READY", textX, textY);
+            }
+        }
         game.batch.end();
     }
 
