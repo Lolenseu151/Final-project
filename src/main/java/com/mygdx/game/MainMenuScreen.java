@@ -129,6 +129,8 @@ public class MainMenuScreen implements Screen {
     private MenuOption hoveredOption = null;
     // track previous hovered option to detect hover-enter transitions
     private MenuOption prevHoveredOption = null;
+    // Track if music has been started for this screen instance
+    private boolean musicStarted = false;
     
     public MainMenuScreen(MyGdxGame game) {
         this.game = game;
@@ -716,6 +718,12 @@ public class MainMenuScreen implements Screen {
     
     @Override
     public void render(float delta) {
+        // Start music on first render if not already started
+        if (!musicStarted) {
+            BackgroundMusicManager.getInstance().playScreenMusic();
+            musicStarted = true;
+        }
+        
         handleInput();
         // advance running animation timer
         runAnimTime += delta;
