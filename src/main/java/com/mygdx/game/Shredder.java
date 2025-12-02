@@ -125,6 +125,13 @@ public class Shredder {
 
         stateTime = 0f;
 
+        // Debug: report what we loaded so callers can confirm animation availability
+        try {
+            int loadedCount = loadedTextures != null ? loadedTextures.size : 0;
+            Gdx.app.log("Shredder", "loadFromFolder: folder=" + folder + " loadedTextures=" + loadedCount +
+                " activeAnim=" + (activeAnim != null) + " genericAnim=" + (genericAnim != null));
+        } catch (Exception ignored) {}
+
         // optional: resize rect to first frame
         try {
             Texture first = (loadedTextures.size > 0) ? loadedTextures.get(0) : null;
@@ -156,13 +163,17 @@ public class Shredder {
             genericAnim = new Animation<TextureRegion>(frameDuration, new TextureRegion[] { reg });
             stateTime = 0f;
             try { rect.set(rect.x, rect.y, tex.getWidth(), tex.getHeight()); } catch (Exception ignored) {}
+            try { Gdx.app.log("Shredder", "loadSingle: path=" + path + " loaded"); } catch (Exception ignored) {}
         }
     }
 
     public void update(float dt) {
-        if (state == State.ACTIVE) {
-            if (activeAnim != null) stateTime += dt;
-            else if (genericAnim != null) stateTime += dt;
+        // Advance the animation time continuously so any available animation
+        // (activeAnim or genericAnim) can progress and show motion even when
+        // the shredder is in IDLE/READY state. This makes the frames appear
+        // animated rather than stuck on a single static frame.
+        if (activeAnim != null || genericAnim != null) {
+            stateTime += dt;
         }
     }
 
@@ -184,10 +195,22 @@ public class Shredder {
             if (rect == null) return;
             switch (state) {
                 case IDLE:
+                    // If a generic animation exists, use it to provide subtle motion
+                    // for the idle state; otherwise fall back to the static idle frame.
+                    if (genericAnim != null) {
+                        TextureRegion f = genericAnim.getKeyFrame(stateTime, true);
+                        if (f != null) { batch.draw(f, rect.x, rect.y, rect.width, rect.height); return; }
+                    }
                     if (idleRegion != null) { batch.draw(idleRegion, rect.x, rect.y, rect.width, rect.height); return; }
                     break;
                 case READY:
-                    if (readyRegion != null) { batch.draw(readyRegion, rect.x, rect.y, rect.width, rect.height); return; }
+                    // For READY, prefer to show the specific ready frame when present,
+                    // but allow the generic animation to play for motion if available.
+                    if (readyRegion != null && (genericAnim == null)) { batch.draw(readyRegion, rect.x, rect.y, rect.width, rect.height); return; }
+                    if (genericAnim != null) {
+                        TextureRegion f = genericAnim.getKeyFrame(stateTime, true);
+                        if (f != null) { batch.draw(f, rect.x, rect.y, rect.width, rect.height); return; }
+                    }
                     break;
                 case ACTIVE:
                     if (activeAnim != null) {

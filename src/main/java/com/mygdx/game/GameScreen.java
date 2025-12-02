@@ -750,7 +750,27 @@ public class GameScreen implements Screen {
     private void update(float deltaTime) {
         // Update floating animation timer
         floatTimer += deltaTime;
-        
+        // Diagnostic logging: report overlay state and tutorial flags when debugging
+        try {
+            if (levelManager != null) {
+                Object cur = null;
+                try { java.lang.reflect.Field f = LevelManager.class.getDeclaredField("currentLevel"); f.setAccessible(true); cur = f.get(levelManager); } catch (Exception ignored) {}
+                if (cur != null) {
+                    String lvlName = cur.getClass().getSimpleName();
+                    boolean blocking = false;
+                    try { if (cur instanceof com.mygdx.game.Levels.BackgroundedLevel) blocking = ((com.mygdx.game.Levels.BackgroundedLevel)cur).isOverlayBlocking(); } catch (Exception ignored) {}
+                    Gdx.app.log("GameScreenDebug", "ActiveLevel=" + lvlName + " overlayFullVisible=" + overlayFullVisible + " overlaySuppressNextClick=" + overlaySuppressNextClick + " blocking=" + blocking + " currentLevelIndex=" + currentLevel);
+                    // If it's the tutorial level, try to query its showOverlay flag
+                    try {
+                        if (cur instanceof com.mygdx.game.LevelTutorial) {
+                            com.mygdx.game.LevelTutorial lt = (com.mygdx.game.LevelTutorial) cur;
+                            Gdx.app.log("GameScreenDebug", "LevelTutorial.showOverlay=" + lt.isShowOverlay() + " finalOverlayVisible=" + lt.isFinalOverlayVisible() + " finalConsumed=" + lt.isFinalOverlayConsumed());
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+        } catch (Exception ignored) {}
+
         // If the active level provides a blocking overlay, do not advance gameplay
         try {
             Object activeLevel = null;
@@ -1100,6 +1120,14 @@ public class GameScreen implements Screen {
         game.batch.end();
 
         // Handle OK click
+        // Allow keyboard dismissal (Enter/Space) as well as mouse click on OK
+        if (lt != null && (Gdx.input.isKeyJustPressed(Input.Keys.ENTER) || Gdx.input.isKeyJustPressed(Input.Keys.SPACE))) {
+            try {
+                lt.setShowOverlay(false);
+                overlayFullVisible = true;
+                overlaySuppressNextClick = true;
+            } catch (Exception ignored) {}
+        }
         if (lt != null && Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
             float mx = Gdx.input.getX();
             float my = Gdx.graphics.getHeight() - Gdx.input.getY();
@@ -1262,18 +1290,33 @@ public class GameScreen implements Screen {
         }
         game.batch.end();
 
-        // Dismiss on any click or ESC, but ignore the click that opened the overlay
-        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            overlayFullVisible = false;
-            overlaySuppressNextClick = false;
-        } else if (Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
-            if (overlaySuppressNextClick) {
-                // consume this click (it was the OK click that opened the overlay)
-                overlaySuppressNextClick = false;
-            } else {
-                overlayFullVisible = false;
+        // Dismiss on ESC, Enter, Space, or mouse click, but ignore the click that opened the overlay
+        try {
+            // If a tutorial Level is active, obtain it so we can clear its overlay flag when dismissing
+            LevelTutorial lt = null;
+            if (currentLevel == 0 && levelManager != null) {
+                try {
+                    java.lang.reflect.Field f = LevelManager.class.getDeclaredField("currentLevel");
+                    f.setAccessible(true);
+                    Object cur = f.get(levelManager);
+                    if (cur instanceof LevelTutorial) lt = (LevelTutorial) cur;
+                } catch (Exception ignored) {}
             }
-        }
+
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.ENTER) || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
+                overlayFullVisible = false;
+                overlaySuppressNextClick = false;
+                if (lt != null) { try { lt.setShowOverlay(false); } catch (Exception ignored) {} }
+            } else if (Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
+                if (overlaySuppressNextClick) {
+                    // consume this click (it was the OK click that opened the overlay)
+                    overlaySuppressNextClick = false;
+                } else {
+                    overlayFullVisible = false;
+                    if (lt != null) { try { lt.setShowOverlay(false); } catch (Exception ignored) {} }
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     // Draw the tutorial talking overlay (triggered when first document is collected)
