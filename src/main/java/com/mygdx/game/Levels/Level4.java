@@ -109,7 +109,7 @@ public class Level4 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-    @Override public Array<Rectangle> getAuditorBeams() { return beams; }
+
 
     // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
     // If your collision code relies on getShredder(), update it to call getShredderCollisionRect().

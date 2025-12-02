@@ -249,7 +249,7 @@ public class Level2 implements Level, BackgroundedLevel {
         // === Initialize JS (walking obstacle) textures/frames ===
         try {
             // Try to load a small sprite-sheet folder first (assets/kmjs/1.png ...)
-            java.util.ArrayList<TextureRegion> tmp = new java.util.ArrayList<TextureRegion>();
+            java.util.ArrayList<TextureRegion> tmp = new java.util.ArrayList<>();
             for (int i = 1; i <= 4; i++) {
                 String p = String.format("assets/kmjs/%d.png", i);
                 try {
@@ -267,8 +267,7 @@ public class Level2 implements Level, BackgroundedLevel {
                 }
             }
             if (tmp.size() > 0) {
-                jsFrames = new TextureRegion[tmp.size()];
-                tmp.toArray(jsFrames);
+                jsFrames = tmp.toArray(new TextureRegion[0]);
             }
             // load the 'caught' frame (assets/kmjs/5.png) used when JS captures the player
             try {
@@ -305,7 +304,7 @@ public class Level2 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-    @Override public Array<Rectangle> getAuditorBeams() { return beams; }
+   
 
     // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
     // If your collision code relies on getShredder(), update it to call getShredderCollisionRect().

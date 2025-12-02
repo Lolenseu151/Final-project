@@ -19,8 +19,7 @@ public class Level1 implements Level, BackgroundedLevel {
     private final Array<Rectangle> documents = new Array<>();
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
-    private final Array<Rectangle> beams = new Array<>();
-    private Rectangle shredder;
+        private Rectangle shredder;
     // use explicit position/size for visual shredder (no rectangle placeholder)
     private float shredderX = 80f;
     private float shredderY = 415f;
@@ -65,9 +64,7 @@ public class Level1 implements Level, BackgroundedLevel {
         documents.clear();
         platforms.clear();
         obstacles.clear();
-        beams.clear();
-
-        float w = 1280;
+                float w = 1280;
         float h = 800;
 
         // === Invisible Platforms Matching Level1Map.png ===
@@ -95,11 +92,6 @@ public class Level1 implements Level, BackgroundedLevel {
         documents.add(new Rectangle(500, 40, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(300, 270, DOC_SIZE, DOC_SIZE));
          documents.add(new Rectangle(350, 270, DOC_SIZE, DOC_SIZE));
-
-
-        //obstacles.add(new Rectangle(250, 150, 60, 10));
-        //obstacles.add(new Rectangle(w - 300, 250, 60, 10));
-
 
         // Keep the rectangle for gameplay/collision, but we'll draw the animated shredder over it
         // shredder = new Rectangle(80, 420, 50, 50);
@@ -174,9 +166,7 @@ public class Level1 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-    @Override public Array<Rectangle> getAuditorBeams() { return beams; }
-
-    // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
+        // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
     // If your collision code relies on getShredder(), update it to call getShredderCollisionRect().
     @Override public Rectangle getShredder() { return null; }
 

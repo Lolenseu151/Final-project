@@ -16,8 +16,7 @@ public class Level3_1 implements Level, BackgroundedLevel {
     private final Array<Rectangle> documents = new Array<>();
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
-    private final Array<Rectangle> beams = new Array<>();
-    private Rectangle shredder;
+        private Rectangle shredder;
 
     // keep same shredder coords as Level3 for consistency
     private float shredderX = 250f;
@@ -37,7 +36,7 @@ public class Level3_1 implements Level, BackgroundedLevel {
     public static final int DECLARED_DOCS = 5;
 
     public void init() {
-        documents.clear(); platforms.clear(); obstacles.clear(); beams.clear();
+        documents.clear(); platforms.clear(); obstacles.clear(); 
 
         // continuation area layout: different platforms and doc positions
         // 1st level platform (extends from left edge)
@@ -92,7 +91,7 @@ public class Level3_1 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-    @Override public Array<Rectangle> getAuditorBeams() { return beams; }
+
 
     @Override public Rectangle getShredder() { return null; }
     public Rectangle getShredderCollisionRect() { return shredder; }

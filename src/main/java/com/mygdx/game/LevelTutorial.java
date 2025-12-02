@@ -14,7 +14,7 @@ public class LevelTutorial implements com.mygdx.game.Levels.Level, com.mygdx.gam
     private final Array<Rectangle> documents = new Array<>();
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
-    private final Array<Rectangle> beams = new Array<>();
+    private final Array<Rectangle> lasers = new Array<>();
     private Rectangle shredder;
     // centralized shredder visual (assigned by LevelManager as the shared animated shredder)
     private com.mygdx.game.Levels.Shredder shredderVisual = null;
@@ -63,8 +63,10 @@ public class LevelTutorial implements com.mygdx.game.Levels.Level, com.mygdx.gam
 
     @Override
     public void init() {
-        documents.clear(); platforms.clear(); obstacles.clear(); beams.clear();
-
+        documents.clear(); 
+        platforms.clear(); 
+        obstacles.clear();
+        lasers.clear();
         float w = Gdx.graphics.getWidth();
 
         // Basic ground and a couple of low platforms to keep movement simple
@@ -106,7 +108,8 @@ public class LevelTutorial implements com.mygdx.game.Levels.Level, com.mygdx.gam
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-    @Override public Array<Rectangle> getAuditorBeams() { return beams; }
+    @Override public Array<Rectangle> getLasers() { return lasers; }
+    
     @Override public Rectangle getShredder() { return shredder; }
     @Override public int getTotalDocuments() { return totalDocs; }
 

@@ -28,11 +28,11 @@ public class Level5_1 implements Level, BackgroundedLevel {
 
     // shared document total across Level5 + Level5_1
     public static int SHARED_TOTAL_DOCS = 0;
-    public static final int DECLARED_DOCS = 5; // this level intends to contain 5 docs
+    public static final int DECLARED_DOCS = 6; // this level intends to contain 6 docs
 
     // Background switching state
     private boolean switchedToContinuation = false;
-    private static final String BG_FIRST = "Level5Map.png";
+    private float transitionCooldown = 0f;
     private static final String BG_CONTINUATION = "Level5.1Map.png";
 
     // legacy constants preserved for loading
@@ -51,27 +51,30 @@ public class Level5_1 implements Level, BackgroundedLevel {
         float w = 1280;
         float h = 800;
         
-        // Initialize shredder collision rectangle
-        shredder = new Rectangle(shredderX, shredderY, shredderW, shredderH);
+        // No shredder in Level5_1 - shared shredder is in Level5 map
+        shredder = null;
         
         // === Invisible Platforms Matching Level5.1Map.png ===
         platforms.clear();
         
+        // === RIGHT BOUNDARY WALL (Vertical wall at rightmost pillar) ===
+        platforms.add(new Rectangle(1230, 0, 20, 800)); // Vertical wall from bottom to top
+        
         // === FLOOR 1 (Bottom floor) ===
-        platforms.add(new Rectangle(50, 75, 1220, 20)); // LEFT SIDE
+        platforms.add(new Rectangle(10, 75, 1240, 20)); // LEFT SIDE
        
 
         // === FLOOR 2 ===
-        platforms.add(new Rectangle(1070, 245,185, 20)); // left section
-        platforms.add(new Rectangle(46, 245,935, 20)); // Left section
+        
+        platforms.add(new Rectangle(10, 245,1075, 20)); // Left section
        
 
         // === FLOOR 3 ===
-        platforms.add(new Rectangle(411, 420, 450, 20));
-         platforms.add(new Rectangle(1080, 420, 170, 20));
+        platforms.add(new Rectangle(5, 401, 695, 20));
+         platforms.add(new Rectangle(795, 401, 460, 20));
 
         // === FLOOR 4 (Roof inside section) ===
-        platforms.add(new Rectangle(597, 583, 656, 20));
+        platforms.add(new Rectangle(5, 570, 1270, 20));
 
 
         // === Your existing items ===
@@ -79,8 +82,8 @@ public class Level5_1 implements Level, BackgroundedLevel {
         documents.add(new Rectangle(500, 80, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(300, 270, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(350, 270, DOC_SIZE, DOC_SIZE));
-        // added so Level5_1 has 5 docs total
         documents.add(new Rectangle(600, 120, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(200, 420, DOC_SIZE, DOC_SIZE)); // 6th document
 
 
 
@@ -102,7 +105,7 @@ public class Level5_1 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-    @Override public Array<Rectangle> getAuditorBeams() { return beams; }
+  
 
     // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
     // If your collision code relies on getShredder(), update it to call getShredderCollisionRect().
@@ -116,8 +119,7 @@ public class Level5_1 implements Level, BackgroundedLevel {
 
     @Override
     public String getBackgroundPath() {
-        // initially return the first part map
-        return BG_FIRST;
+        return BG_CONTINUATION;
     }
 
     @Override
@@ -133,32 +135,43 @@ public class Level5_1 implements Level, BackgroundedLevel {
             }
         } catch (Exception ignored) {}
 
-        try {
-            if (player != null && player.getBounds() != null && platforms.size > 0) {
-                Rectangle firstFloor = platforms.get(0);
-                float rightEdge = firstFloor.x + firstFloor.width;
-                Rectangle pb = player.getBounds();
-                final float TOL = 12f;
-                boolean nearFloorY = pb.y <= (firstFloor.y + firstFloor.height + 8f);
+        // Update cooldown timer
+        if (transitionCooldown > 0) {
+            transitionCooldown -= deltaTime;
+        }
 
-                if (!switchedToContinuation && nearFloorY && (pb.x + pb.width) >= (rightEdge - TOL)) {
+        try {
+            if (player != null && player.getBounds() != null && platforms.size > 0 && transitionCooldown <= 0) {
+                Rectangle pb = player.getBounds();
+                final float TOL = 30f;
+                boolean movingLeft = false;
+                try { movingLeft = (player.getVelocity() != null && player.getVelocity().x < 0); } 
+                catch (Exception ignored) { movingLeft = false; }
+                
+                // Check if player reaches the left edge from any floor
+                if (pb.x <= TOL && movingLeft) {
                     try {
                         Level5 original = new Level5();
-                        // Use LevelManager2 merge API if available
                         if (lm2 != null) {
-                            lm2.loadTwoMaps(original, this);
+                            // Load Level5 only (no levelB) to return to the first map
+                            lm2.loadTwoMaps(original, null);
+                            float[] sp = original.getReturnSpawn();
+                            if (sp != null && sp.length >= 2) {
+                                player.getBounds().setPosition(sp[0], sp[1]);
+                                player.getVelocity().set(0, 0);
+                            }
                         } else if (levelMgr != null) {
-                            // legacy fallback
                             levelMgr.loadLevel(original);
+                            float[] sp = original.getReturnSpawn();
+                            if (sp != null && sp.length >= 2) {
+                                player.getBounds().setPosition(sp[0], sp[1]);
+                                player.getVelocity().set(0, 0);
+                            }
                         }
-                        float[] sp = original.getReturnSpawn();
-                        if (sp != null && sp.length >= 2) {
-                            try { player.reset(sp[0], sp[1]); } catch (Exception ignored) {}
-                        }
-                        switchedToContinuation = true;
+                        transitionCooldown = 1.0f; // 1 second cooldown
                         Gdx.app.log("Level5_1", "Returned to Level5");
                     } catch (Exception e) {
-                        Gdx.app.error("Level5", "Failed to load continuation level", e);
+                        Gdx.app.error("Level5_1", "Failed to return to Level5", e);
                     }
                 }
             }
