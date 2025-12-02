@@ -37,7 +37,7 @@ public class Level1 implements Level, BackgroundedLevel {
     private Texture introBg = null; // keys.png full-screen overlay
     private BitmapFont introFont = null; // Pexelify_Sans
     private final String[] introLines = new String[] {
-        "Fixer! You're in 'The Office'—Level One. Listen up, the clock is running on the audit, and if those documents are found, we're finished.",
+        "Fixer! You're in 'The Office' Level One. Listen up, the clock is running on the audit, and if those documents are found, we're finished.",
         "Your mission is simple: find and shred every piece of evidence.",
         "Use the Arrow Keys to move through the cubicles, and if a guard gets too close, use [SPACE] to DASH.",
         "That dash is a power-up, Fixer, but it burns out fast—you've only got 10 seconds before it needs to recharge. Now move! Stop standing around!"
@@ -45,14 +45,20 @@ public class Level1 implements Level, BackgroundedLevel {
     private boolean showIntro = true;
     private int introIndex = 0;
     // Default text positioning — edit these values later as needed
-    public float introTextX = 1400f; // will be centered in init()
-    public float introTextY = 100f;
+        public float introTextX = 1400f; // will be centered in init()
+        // introTextY is the TOP baseline for the block so it grows downward
+        // Lower this value to move the block downward on the screen
+        public float introTextY = 190f; // lowered to move the intro block down
+
     public float introTextWidth = 850f; // reduced wrap width
     // Continue button
     private final String continueLabel = "Continue";
-    private float continueX = 1000f;
-    private float continueY = 60f;
+    private float continueX = 1200f;
+    private float continueY = 20f;
     private Texture underlineTex = null;
+    // typing transition state for intro text
+    private float introTypingElapsed = 0f;
+    private static final float INTRO_TYPING_DURATION = 2f; // seconds to type full caption
 
     private static final float DOC_SIZE = 36f;
     private static final float PLATFORM_H = 15f;
@@ -199,10 +205,12 @@ public class Level1 implements Level, BackgroundedLevel {
                 // center the Continue label horizontally
                 try {
                     GlyphLayout cont = new GlyphLayout(introFont, continueLabel);
-                    continueX = (1280f - cont.width) / 2f;
+                        // center then nudge the Continue button to the right for accessibility
+                        continueX = (1280f - cont.width) / 2f + 500f;
                 } catch (Exception ignored) {}
-                // place the Continue label a bit above the bottom (lowered)
-                continueY = 60f;
+                // place the Continue label below the intro block so it sits visually under the text
+                // lower it further for better spacing
+                continueY = 90f;
             }
         } catch (Exception ignored) {}
     }
@@ -251,7 +259,7 @@ public class Level1 implements Level, BackgroundedLevel {
             shredderVisual.update(deltaTime);
         }
         // If the intro/dialogue is visible, pause gameplay updates here and handle input to advance
-        if (showIntro) {
+                if (showIntro) {
             try {
                 boolean advanced = false;
                 if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE) || Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) advanced = true;
@@ -261,16 +269,22 @@ public class Level1 implements Level, BackgroundedLevel {
                     GlyphLayout cont = new GlyphLayout(introFont, continueLabel);
                     float cx = continueX;
                     float cy = continueY;
-                    Gdx.app.log("Level1", "Touch at: " + tx + "," + ty + " Continue area: x=" + cx + ".." + (cx + cont.width) + " y=" + (cy - cont.height) + ".." + cy + " cont.width=" + cont.width + " cont.height=" + cont.height);
-                    // allow a small padding around the Continue label for easier tapping
-                    float pad = 8f;
-                    if (tx >= cx - pad && tx <= cx + cont.width + pad && ty >= (cy - cont.height) - pad && ty <= cy + pad) advanced = true;
+                            Gdx.app.log("Level1", "Touch at: " + tx + "," + ty + " Continue area: x=" + cx + ".." + (cx + cont.width) + " y=" + (cy - cont.height) + ".." + cy + " cont.width=" + cont.width + " cont.height=" + cont.height);
+                            // allow a small padding around the Continue label for easier tapping
+                            float pad = 8f;
+                            if (tx >= cx - pad && tx <= cx + cont.width + pad && ty >= (cy - cont.height) - pad && ty <= cy + pad) advanced = true;
                     // do not advance on a global touch; require click on Continue label
                 }
-                if (advanced) {
-                    introIndex++;
-                    if (introIndex >= introLines.length) showIntro = false;
-                }
+                        if (advanced) {
+                            // if the typing animation is still running, finish it first
+                            if (introTypingElapsed < INTRO_TYPING_DURATION) {
+                                introTypingElapsed = INTRO_TYPING_DURATION;
+                            } else {
+                                introIndex++;
+                                introTypingElapsed = 0f;
+                                if (introIndex >= introLines.length) showIntro = false;
+                            }
+                        }
             } catch (Exception ignored) {}
             return; // skip other gameplay updates while intro is shown
         }
@@ -310,20 +324,21 @@ public class Level1 implements Level, BackgroundedLevel {
             Gdx.app.log("Level1", "renderOverlay: showIntro=" + showIntro + " introIndex=" + introIndex);
             if (introBg != null) batch.draw(introBg, 0, 0, 1280, 800);
             if (introFont != null) {
+                // advance typing animation time
+                introTypingElapsed += Gdx.graphics.getDeltaTime();
+                String full = introLines[introIndex];
+                float frac = (INTRO_TYPING_DURATION <= 0f) ? 1f : Math.min(1f, introTypingElapsed / INTRO_TYPING_DURATION);
+                int chars = Math.max(0, Math.min(full.length(), (int) (full.length() * frac)));
+                String visible = full.substring(0, chars);
                 GlyphLayout layout = new GlyphLayout();
-                layout.setText(introFont, introLines[introIndex], com.badlogic.gdx.graphics.Color.WHITE, introTextWidth, com.badlogic.gdx.utils.Align.left, true);
-                introFont.draw(batch, layout, introTextX, introTextY + layout.height);
+                layout.setText(introFont, visible, com.badlogic.gdx.graphics.Color.WHITE, introTextWidth, com.badlogic.gdx.utils.Align.left, true);
+                    // Draw at the top baseline so wrapped lines extend downward
+                    introFont.draw(batch, layout, introTextX, introTextY);
                 // draw Continue label with a visible translucent rectangle behind it for debugging
                 GlyphLayout cont = new GlyphLayout(introFont, continueLabel);
                 float cx = continueX;
                 float cy = continueY;
-                // draw translucent background so the clickable area is obvious
-                if (underlineTex != null) {
-                    batch.setColor(1f, 0f, 0f, 0.25f);
-                    float pad = 6f;
-                    batch.draw(underlineTex, cx - pad, cy - cont.height - pad, cont.width + pad * 2f, cont.height + pad * 2f);
-                    batch.setColor(1f,1f,1f,1f);
-                }
+                // draw Continue label (no red tint background)
                 introFont.draw(batch, continueLabel, cx, cy);
                 int mx = Gdx.input.getX();
                 int my = Gdx.graphics.getHeight() - Gdx.input.getY();
