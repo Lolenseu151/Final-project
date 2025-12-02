@@ -9,7 +9,7 @@ import com.badlogic.gdx.utils.Array;
  * Tutorial map for the Archive floor. Simple layout with a highlighted light area
  * near the 'property files' to teach movement.
  */
-public class LevelTutorial implements Level, BackgroundedLevel {
+public class LevelTutorial implements com.mygdx.game.Levels.Level, com.mygdx.game.Levels.BackgroundedLevel {
 
     private final Array<Rectangle> documents = new Array<>();
     private final Array<Rectangle> platforms = new Array<>();
