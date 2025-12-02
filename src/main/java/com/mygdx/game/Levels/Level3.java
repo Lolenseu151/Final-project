@@ -88,7 +88,7 @@ public class Level3 implements Level, BackgroundedLevel {
         // platforms.add(new Rectangle(1250, 603, 20, 170)); // Right wall for roof section
 
         // === Your existing items ===
-        documents.add(new Rectangle(900, 100, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(850, 600, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(500, 80, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(300, 270, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(350, 270, DOC_SIZE, DOC_SIZE));
