@@ -71,7 +71,7 @@ public class GameScreen implements Screen {
     private boolean pauseOverlayVisible = false;
     private float docIconY;
     // Scale for the overlay stat font (adjust to increase/decrease stat text size)
-    public static float STAT_FONT_SCALE = 2.0f;
+    public static float STAT_FONT_SCALE = 3.0f;
     private float floatTimer = 0f;  // Track time for floating animation
     private BitmapFont uiFont;  // Font for timer and doc counter text
     private BitmapFont docFont; // Smaller font for document count only
@@ -341,22 +341,32 @@ public class GameScreen implements Screen {
                 }
             }
 
-            // Load stat font for overlay stat text (documents/time) and apply scale
+            // Load stat font for overlay stat text (documents/time) using Pixeloid Sans and apply scale
             try {
                 statFont = new BitmapFont(
-                        Gdx.files.internal("assets/smallwhite/Small_white.fnt"),
-                        Gdx.files.internal("assets/smallwhite/Small_white.png"),
+                        Gdx.files.internal("assets/fonts/pixeloid/Sans.fnt"),
+                        Gdx.files.internal("assets/fonts/pixeloid/Sans.png"),
                         false);
                 statFont.getData().setScale(STAT_FONT_SCALE);
-                Gdx.app.log("GameScreen", "Loaded stat font from assets/smallwhite/");
+                Gdx.app.log("GameScreen", "Loaded stat font: assets/fonts/pixeloid/Sans.fnt");
             } catch (Exception e) {
                 try {
-                    statFont = new BitmapFont();
+                    // fallback to non-assets path
+                    statFont = new BitmapFont(
+                            Gdx.files.internal("fonts/pixeloid/Sans.fnt"),
+                            Gdx.files.internal("fonts/pixeloid/Sans.png"),
+                            false);
                     statFont.getData().setScale(STAT_FONT_SCALE);
-                    Gdx.app.log("GameScreen", "Using default font for stats");
+                    Gdx.app.log("GameScreen", "Loaded stat font from fallback: fonts/pixeloid/Sans.fnt");
                 } catch (Exception ex) {
-                    statFont = null;
-                    Gdx.app.log("GameScreen", "Stat font not available");
+                    try {
+                        statFont = new BitmapFont();
+                        statFont.getData().setScale(STAT_FONT_SCALE);
+                        Gdx.app.log("GameScreen", "Using default font for stats");
+                    } catch (Exception ex2) {
+                        statFont = null;
+                        Gdx.app.log("GameScreen", "Stat font not available");
+                    }
                 }
             }
             
