@@ -12,6 +12,8 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+// hover sound is provided centrally via HoverSoundManager on MyGdxGame
+import java.util.HashMap;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
@@ -74,6 +76,8 @@ public class GameScreen implements Screen {
     private Texture btnMenuTex;    // assets/buttons/12.png
     private boolean pauseOverlayVisible = false;
     private float docIconY;
+    // Previous hover state map (play once on enter). Hover sound provided centrally.
+    private HashMap<String, Boolean> hoverPrev = new HashMap<>();
     // Scale for the overlay stat font (adjust to increase/decrease stat text size)
     public static float STAT_FONT_SCALE = 2.0f;
     private float floatTimer = 0f;  // Track time for floating animation
@@ -525,6 +529,7 @@ public class GameScreen implements Screen {
             } catch (Exception e) {
                 try { pauseButtonTexture = new Texture(Gdx.files.internal("overlay/pause.png")); } catch (Exception ex) { pauseButtonTexture = null; }
             }
+            // Hover sound provided centrally via HoverSoundManager on MyGdxGame
             try {
                 overlayPauseTex = new Texture(Gdx.files.internal("assets/overlay/Pause overlay.png"));
             } catch (Exception e) {
@@ -835,6 +840,10 @@ public class GameScreen implements Screen {
         boolean hoverR = (mouseX >= rx && mouseX <= rx + rW && mouseY >= btnY && mouseY <= btnY + rH);
         boolean hoverS = (mouseX >= sx && mouseX <= sx + sW && mouseY >= btnY && mouseY <= btnY + sH);
         boolean hoverM = (mouseX >= mx && mouseX <= mx + mW && mouseY >= btnY && mouseY <= btnY + mH);
+        // Play hover sound once when entering hover state
+        playHoverSoundIfHovered("pause_restart", hoverR);
+        playHoverSoundIfHovered("pause_resume", hoverS);
+        playHoverSoundIfHovered("pause_menu", hoverM);
 
         // Hover scale factor (tweak to change effect strength)
         float hoverScale = 1.08f; // 8% scale up on hover
@@ -1040,6 +1049,8 @@ public class GameScreen implements Screen {
 
         // Hover detection on base rect
         boolean pauseHover = (mouseX >= pauseX && mouseX <= pauseX + pauseSize && mouseY >= pauseY && mouseY <= pauseY + pauseSize);
+        // Play hover sound on top-right pause button
+        playHoverSoundIfHovered("pause_top", pauseHover);
         float pauseHoverScale = 1.08f; // how much to scale on hover
         float pauseScale = pauseHover ? pauseHoverScale : 1f;
         float pauseDrawSize = pauseSize * pauseScale;
@@ -1277,6 +1288,7 @@ public class GameScreen implements Screen {
                     float mx = Gdx.input.getX();
                     float my = Gdx.graphics.getHeight() - Gdx.input.getY();
                     boolean hovered = (mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH);
+                    playHoverSoundIfHovered("talking_continue", hovered);
 
                     if (hovered && TALKING_BUTTON_HOVER_UNDERLINE && shapeRenderer != null) {
                         // Draw underline BELOW the bottom of the laid-out glyphs so it doesn't overlap characters.
@@ -1611,6 +1623,9 @@ public class GameScreen implements Screen {
         boolean hoverR = (mouseX >= rx && mouseX <= rx + rW && mouseY >= btnY && mouseY <= btnY + rH);
         boolean hoverS = (mouseX >= sx && mouseX <= sx + sW && mouseY >= btnY && mouseY <= btnY + sH);
         boolean hoverM = (mouseX >= mx && mouseX <= mx + mW && mouseY >= btnY && mouseY <= btnY + mH);
+        playHoverSoundIfHovered("win_restart", hoverR);
+        playHoverSoundIfHovered("win_resume", hoverS);
+        playHoverSoundIfHovered("win_menu", hoverM);
 
         float hoverScale = 1.08f;
 
@@ -1875,5 +1890,20 @@ public class GameScreen implements Screen {
         if (docFont != null) docFont.dispose();
         if (timeFont != null) timeFont.dispose();
         if (statFont != null) statFont.dispose();
+        // hoverSound is managed centrally by HoverSoundManager on MyGdxGame
+    }
+
+    // Play hover sound once when entering hover state for a named UI element
+    private void playHoverSoundIfHovered(String key, boolean hovering) {
+        try {
+            Boolean prev = hoverPrev.get(key);
+            if (prev == null) prev = Boolean.FALSE;
+            if (hovering && !prev) {
+                try {
+                    if (game != null && game.getHoverSoundManager() != null) game.getHoverSoundManager().playHover();
+                } catch (Exception ignored) {}
+            }
+            hoverPrev.put(key, hovering);
+        } catch (Exception ignored) {}
     }
 }
