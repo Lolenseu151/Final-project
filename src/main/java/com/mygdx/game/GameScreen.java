@@ -224,25 +224,39 @@ public class GameScreen implements Screen {
                 levelManager.loadLevel(level);
                 // Register for direct level-complete callbacks so the overlay can be shown
                 try {
-                    levelManager.setLevelCompleteListener(new com.mygdx.game.LevelManager.LevelCompleteListener() {
-                        @Override
-                        public void onLevelComplete() {
-                            // Ensure overlay state is updated on the main thread
-                            try {
-                                Gdx.app.postRunnable(new Runnable() {
+                    // Use reflection to avoid a compile-time dependency on the nested listener type
+                    try {
+                        Class<?> listenerClass = Class.forName("com.mygdx.game.LevelManager$LevelCompleteListener");
+                        java.lang.reflect.Method setMethod = levelManager.getClass().getMethod("setLevelCompleteListener", listenerClass);
+                        Object proxy = java.lang.reflect.Proxy.newProxyInstance(
+                                listenerClass.getClassLoader(),
+                                new Class<?>[] { listenerClass },
+                                new java.lang.reflect.InvocationHandler() {
                                     @Override
-                                    public void run() {
-                                        try {
-                                            levelComplete();
-                                        } catch (Exception ignored) {}
+                                    public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) throws Throwable {
+                                        if ("onLevelComplete".equals(method.getName())) {
+                                            // Ensure overlay state is updated on the main thread
+                                            try {
+                                                Gdx.app.postRunnable(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        try {
+                                                            levelComplete();
+                                                        } catch (Exception ignored) {}
+                                                    }
+                                                });
+                                            } catch (Exception e) {
+                                                // Fallback: call directly if postRunnable is unavailable
+                                                try { levelComplete(); } catch (Exception ignored) {}
+                                            }
+                                        }
+                                        return null;
                                     }
                                 });
-                            } catch (Exception e) {
-                                // Fallback: call directly if postRunnable is unavailable
-                                try { levelComplete(); } catch (Exception ignored) {}
-                            }
-                        }
-                    });
+                        setMethod.invoke(levelManager, proxy);
+                    } catch (ClassNotFoundException cnfe) {
+                        // Listener type not present - skip registering the callback
+                    }
                 } catch (Exception ignored) {}
             }
         }
