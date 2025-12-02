@@ -15,15 +15,21 @@ import com.badlogic.gdx.math.Rectangle;
 // import com.badlogic.gdx.utils.reflect.Method;
 import com.badlogic.gdx.utils.Array;
 // ADDED: BackgroundedLevel lives in com.mygdx.game.Levels
+<<<<<<< HEAD
+import com.mygdx.game.BackgroundedLevel;
+import com.mygdx.game.Level;
+=======
 import com.mygdx.game.Levels.BackgroundedLevel;
 import com.mygdx.game.Levels.Level;
 import com.mygdx.game.Levels.Shredder;
+>>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
 
 /**
  * LevelManager - Manages all level elements including obstacles, documents, and shredders
  * Responsible for level layout, collision detection, and objective tracking
  */
-public class LevelManager implements ILevelManager {
+<<<<<<< HEAD
+public class LevelManager {
     /** Listener callback for level completion events. */
     public interface LevelCompleteListener {
         void onLevelComplete();
@@ -37,6 +43,9 @@ public class LevelManager implements ILevelManager {
     public void setLevelCompleteListener(LevelCompleteListener l) {
         this.levelCompleteListener = l;
     }
+=======
+public class LevelManager implements ILevelManager {
+>>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
     // Level elements
     private final Array<Rectangle> documents;      // Incriminating documents to collect
     private final Array<Rectangle> obstacles;      // Red Tape obstacles (slow player)
@@ -58,7 +67,7 @@ public class LevelManager implements ILevelManager {
     private static final float OBSTACLE_WIDTH = 60f;
     private static final float OBSTACLE_HEIGHT = 10f;
     private static final float BEAM_WIDTH = 5f;
-    private static final float SHREDDER_SIZE = 36f; // was 50f ΓÇö smaller collision rect
+    private static final float SHREDDER_SIZE = 36f; // was 50f — smaller collision rect
     private static final float PLATFORM_HEIGHT = 15f;
 
     // NEW: texture for document visuals (spritesheet)
@@ -339,56 +348,6 @@ public class LevelManager implements ILevelManager {
             ((BackgroundedLevel) currentLevel).updateBackground(deltaTime, this, documents, obstacles, player);
         }
 
-        // Hard clamp player position to prevent going through walls at screen edges
-        if (player != null && player.getBounds() != null) {
-            Rectangle pb = player.getBounds();
-            // Find leftmost and rightmost walls
-            float minAllowedX = 0f;
-            float maxAllowedX = Gdx.graphics.getWidth() - pb.width;
-            
-            for (Rectangle platform : platforms) {
-                // Check if this is a vertical wall (height > 20 to catch short walls too)
-                if (platform.height > 20) {
-                    // Left wall
-                    if (platform.x < 50) {
-                        minAllowedX = Math.max(minAllowedX, platform.x + platform.width);
-                    }
-                    // Right wall
-                    if (platform.x > Gdx.graphics.getWidth() - 200) {
-                        maxAllowedX = Math.min(maxAllowedX, platform.x - pb.width);
-                    }
-                    // Interior walls (check all other walls)
-                    if (platform.x >= 50 && platform.x <= Gdx.graphics.getWidth() - 200) {
-                        // Check if player is overlapping this wall horizontally
-                        if (pb.x + pb.width > platform.x && pb.x < platform.x + platform.width) {
-                            // Player is in the wall's x-range, need to check vertical overlap
-                            if (pb.y < platform.y + platform.height && pb.y + pb.height > platform.y) {
-                                // Player is overlapping the wall, push them out
-                                float overlapLeft = (pb.x + pb.width) - platform.x;
-                                float overlapRight = (platform.x + platform.width) - pb.x;
-                                if (overlapLeft < overlapRight) {
-                                    pb.x = platform.x - pb.width;
-                                    player.setVelocityX(0f);
-                                } else {
-                                    pb.x = platform.x + platform.width;
-                                    player.setVelocityX(0f);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if (pb.x < minAllowedX) {
-                pb.x = minAllowedX;
-                player.setVelocityX(0f);
-            }
-            if (pb.x > maxAllowedX) {
-                pb.x = maxAllowedX;
-                player.setVelocityX(0f);
-            }
-        }
-
         // Check platform collisions (player standing on platforms)
         checkPlatformCollisions(player, deltaTime);
 
@@ -464,7 +423,7 @@ public class LevelManager implements ILevelManager {
             if (!levelComplete && !shredPending) {
                 shredPending = true;
                 shredTimer = 0f;
-                Gdx.app.log("LevelManager", "Shredding sequence started ΓÇö delaying completion for " + SHRED_DELAY_SECONDS + "s");
+                Gdx.app.log("LevelManager", "Shredding sequence started — delaying completion for " + SHRED_DELAY_SECONDS + "s");
                 // Try to set shredder visual to ACTIVE via reflection if present on the level
                 try {
                     if (currentLevel != null) {
@@ -510,7 +469,20 @@ public class LevelManager implements ILevelManager {
             }
         }
 
-        // Screen-edge checks removed - using platform walls for boundaries instead
+        // === Screen-edge invisible walls: prevent the player from leaving left/right edges ===
+        try {
+            if (player != null && player.getBounds() != null) {
+                float minX = 0f;
+                float maxX = Gdx.graphics.getWidth() - player.getBounds().width;
+                if (player.getBounds().x < minX) {
+                    player.getBounds().x = minX;
+                    player.setVelocityX(0f);
+                } else if (player.getBounds().x > maxX) {
+                    player.getBounds().x = maxX;
+                    player.setVelocityX(0f);
+                }
+            }
+        } catch (Exception ignored) {}
 
         return timePenalty;
     }
@@ -576,29 +548,8 @@ public class LevelManager implements ILevelManager {
             float bottom = Math.max(p.y, platform.y);
             float overlapY = top - bottom;
             if (overlapY <= 0f) continue;
-            
-            // Check if moving horizontally and overlapping the wall
-            if (Math.abs(vx) > 0.1f) {
-                float currentLeft = p.x;
-                float currentRight = p.x + p.width;
-                float wallLeft = platform.x;
-                float wallRight = platform.x + platform.width;
-                
-                // Moving right into left side of wall
-                if (vx > 0 && currentRight > wallLeft && prevRight <= wallLeft + H_EPS) {
-                    p.x = wallLeft - p.width - H_EPS;
-                    player.setVelocityX(0f);
-                    return;
-                }
-                // Moving left into right side of wall
-                if (vx < 0 && currentLeft < wallRight && prevLeft >= wallRight - H_EPS) {
-                    p.x = wallRight + H_EPS;
-                    player.setVelocityX(0f);
-                    return;
-                }
-            }
 
-            // compute previous horizontal relation (original code kept as fallback)
+            // compute previous horizontal relation
             // collided from left?
             if (prevRight <= platform.x + H_EPS && (p.x + p.width) > platform.x + H_EPS) {
                 // push player to left side of platform
@@ -612,24 +563,6 @@ public class LevelManager implements ILevelManager {
                 p.x = platform.x + platform.width + H_EPS;
                 player.setVelocityX(0f);
                 return;
-            }
-            
-            // Additional check: if already overlapping, push out to nearest side
-            float overlapLeft = (p.x + p.width) - platform.x;
-            float overlapRight = (platform.x + platform.width) - p.x;
-            if (overlapLeft > 0 && overlapRight > 0) {
-                // Push to whichever side is closer
-                if (overlapLeft < overlapRight) {
-                    // Push left
-                    p.x = platform.x - p.width - H_EPS;
-                    player.setVelocityX(0f);
-                    return;
-                } else {
-                    // Push right
-                    p.x = platform.x + platform.width + H_EPS;
-                    player.setVelocityX(0f);
-                    return;
-                }
             }
         }
     }
@@ -688,7 +621,7 @@ public class LevelManager implements ILevelManager {
             shapeRenderer.rect(beam.x, beam.y, beam.width, beam.height);
         }
 
-        // Shredder (collision rect) ΓÇö keep invisible so the sprite/animation shows through
+        // Shredder (collision rect) — keep invisible so the sprite/animation shows through
         if (shredder != null) {
             // Use same RGB but zero alpha so it's not visible
             if (documentsCollected >= totalDocuments) {
@@ -783,15 +716,6 @@ public class LevelManager implements ILevelManager {
                 if (!sharedShredder.hasVisual()) {
                     try { sharedShredder.loadFromFolder("shredderFx", 9); } catch (Exception ignored) {}
                 }
-                    // If the level defines a `shredderVisual` field, point it at the sharedShredder
-                    try {
-                        java.lang.reflect.Field f = level.getClass().getDeclaredField("shredderVisual");
-                        f.setAccessible(true);
-                        Object curr = f.get(level);
-                        if (curr == null || curr != sharedShredder) {
-                            try { f.set(level, sharedShredder); } catch (Exception ignored) {}
-                        }
-                    } catch (Exception ignored) {}
             }
         } catch (Exception ignored) {}
 
@@ -921,8 +845,8 @@ public class LevelManager implements ILevelManager {
 
     @Override
     public Shredder getSharedShredder() { 
-        // Return the shared shredder instance if present
-        return sharedShredder;
+        // LevelManager doesn't use shared shredder, return null
+        return null; 
     }
 
     // Expose current level for debugging/inspection
@@ -1043,3 +967,4 @@ public class LevelManager implements ILevelManager {
         Gdx.app.log("LevelManager", "addDocumentsAtPositions: added " + added + " docs, total=" + totalDocuments);
     }
 }
+
