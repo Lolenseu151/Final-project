@@ -750,7 +750,6 @@ public class LevelManager implements ILevelManager {
             batch.end();  // *** END BATCH ***
         }
 
-<<<<<<< HEAD
         // === PHASE 4: Draw animated lasers (SpriteBatch) ===
         if (laserFXList.size > 0) {
             batch.begin();
@@ -760,8 +759,8 @@ public class LevelManager implements ILevelManager {
             }
             batch.end();
         }
-=======
-        // === PHASE 4: Level-specific overlays (draw on top of documents) ===
+
+        // === PHASE 5: Level-specific overlays (draw on top of documents) ===
         try {
             if (currentLevel instanceof BackgroundedLevel) {
                 batch.begin();
@@ -769,7 +768,6 @@ public class LevelManager implements ILevelManager {
                 batch.end();
             }
         } catch (Exception ignored) {}
->>>>>>> e26ed73c29c3dcf9c36661c0e85521bb0ee89993
     }
 
     /**
