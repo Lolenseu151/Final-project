@@ -57,11 +57,19 @@ public class Shredder {
         for (String c : candidates) {
             try {
                 FileHandle fh = Gdx.files.internal(c);
-                if (fh.exists()) return new Texture(fh);
+                if (fh.exists()) {
+                    Texture tx = new Texture(fh);
+                    try { tx.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear); } catch (Exception ignored) {}
+                    return tx;
+                }
             } catch (Exception ignored) {}
             try {
                 FileHandle fh2 = Gdx.files.absolute(c);
-                if (fh2.exists()) return new Texture(fh2);
+                if (fh2.exists()) {
+                    Texture tx2 = new Texture(fh2);
+                    try { tx2.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear); } catch (Exception ignored) {}
+                    return tx2;
+                }
             } catch (Exception ignored) {}
         }
         return null;

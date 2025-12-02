@@ -83,6 +83,10 @@ public class GameScreen implements Screen {
         private boolean overlayFullVisible = false;
         // Prevent the same mouse click that opened the overlay from immediately closing it
         private boolean overlaySuppressNextClick = false;
+        // When an overlay appears we briefly suppress the click that opened it so the
+        // same input doesn't immediately activate an overlay button. This timer
+        // ensures suppression only lasts a short time instead of until the next click.
+        private float overlaySuppressTimer = 0f; // seconds
         // Tutorial talking overlay (shown when first doc collected)
         private com.badlogic.gdx.graphics.Texture overlayTalkingTex;
         private boolean overlayTalkingVisible = false;
@@ -541,8 +545,11 @@ public class GameScreen implements Screen {
             if (levelManager != null && levelManager.isLevelComplete()) {
                 if (!showLevelComplete) {
                     Gdx.app.log("GameScreen", "Forcing showLevelComplete=true because LevelManager reports completion");
-                    // Only suppress the initiating click once when the overlay first appears
+                    // Briefly suppress the initiating click so it doesn't immediately
+                    // activate an overlay button. Use a short timer (120ms) instead
+                    // of indefinitely consuming the next click.
                     overlaySuppressNextClick = true;
+                    overlaySuppressTimer = 0.12f;
                 }
                 showLevelComplete = true;
                 winOverlayVisible = true;
@@ -569,6 +576,8 @@ public class GameScreen implements Screen {
         pKeyWasPressed = pKeyIsPressed;
 
         if (currentState == GameState.GAMEOVER && Gdx.input.isKeyJustPressed(Input.Keys.R)) {
+            // Force reinitialization so show() will reload the level
+            initialized = false;
             show();  // reinit current level
         }
 
@@ -587,20 +596,23 @@ public class GameScreen implements Screen {
         }
 
         // If the win overlay is visible, allow dismissal via click or key (Enter/Space)
-        if (showLevelComplete && winOverlayVisible) {
+            if (showLevelComplete && winOverlayVisible) {
             boolean dismiss = Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
                     || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
                     || Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT);
             if (dismiss) {
-                if (overlaySuppressNextClick) {
-                    // consume the initiating click
-                    overlaySuppressNextClick = false;
-                } else {
-                    // Dismiss the win overlay and proceed
-                    winOverlayVisible = false;
-                    showLevelComplete = false;
-                    proceedToNextLevel();
-                }
+                    // If suppression timer is active, consume the input and let
+                    // subsequent clicks work normally. Otherwise proceed.
+                    if (overlaySuppressNextClick && overlaySuppressTimer > 0f) {
+                        // consume the initiating click
+                        overlaySuppressNextClick = false;
+                        overlaySuppressTimer = 0f;
+                    } else {
+                        // Dismiss the win overlay and proceed
+                        winOverlayVisible = false;
+                        showLevelComplete = false;
+                        proceedToNextLevel();
+                    }
             }
         }
     }
@@ -786,13 +798,24 @@ public class GameScreen implements Screen {
 
         game.batch.end();
 
-        // Handle clicks on overlay buttons
+        // Handle clicks on overlay buttons. Use a short suppression timer so the
+        // click that opened the overlay doesn't accidentally activate a button,
+        // but clicks that target buttons still work immediately.
         if (Gdx.input.isButtonJustPressed(com.badlogic.gdx.Input.Buttons.LEFT)) {
             float mxIn = Gdx.input.getX();
             float myIn = Gdx.graphics.getHeight() - Gdx.input.getY();
-            if (overlaySuppressNextClick) {
+            if (overlaySuppressNextClick && overlaySuppressTimer > 0f) {
+                boolean insideRestart = (mxIn >= drawRX && mxIn <= drawRX + drawRW && myIn >= btnY - (drawRH - rH) * 0.5f && myIn <= btnY - (drawRH - rH) * 0.5f + drawRH);
+                boolean insideResume  = (mxIn >= drawSX && mxIn <= drawSX + drawSW && myIn >= btnY - (drawSH - sH) * 0.5f && myIn <= btnY - (drawSH - sH) * 0.5f + drawSH);
+                boolean insideMenu    = (mxIn >= drawMX && mxIn <= drawMX + drawMW && myIn >= btnY - (drawMH - mH) * 0.5f && myIn <= btnY - (drawMH - mH) * 0.5f + drawMH);
+                // clear suppression state so next inputs are normal
                 overlaySuppressNextClick = false;
-                return;
+                overlaySuppressTimer = 0f;
+                if (!insideRestart && !insideResume && !insideMenu) {
+                    // Click didn't target any button — consume it.
+                    return;
+                }
+                // Otherwise fall through and handle the click below.
             }
 
             // Restart (use drawn rect)
@@ -800,6 +823,8 @@ public class GameScreen implements Screen {
                 // restart current level
                 pauseOverlayVisible = false;
                 currentState = GameState.RUNNING;
+                // ensure show() actually reinitializes
+                initialized = false;
                 show();
                 return;
             }
@@ -1321,6 +1346,13 @@ public class GameScreen implements Screen {
     private void drawGameOverOverlay() {
         if (shapeRenderer == null || game == null || game.batch == null) return;
 
+        // Decrement suppression timer so the overlay only blocks the initiating
+        // click for a short moment. Use delta from graphics frame time.
+        if (overlaySuppressTimer > 0f) {
+            overlaySuppressTimer -= Gdx.graphics.getDeltaTime();
+            if (overlaySuppressTimer <= 0f) overlaySuppressNextClick = false;
+        }
+
         float w = Gdx.graphics.getWidth();
         float h = Gdx.graphics.getHeight();
         // Compute button and stat layout similar to win overlay but only two buttons: Restart and Menu
@@ -1427,6 +1459,8 @@ public class GameScreen implements Screen {
                 if (mxIn >= drawRX && mxIn <= drawRX + drawRW && myIn >= btnY - (drawRH - rH) * 0.5f && myIn <= btnY - (drawRH - rH) * 0.5f + drawRH) {
                     // retry current level
                     currentState = GameState.RUNNING;
+                    // ensure show() actually reinitializes
+                    initialized = false;
                     show();
                     return;
                 }
@@ -1446,6 +1480,12 @@ public class GameScreen implements Screen {
 
         float w = Gdx.graphics.getWidth();
         float h = Gdx.graphics.getHeight();
+        // Decrement suppression timer so the overlay only blocks the initiating
+        // click for a short moment.
+        if (overlaySuppressTimer > 0f) {
+            overlaySuppressTimer -= Gdx.graphics.getDeltaTime();
+            if (overlaySuppressTimer <= 0f) overlaySuppressNextClick = false;
+        }
         // Precompute button geometry and hover state so drawing and clicks use
         // identical coordinates. We'll draw first, end the batch, then handle
         // input to avoid early returns leaving the SpriteBatch in a begun state.
@@ -1565,7 +1605,7 @@ public class GameScreen implements Screen {
                 }
 
                 if (mxIn >= drawRX && mxIn <= drawRX + drawRW && myIn >= btnY - (drawRH - rH) * 0.5f && myIn <= btnY - (drawRH - rH) * 0.5f + drawRH) {
-                    winOverlayVisible = false; showLevelComplete = false; currentState = GameState.RUNNING; show(); return;
+                    winOverlayVisible = false; showLevelComplete = false; currentState = GameState.RUNNING; initialized = false; show(); return;
                 }
                 if (mxIn >= drawSX && mxIn <= drawSX + drawSW && myIn >= btnY - (drawSH - sH) * 0.5f && myIn <= btnY - (drawSH - sH) * 0.5f + drawSH) {
                     winOverlayVisible = false; showLevelComplete = false; proceedToNextLevel(); return;

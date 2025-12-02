@@ -707,6 +707,15 @@ public class LevelManager implements ILevelManager {
                 if (!sharedShredder.hasVisual()) {
                     try { sharedShredder.loadFromFolder("shredderFx", 9); } catch (Exception ignored) {}
                 }
+                    // If the level defines a `shredderVisual` field, point it at the sharedShredder
+                    try {
+                        java.lang.reflect.Field f = level.getClass().getDeclaredField("shredderVisual");
+                        f.setAccessible(true);
+                        Object curr = f.get(level);
+                        if (curr == null || curr != sharedShredder) {
+                            try { f.set(level, sharedShredder); } catch (Exception ignored) {}
+                        }
+                    } catch (Exception ignored) {}
             }
         } catch (Exception ignored) {}
 
@@ -836,8 +845,8 @@ public class LevelManager implements ILevelManager {
 
     @Override
     public Shredder getSharedShredder() { 
-        // LevelManager doesn't use shared shredder, return null
-        return null; 
+        // Return the shared shredder instance if present
+        return sharedShredder;
     }
 
     // Expose current level for debugging/inspection
