@@ -57,4 +57,9 @@ public class Level4 implements Level {
     public String getBackgroundPath() {
         return "level4.png"; // <-- change if needed
     }
+
+    @Override
+    public String getMusicPath() {
+        return "assets/Sounds/Level Music.mp3";
+    }
 }

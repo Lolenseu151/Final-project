@@ -128,6 +128,11 @@ public class LevelTutorial implements com.mygdx.game.Levels.Level, com.mygdx.gam
     }
 
     @Override
+    public String getMusicPath() {
+        return "";  // No music for tutorial
+    }
+
+    @Override
     public void renderBackground(SpriteBatch batch, com.badlogic.gdx.graphics.Texture backgroundTex) {
         // Draw the default background via LevelManager, then overlay a subtle light at propertyFilesLight
         if (backgroundTex != null) {
