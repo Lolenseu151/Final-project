@@ -221,6 +221,17 @@ public class GameScreen implements Screen {
             // Load only the first map initially - the level will handle transitioning to the second map
             if (level != null) {
                 levelManager2.loadLevel(level);
+                try {
+                    // Register document-collected listener so UI/audio can react
+                    levelManager2.setDocumentCollectedListener(new LevelManager2.DocumentCollectedListener() {
+                        @Override
+                        public void onDocumentCollected(int collected, int total) {
+                            try {
+                                if (game != null && game.getHoverSoundManager() != null) game.getHoverSoundManager().playDocument();
+                            } catch (Exception ignored) {}
+                        }
+                    });
+                } catch (Exception ignored) {}
             }
         } else {
             // Use regular LevelManager for single-map levels
@@ -305,6 +316,17 @@ public class GameScreen implements Screen {
                     } catch (ClassNotFoundException cnfe) {
                         // Not present - ignore
                     }
+                } catch (Exception ignored) {}
+                // Register document-collected listener on single-map LevelManager
+                try {
+                    levelManager.setDocumentCollectedListener(new LevelManager.DocumentCollectedListener() {
+                        @Override
+                        public void onDocumentCollected(int collected, int total) {
+                            try {
+                                if (game != null && game.getHoverSoundManager() != null) game.getHoverSoundManager().playDocument();
+                            } catch (Exception ignored) {}
+                        }
+                    });
                 } catch (Exception ignored) {}
             }
         }
@@ -690,6 +712,9 @@ public class GameScreen implements Screen {
                 lastEventTime = remainingTime;
                 try {
                     if (game != null && game.getHoverSoundManager() != null) game.getHoverSoundManager().playGameOver();
+                } catch (Exception ignored) {}
+                try {
+                    if (musicManager != null) musicManager.stopMusic();
                 } catch (Exception ignored) {}
             } catch (Exception ignored) {}
             lastEventRecorded = true;
@@ -1552,6 +1577,10 @@ public class GameScreen implements Screen {
 
         boolean hoverR = (mouseX >= rx && mouseX <= rx + rW && mouseY >= btnY && mouseY <= btnY + rH);
         boolean hoverM = (mouseX >= mx && mouseX <= mx + mW && mouseY >= btnY && mouseY <= btnY + mH);
+
+        // Play hover sounds when entering GameOver overlay buttons
+        playHoverSoundIfHovered("gameover_restart", hoverR);
+        playHoverSoundIfHovered("gameover_menu", hoverM);
 
         float hoverScale = 1.08f;
 
