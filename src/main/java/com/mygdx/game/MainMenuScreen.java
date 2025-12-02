@@ -107,8 +107,14 @@ public class MainMenuScreen implements Screen {
     private final float RUN_SCREEN_HEIGHT_RATIO = 0.23f; // reduced so character is smaller on the menu
     // Button font scale (1.0 = normal). Set to 0.9 as requested.
     private final float BUTTON_FONT_SCALE = 0.7f;
-    // Scale multiplier for the custom Start button image
-    private final float START_BUTTON_SCALE = 2;
+    // Scale multiplier for the custom Start button image.
+    // Edit this value to change how large the button images draw on-screen.
+    //  - 1.0 = native image pixel size
+    //  - >1.0 increases size, <1.0 reduces size
+    // The available area is further limited by `BOX_W`/`BOX_H` (adjust those
+    // if you want a larger hit/placement box for the button). The rendering
+    // code preserves the image aspect ratio and will not stretch images.
+    private final float START_BUTTON_SCALE = 2.0f;
     
     private enum MenuOption {
         START_GAME,
@@ -622,6 +628,49 @@ public class MainMenuScreen implements Screen {
             Gdx.app.error("MainMenuScreen", "Failed to load birdfly.png", e);
             birdTexture = null;
             birdAnimation = null;
+        }
+
+        // Load custom Start/Tutorial/Settings button images from `assets/Start/`.
+        // Mapping (files under assets/Start):
+        //  1.png = Tutorial (base), 2.png = Tutorial (hover)
+        //  3.png = Start game (base), 4.png = Start game (hover)
+        //  5.png = Settings (base), 6.png = Settings (hover)
+        try {
+            String baseDir = "Start/";
+
+            // helper to try internal then absolute
+            java.util.function.Function<String, Texture> loadTex = (rel) -> {
+                try {
+                    if (Gdx.files.internal(rel).exists()) return new Texture(Gdx.files.internal(rel));
+                    String userDir = System.getProperty("user.dir");
+                    String abs = userDir + "/assets/" + rel;
+                    if (Gdx.files.absolute(abs).exists()) return new Texture(Gdx.files.absolute(abs));
+                } catch (Exception ignored) {}
+                return null;
+            };
+
+            // tutorial
+            tutorialButtonTexture = loadTex.apply(baseDir + "1.png");
+            tutorialButtonHoverTexture = loadTex.apply(baseDir + "2.png");
+            // start
+            startButtonTexture = loadTex.apply(baseDir + "3.png");
+            startButtonHoverTexture = loadTex.apply(baseDir + "4.png");
+            // settings
+            settingsButtonTexture = loadTex.apply(baseDir + "5.png");
+            settingsButtonHoverTexture = loadTex.apply(baseDir + "6.png");
+
+            // Apply smoothing filter so scaling looks good while preserving aspect
+            Texture[] texs = new Texture[] { tutorialButtonTexture, tutorialButtonHoverTexture,
+                startButtonTexture, startButtonHoverTexture, settingsButtonTexture, settingsButtonHoverTexture };
+            for (Texture t : texs) {
+                if (t != null) t.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+            }
+
+            Gdx.app.log("MainMenuScreen", "Loaded Start button images (if present) from assets/Start/");
+        } catch (Exception e) {
+            Gdx.app.error("MainMenuScreen", "Error loading Start button images", e);
+            // ensure any partial textures are nulled so dispose is safe
+            // (the individual loaders above already return null on failure)
         }
     }
 
