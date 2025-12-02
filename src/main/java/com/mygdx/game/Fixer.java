@@ -19,6 +19,8 @@ import com.badlogic.gdx.utils.Array;
 public class Fixer {
     private enum State { IDLE, RUN, JUMP, FALL, DASH }
 
+    // Toggle to enable debug logging inside update() (set to true when diagnosing input/freeze issues)
+    public static boolean DEBUG_LOG_INPUTS = true; // enabled temporarily for diagnosis
     // physics tunables
     private static final float MOVE_ACCEL = 1500f;   // px/s^2
     private static final float MAX_MOVE_SPEED = 220f; // px/s
@@ -204,7 +206,10 @@ public class Fixer {
     }
 
     public void update(float dt) {
-        if (frozen) return; // do not integrate physics while frozen (pause/minimize)
+        if (frozen) {
+            if (DEBUG_LOG_INPUTS) Gdx.app.log("Fixer", "update skipped because frozen=true");
+            return; // do not integrate physics while frozen (pause/minimize)
+        }
         // accumulate state time for animations
         stateTime += dt;
 
@@ -223,6 +228,12 @@ public class Fixer {
         // SPACE is dash, W/UP are jump (only trigger on key press, not hold)
         boolean dashPressed = Gdx.input.isKeyJustPressed(Input.Keys.SPACE);
         boolean jumpPressed = Gdx.input.isKeyJustPressed(Input.Keys.W) || Gdx.input.isKeyJustPressed(Input.Keys.UP);
+
+        if (DEBUG_LOG_INPUTS) {
+            try {
+                Gdx.app.log("Fixer", String.format("Inputs: left=%b right=%b jumpJust=%b dashJust=%b isOnGround=%b", left, right, jumpPressed, dashPressed, isOnGround));
+            } catch (Exception ignored) {}
+        }
         
         // Horizontal movement (kinematic) - disabled during dash
         if (dashTimer <= 0f) {  // Only allow normal movement when NOT dashing
