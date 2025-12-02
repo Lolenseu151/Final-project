@@ -76,6 +76,8 @@ public class LevelManager implements ILevelManager {
     private boolean shredPending = false;
     private float shredTimer = 0f;
     private static final float SHRED_DELAY_SECONDS = 3.0f;
+    // Laser hit cooldown to avoid repeated penalties while overlapping a beam
+    private float laserHitCooldown = 0f;
 
     // Visual properties
     private static final float DOCUMENT_SIZE = 36f;
@@ -468,6 +470,24 @@ public class LevelManager implements ILevelManager {
             }
         }
         player.setSlowed(slowed);
+
+        // Laser collision: if overlapping any laser beam, apply a time penalty and slow effect.
+        // Use a short cooldown so the player does not repeatedly lose time in one overlap.
+        if (laserHitCooldown > 0f) {
+            laserHitCooldown -= deltaTime;
+        }
+        if (lasers != null && !lasers.isEmpty() && laserHitCooldown <= 0f) {
+            for (Rectangle laser : lasers) {
+                if (player != null && player.getBounds() != null && laser != null && player.getBounds().overlaps(laser)) {
+                    // apply 15 seconds penalty and slow player for 6 seconds
+                    timePenalty += 15f;
+                    try { player.applySlow(6.0f); } catch (Exception ignored) {}
+                    laserHitCooldown = 1.0f; // 1 second cooldown to avoid flood
+                    Gdx.app.log("LevelManager", "Player hit laser: -15s penalty and slowed 6s");
+                    break;
+                }
+            }
+        }
 
         // Check if level is complete (all documents collected + reached shredder)
         // Instead of completing immediately, start a delayed shred sequence so we can show the

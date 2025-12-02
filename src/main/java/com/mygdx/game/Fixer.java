@@ -42,6 +42,8 @@ public class Fixer {
     private boolean isOnGround = false;
     private boolean canJump = true;
     private boolean isSlowed = false;
+    // slow effect timer (seconds). When >0, player movement is reduced.
+    private float slowTimer = 0f;
     // when true, update() returns immediately so position/velocity do not change
     private boolean frozen = false;
 
@@ -55,6 +57,16 @@ public class Fixer {
 
     public void setSlowed(boolean slowed) {
         this.isSlowed = slowed;
+    }
+
+    /**
+     * Apply a timed slow effect to the player. If a slow is already active this
+     * will extend it to the maximum of the remaining and the provided seconds.
+     */
+    public void applySlow(float seconds) {
+        if (seconds <= 0f) return;
+        slowTimer = Math.max(slowTimer, seconds);
+        setSlowed(true);
     }
 
     public Rectangle getBounds() {
@@ -206,6 +218,16 @@ public class Fixer {
     }
 
     public void update(float dt) {
+        // Handle slow effect timing
+        if (slowTimer > 0f) {
+            slowTimer -= dt;
+            if (slowTimer <= 0f) {
+                slowTimer = 0f;
+                setSlowed(false);
+            } else {
+                setSlowed(true);
+            }
+        }
         if (frozen) {
             if (DEBUG_LOG_INPUTS) Gdx.app.log("Fixer", "update skipped because frozen=true");
             return; // do not integrate physics while frozen (pause/minimize)
@@ -237,10 +259,12 @@ public class Fixer {
         
         // Horizontal movement (kinematic) - disabled during dash
         if (dashTimer <= 0f) {  // Only allow normal movement when NOT dashing
+            // apply slow multiplier if slowed
+            float accelMult = isSlowed ? 0.5f : 1.0f;
             if (left) {
-                velocity.x -= MOVE_ACCEL * dt;
+                velocity.x -= MOVE_ACCEL * accelMult * dt;
             } else if (right) {
-                velocity.x += MOVE_ACCEL * dt;
+                velocity.x += MOVE_ACCEL * accelMult * dt;
             } else {
                 // ground friction: proportional damping so player comes to a stop
                 if (isOnGround) {
@@ -257,7 +281,8 @@ public class Fixer {
 
         // clamp horizontal speed (only when not dashing to allow full dash speed)
         if (dashTimer <= 0f) {
-            velocity.x = com.badlogic.gdx.math.MathUtils.clamp(velocity.x, -MAX_MOVE_SPEED, MAX_MOVE_SPEED);
+            float speedMult = isSlowed ? 0.6f : 1.0f; // slower top speed when slowed
+            velocity.x = com.badlogic.gdx.math.MathUtils.clamp(velocity.x, -MAX_MOVE_SPEED * speedMult, MAX_MOVE_SPEED * speedMult);
         }
 
         // Dash (SPACE key)
