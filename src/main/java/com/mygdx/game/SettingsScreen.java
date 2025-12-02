@@ -76,6 +76,9 @@ public class SettingsScreen implements Screen {
     private boolean upKeyWasPressed = false;
     private boolean downKeyWasPressed = false;
     
+    // Track if music has been started for this screen instance
+    private boolean musicStarted = false;
+    
     public SettingsScreen(MyGdxGame game) {
         this.game = game;
         
@@ -200,6 +203,12 @@ public class SettingsScreen implements Screen {
     
     @Override
     public void render(float delta) {
+        // Start music on first render if not already started
+        if (!musicStarted) {
+            BackgroundMusicManager.getInstance().playScreenMusic();
+            musicStarted = true;
+        }
+        
         handleInput();
         handleMouseInput();
         

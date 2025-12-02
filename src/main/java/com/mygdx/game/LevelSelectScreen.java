@@ -102,6 +102,9 @@ public class LevelSelectScreen implements Screen {
     private static final float LEVELS_FONT_SCALE = 4.0f;
     private static final float LEVELS_TOP_MARGIN = 180f;
     private static final float BACK_BUTTON_SCALE = 0.09f;
+    
+    // Track if music has been started for this screen instance
+    private boolean musicStarted = false;
 
     public LevelSelectScreen(MyGdxGame game) {
         this.game = game;
@@ -530,6 +533,12 @@ public class LevelSelectScreen implements Screen {
 
     @Override
     public void render(float delta) {
+        // Start music on first render if not already started
+        if (!musicStarted) {
+            BackgroundMusicManager.getInstance().playScreenMusic();
+            musicStarted = true;
+        }
+        
         Gdx.gl.glClearColor(0.15f, 0.15f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         // Poll mouse position once and update all level hover states immediately (no per-frame allocations)
