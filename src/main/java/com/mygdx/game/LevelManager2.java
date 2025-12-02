@@ -239,6 +239,48 @@ public class LevelManager2 implements ILevelManager {
             }
         } catch (Exception ignored) {}
 
+        // Hard clamp player position to prevent going through walls at screen edges
+        if (player != null && player.getBounds() != null) {
+            Rectangle pb = player.getBounds();
+            float minAllowedX = 0f;
+            float maxAllowedX = Gdx.graphics.getWidth() - pb.width;
+            
+            for (Rectangle platform : platforms) {
+                if (platform.height > 20) {
+                    if (platform.x < 50) {
+                        minAllowedX = Math.max(minAllowedX, platform.x + platform.width);
+                    }
+                    if (platform.x > Gdx.graphics.getWidth() - 200) {
+                        maxAllowedX = Math.min(maxAllowedX, platform.x - pb.width);
+                    }
+                    if (platform.x >= 50 && platform.x <= Gdx.graphics.getWidth() - 200) {
+                        if (pb.x + pb.width > platform.x && pb.x < platform.x + platform.width) {
+                            if (pb.y < platform.y + platform.height && pb.y + pb.height > platform.y) {
+                                float overlapLeft = (pb.x + pb.width) - platform.x;
+                                float overlapRight = (platform.x + platform.width) - pb.x;
+                                if (overlapLeft < overlapRight) {
+                                    pb.x = platform.x - pb.width;
+                                    player.setVelocityX(0f);
+                                } else {
+                                    pb.x = platform.x + platform.width;
+                                    player.setVelocityX(0f);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (pb.x < minAllowedX) {
+                pb.x = minAllowedX;
+                player.setVelocityX(0f);
+            }
+            if (pb.x > maxAllowedX) {
+                pb.x = maxAllowedX;
+                player.setVelocityX(0f);
+            }
+        }
+
         checkPlatformCollisions(player, deltaTime);
 
         player.setSlowed(false);
@@ -439,6 +481,28 @@ public class LevelManager2 implements ILevelManager {
             float bottom = Math.max(p.y, platform.y);
             float overlapY = top - bottom;
             if (overlapY <= 0f) continue;
+            
+            // Check if moving horizontally and overlapping the wall
+            if (Math.abs(vx) > 0.1f) {
+                float currentLeft = p.x;
+                float currentRight = p.x + p.width;
+                float wallLeft = platform.x;
+                float wallRight = platform.x + platform.width;
+                
+                // Moving right into left side of wall
+                if (vx > 0 && currentRight > wallLeft && prevRight <= wallLeft + H_EPS) {
+                    p.x = wallLeft - p.width - H_EPS;
+                    player.setVelocityX(0f);
+                    return;
+                }
+                // Moving left into right side of wall
+                if (vx < 0 && currentLeft < wallRight && prevLeft >= wallRight - H_EPS) {
+                    p.x = wallRight + H_EPS;
+                    player.setVelocityX(0f);
+                    return;
+                }
+            }
+            
             if (prevRight <= platform.x + H_EPS && (p.x + p.width) > platform.x + H_EPS) {
                 p.x = platform.x - p.width - H_EPS;
                 player.setVelocityX(0f);
@@ -448,6 +512,21 @@ public class LevelManager2 implements ILevelManager {
                 p.x = platform.x + platform.width + H_EPS;
                 player.setVelocityX(0f);
                 return;
+            }
+            
+            // Additional check: if already overlapping, push out to nearest side
+            float overlapLeft = (p.x + p.width) - platform.x;
+            float overlapRight = (platform.x + platform.width) - p.x;
+            if (overlapLeft > 0 && overlapRight > 0) {
+                if (overlapLeft < overlapRight) {
+                    p.x = platform.x - p.width - H_EPS;
+                    player.setVelocityX(0f);
+                    return;
+                } else {
+                    p.x = platform.x + platform.width + H_EPS;
+                    player.setVelocityX(0f);
+                    return;
+                }
             }
         }
     }
@@ -470,10 +549,16 @@ public class LevelManager2 implements ILevelManager {
             batch.end();
 
             if (sharedShredder != null) {
-                batch.begin();
-                try { sharedShredder.update(Gdx.graphics.getDeltaTime()); } catch (Exception ignored) {}
-                try { sharedShredder.render(batch); } catch (Exception ignored) {}
-                batch.end();
+                // Don't render shredder for Level3 until it transitions to Level3_1
+                boolean isLevel3Only = (currentLevelA != null && 
+                                       currentLevelA.getClass().getSimpleName().equals("Level3") && 
+                                       currentLevelB == null);
+                if (!isLevel3Only) {
+                    batch.begin();
+                    try { sharedShredder.update(Gdx.graphics.getDeltaTime()); } catch (Exception ignored) {}
+                    try { sharedShredder.render(batch); } catch (Exception ignored) {}
+                    batch.end();
+                }
             }
         }
 
@@ -500,13 +585,19 @@ public class LevelManager2 implements ILevelManager {
         }
 
         if (shredder != null) {
-            if (documentsCollected >= totalDocuments) {
-                shapeRenderer.setColor(0f, 1f, 0f, 0f);
-            } else {
-                shapeRenderer.setColor(0.5f, 0.5f, 0.5f, 0f);
+            // Don't render shredder for Level3 until it transitions to Level3_1
+            boolean isLevel3Only = (currentLevelA != null && 
+                                   currentLevelA.getClass().getSimpleName().equals("Level3") && 
+                                   currentLevelB == null);
+            if (!isLevel3Only) {
+                if (documentsCollected >= totalDocuments) {
+                    shapeRenderer.setColor(0f, 1f, 0f, 0f);
+                } else {
+                    shapeRenderer.setColor(0.5f, 0.5f, 0.5f, 0f);
+                }
+                shapeRenderer.rect(shredder.x, shredder.y, shredder.width, shredder.height);
+                shapeRenderer.setColor(1f, 1f, 1f, 1f);
             }
-            shapeRenderer.rect(shredder.x, shredder.y, shredder.width, shredder.height);
-            shapeRenderer.setColor(1f, 1f, 1f, 1f);
         }
 
         shapeRenderer.end();
@@ -544,6 +635,31 @@ public class LevelManager2 implements ILevelManager {
 
     // Merge two maps into the manager (mapB can be null)
     public void loadTwoMaps(Level levelA, Level levelB) {
+        // Check if we're reloading the same level pair (e.g., Level3 + Level3_1 transition)
+        // If so, preserve the document count to maintain continuity
+        boolean isSameLevelPair = false;
+        int preservedDocCount = 0;
+        
+        // Check for Level3/Level3_1 transitions (special case for single->dual map transitions)
+        if (currentLevelA != null && levelA != null) {
+            String oldClassA = currentLevelA.getClass().getSimpleName();
+            String oldClassB = currentLevelB != null ? currentLevelB.getClass().getSimpleName() : "";
+            String newClassA = levelA.getClass().getSimpleName();
+            String newClassB = levelB != null ? levelB.getClass().getSimpleName() : "";
+            
+            // Check if both involve Level3 and Level3_1 (in any combination)
+            boolean hasLevel3 = oldClassA.equals("Level3") || oldClassB.equals("Level3") || 
+                               newClassA.equals("Level3") || newClassB.equals("Level3");
+            boolean hasLevel3_1 = oldClassA.equals("Level3_1") || oldClassB.equals("Level3_1") || 
+                                 newClassA.equals("Level3_1") || newClassB.equals("Level3_1");
+            
+            if (hasLevel3 && hasLevel3_1) {
+                isSameLevelPair = true;
+                preservedDocCount = documentsCollected;
+                Gdx.app.log("LevelManager2", "Preserving document count (" + preservedDocCount + ") for Level3/Level3_1 transition");
+            }
+        }
+        
         // dispose old background if present
         if (backgroundTex != null) {
             backgroundTex.dispose();
@@ -558,18 +674,65 @@ public class LevelManager2 implements ILevelManager {
         try { if (levelA != null) levelA.init(); } catch (Exception ignored) {}
         try { if (levelB != null) levelB.init(); } catch (Exception ignored) {}
 
-        // clear and merge lists from both levels (prefer non-null lists)
-        documents.clear();
+        // For same level pair transitions, preserve the documents array (already collected docs removed)
+        // Only merge new documents from levelB
+        if (isSameLevelPair && levelB != null) {
+            // Keep existing documents array (with collected docs already removed)
+            // Only add new documents from levelB that aren't already in the list
+            try {
+                Array<Rectangle> docsB = levelB.getDocuments();
+                if (docsB != null) {
+                    for (Rectangle r : docsB) {
+                        boolean exists = false;
+                        for (Rectangle ex : documents) {
+                            float dx = Math.abs((ex.x + ex.width/2f) - (r.x + r.width/2f));
+                            float dy = Math.abs((ex.y + ex.height/2f) - (r.y + r.height/2f));
+                            if (dx < 6f && dy < 6f) { exists = true; break; }
+                        }
+                        if (!exists) documents.add(new Rectangle(r));
+                    }
+                }
+            } catch (Exception ignored) {}
+        } else {
+            // New level load: clear and merge lists from both levels
+            documents.clear();
+            try {
+                if (levelA != null) {
+                    Array<Rectangle> docs = levelA.getDocuments();
+                    if (docs != null) documents.addAll(docs);
+                }
+            } catch (Exception ignored) {}
+            try {
+                if (levelB != null) {
+                    Array<Rectangle> docs = levelB.getDocuments();
+                    if (docs != null) {
+                        // avoid exact duplicates (by center proximity)
+                        for (Rectangle r : docs) {
+                            boolean dup = false;
+                            for (Rectangle ex : documents) {
+                                float dx = Math.abs((ex.x + ex.width/2f) - (r.x + r.width/2f));
+                                float dy = Math.abs((ex.y + ex.height/2f) - (r.y + r.height/2f));
+                                if (dx < 6f && dy < 6f) { dup = true; break; }
+                            }
+                            if (!dup) documents.add(new Rectangle(r));
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // Always clear and reload platforms, obstacles, beams
         platforms.clear();
         obstacles.clear();
         auditorBeams.clear();
 
         try {
             if (levelA != null) {
-                Array<Rectangle> docs = levelA.getDocuments();
-                if (docs != null) documents.addAll(docs);
-                Array<Rectangle> plats = levelA.getPlatforms();
-                if (plats != null) platforms.addAll(plats);
+                // Only add levelA platforms if levelB is null (not transitioning)
+                if (levelB == null) {
+                    Array<Rectangle> plats = levelA.getPlatforms();
+                    if (plats != null) platforms.addAll(plats);
+                }
                 Array<Rectangle> obs = levelA.getObstacles();
                 if (obs != null) obstacles.addAll(obs);
                 Array<Rectangle> beams = levelA.getAuditorBeams();
@@ -579,19 +742,7 @@ public class LevelManager2 implements ILevelManager {
 
         try {
             if (levelB != null) {
-                Array<Rectangle> docs = levelB.getDocuments();
-                if (docs != null) {
-                    // avoid exact duplicates (by center proximity)
-                    for (Rectangle r : docs) {
-                        boolean dup = false;
-                        for (Rectangle ex : documents) {
-                            float dx = Math.abs((ex.x + ex.width/2f) - (r.x + r.width/2f));
-                            float dy = Math.abs((ex.y + ex.height/2f) - (r.y + r.height/2f));
-                            if (dx < 6f && dy < 6f) { dup = true; break; }
-                        }
-                        if (!dup) documents.add(new Rectangle(r));
-                    }
-                }
+                // Use levelB platforms exclusively (replace levelA platforms)
                 Array<Rectangle> plats = levelB.getPlatforms();
                 if (plats != null) platforms.addAll(plats);
                 Array<Rectangle> obs = levelB.getObstacles();
@@ -604,7 +755,9 @@ public class LevelManager2 implements ILevelManager {
         // choose shredder: prefer B then A; if both null use default manager's placement
         shredder = getLevelShredder(levelB);
         if (shredder == null) shredder = getLevelShredder(levelA);
-        if (shredder == null) placeShredder();
+        // Only place a default shredder if both levels are loaded (levelB != null)
+        // For single-map loads that will transition later, don't create a shredder yet
+        if (shredder == null && levelB != null) placeShredder();
 
         // Setup shared shredder visual
         try {
@@ -653,7 +806,26 @@ public class LevelManager2 implements ILevelManager {
         }
 
         totalDocuments = documents.size;
-        documentsCollected = 0;
+        
+        // If the level reports a different total (e.g., for multi-map levels), use that instead
+        try {
+            if (levelA != null) {
+                int levelTotal = levelA.getTotalDocuments();
+                if (levelTotal > 0 && levelTotal != documents.size) {
+                    totalDocuments = levelTotal;
+                    Gdx.app.log("LevelManager2", "Using level's reported total: " + totalDocuments + " (instead of " + documents.size + ")");
+                }
+            }
+        } catch (Exception ignored) {}
+        
+        // Restore document count if we're reloading the same level pair
+        if (isSameLevelPair) {
+            documentsCollected = Math.min(preservedDocCount, totalDocuments);
+            Gdx.app.log("LevelManager2", "Restored document count: " + documentsCollected + "/" + totalDocuments);
+        } else {
+            documentsCollected = 0;
+        }
+        
         levelComplete = false;
         Gdx.app.log("LevelManager2", "Loaded two-map level: totalDocs=" + totalDocuments);
     }

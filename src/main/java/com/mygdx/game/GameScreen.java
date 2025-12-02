@@ -20,8 +20,10 @@ import com.mygdx.game.Levels.Level;
 import com.mygdx.game.Levels.Level1;
 import com.mygdx.game.Levels.Level2;
 import com.mygdx.game.Levels.Level3;
+import com.mygdx.game.Levels.Level3_1;
 import com.mygdx.game.Levels.Level4;
 import com.mygdx.game.Levels.Level5;
+import com.mygdx.game.Levels.Level5_1;
 
 /**
  * GameScreen with Level progression (1-5), level select, and completion notifications
@@ -38,6 +40,7 @@ public class GameScreen implements Screen {
 
     // Game logic
     private LevelManager levelManager;
+    private LevelManager2 levelManager2;
     private Fixer fixer;
     private ShapeRenderer shapeRenderer;
     private OrthographicCamera camera;
@@ -168,7 +171,6 @@ public class GameScreen implements Screen {
             Gdx.app.log("GameScreen", "show() called but already initialized - skipping re-init");
             return;
         }
-         levelManager = new LevelManager();
         
         // Load level based on currentLevel
         Level level = null;
@@ -182,8 +184,21 @@ public class GameScreen implements Screen {
             default: level = new Level1(); break;
         }
         
-        if (level != null) {
-            levelManager.loadLevel(level);
+        // Use LevelManager2 for multi-map levels (3 and 5) to enable map transitions with shared progress
+        if (currentLevel == 3 || currentLevel == 5) {
+            levelManager = null;
+            levelManager2 = new LevelManager2();
+            // Load only the first map initially - the level will handle transitioning to the second map
+            if (level != null) {
+                levelManager2.loadLevel(level);
+            }
+        } else {
+            // Use regular LevelManager for single-map levels
+            levelManager2 = null;
+            levelManager = new LevelManager();
+            if (level != null) {
+                levelManager.loadLevel(level);
+            }
         }
 
         // Ensure raw keyboard input is delivered to Fixer (prevents UI stage or other processors
@@ -213,6 +228,14 @@ public class GameScreen implements Screen {
                 } else if (currentLevel == 3 && level instanceof Level3) {
                     try {
                         float[] sp = ((Level3)level).getEntranceSpawn();
+                        if (sp != null && sp.length >= 2) fixer.reset(sp[0], sp[1]);
+                        else fixer.reset(100, 0);
+                    } catch (Exception e) {
+                        fixer.reset(100, 0);
+                    }
+                } else if (currentLevel == 4 && level instanceof Level4) {
+                    try {
+                        float[] sp = ((Level4)level).getEntranceSpawn();
                         if (sp != null && sp.length >= 2) fixer.reset(sp[0], sp[1]);
                         else fixer.reset(100, 0);
                     } catch (Exception e) {
@@ -467,6 +490,7 @@ public class GameScreen implements Screen {
         // Then collision resolution
         float timePenalty = 0f;
         if (levelManager != null) timePenalty = levelManager.update(deltaTime, fixer);
+        else if (levelManager2 != null) timePenalty = levelManager2.update(deltaTime, fixer);
         
         remainingTime -= (deltaTime + timePenalty);
         if (remainingTime <= 0) {
@@ -475,8 +499,12 @@ public class GameScreen implements Screen {
         }
         
         // Update UI labels
-        if (docsLabel != null && levelManager != null) {
-            docsLabel.setText("Documents: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments());
+        if (docsLabel != null) {
+            if (levelManager != null) {
+                docsLabel.setText("Documents: " + levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments());
+            } else if (levelManager2 != null) {
+                docsLabel.setText("Documents: " + levelManager2.getDocumentsCollected() + "/" + levelManager2.getTotalDocuments());
+            }
         }
         if (timeLabel != null) {
             int minutes = (int) (remainingTime / 60);
@@ -485,7 +513,8 @@ public class GameScreen implements Screen {
         }
         
         // Check win condition
-        if (levelManager != null && levelManager.isLevelComplete()) {
+        if ((levelManager != null && levelManager.isLevelComplete()) || 
+            (levelManager2 != null && levelManager2.isLevelComplete())) {
             levelComplete();
         }
     }
@@ -501,6 +530,8 @@ public class GameScreen implements Screen {
         // Render level (background, level FX, etc.)
         if (levelManager != null) {
             levelManager.render(shapeRenderer, game.batch, game.font);
+        } else if (levelManager2 != null) {
+            levelManager2.render(shapeRenderer, game.batch, game.font);
         }
 
 
@@ -845,6 +876,10 @@ public class GameScreen implements Screen {
         com.badlogic.gdx.graphics.g2d.GlyphLayout glDoc = null;
         if (levelManager != null) {
             docText = levelManager.getDocumentsCollected() + "/" + levelManager.getTotalDocuments();
+        } else if (levelManager2 != null) {
+            docText = levelManager2.getDocumentsCollected() + "/" + levelManager2.getTotalDocuments();
+        }
+        if (!docText.isEmpty()) {
             // Draw the text at the fixed baseline so it does not move when the icon Y changes
             float textY = docTextBaselineY + iconSize / 2 + 8;
             if (docFont != null) {
@@ -1340,6 +1375,7 @@ public class GameScreen implements Screen {
     @Override
     public void dispose() {
         if (levelManager != null) levelManager.dispose();
+        if (levelManager2 != null) levelManager2.dispose();
         if (shapeRenderer != null) shapeRenderer.dispose();
         if (uiStage != null) uiStage.dispose();
         if (uiSkin != null) uiSkin.dispose();

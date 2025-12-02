@@ -74,6 +74,26 @@ public class Level1 implements Level, BackgroundedLevel {
          documents.add(new Rectangle(350, 270, DOC_SIZE, DOC_SIZE));
 
 
+        // === WALLS (solid barriers that block player movement) ===
+        // Using platforms array because it provides solid collision blocking
+        
+        // Left boundary wall (full height)
+        platforms.add(new Rectangle(0, 0, 15, h));
+        
+        // Right boundary wall (full height) - starts at w-50 to match image wall position
+        platforms.add(new Rectangle(w - 50, 0, 50, h));
+        
+        // Top ceiling wall
+        platforms.add(new Rectangle(0, h - 15, w, 15));
+        
+      
+        // Between floor 1 middle and right
+        platforms.add(new Rectangle(910, 4, 15, 18)); // short wall at floor 1
+        
+        // Wall for floor 4 right edge
+        platforms.add(new Rectangle(1215, 560, 15, 240)); // from floor 4 to top
+
+
         //obstacles.add(new Rectangle(250, 150, 60, 10));
         //obstacles.add(new Rectangle(w - 300, 250, 60, 10));
 
