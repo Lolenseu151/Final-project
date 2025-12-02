@@ -20,7 +20,8 @@ public class Level2 implements Level, BackgroundedLevel {
     private final Array<Rectangle> documents = new Array<>();
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
-        private Rectangle shredder;
+    private final Array<Rectangle> beams = new Array<>();
+    private Rectangle shredder;
     // use explicit position/size for visual shredder (no rectangle placeholder)
     private float shredderX = 1000f;
     private float shredderY = 415f;
@@ -71,7 +72,9 @@ public class Level2 implements Level, BackgroundedLevel {
         documents.clear();
         platforms.clear();
         obstacles.clear();
-                    // dispose JS textures if any
+        beams.clear();
+
+            // dispose JS textures if any
             try {
                 if (jsFrames != null) {
                     for (TextureRegion tr : jsFrames) {
@@ -205,7 +208,7 @@ public class Level2 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-    
+   
 
     // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
     // If your collision code relies on getShredder(), update it to call getShredderCollisionRect().
