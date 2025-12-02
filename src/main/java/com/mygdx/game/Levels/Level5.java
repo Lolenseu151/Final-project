@@ -164,14 +164,14 @@ public class Level5 implements Level, BackgroundedLevel {
 
     // Provide entrance spawn positions so GameScreen can set initial player position
     public float[] getEntranceSpawn() {
-        // Spawn player at the center of the top platform (near the door with clock)
-        if (platforms.size >= 4) {
-            Rectangle topPlatform = platforms.get(3);  // FLOOR 4 (top platform at y=560)
-            float x = 640f;                            // center of screen (1280/2)
-            float y = topPlatform.y + topPlatform.height; // player feet on top of platform
+        // Spawn player on the first floor platform inside house
+        if (platforms.size > 0) {
+            Rectangle firstFloor = platforms.get(0);
+            float x = 200f;                           // left side position
+            float y = firstFloor.y + firstFloor.height; // player bottom edge at platform top
             return new float[]{ x, y };
         }
-        return new float[]{ 640f, 580f };
+        return new float[]{ 200f, 500f };
     }
 
     public float[] getReturnSpawn() {

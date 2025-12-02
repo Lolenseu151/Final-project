@@ -18,7 +18,8 @@ public class Level3 implements Level, BackgroundedLevel {
     private final Array<Rectangle> documents = new Array<>();
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
-        private Rectangle shredder;
+    private final Array<Rectangle> lasers = new Array<>();
+    private Rectangle shredder;
     // Shredder position/size matching Level3_1 for consistency
     private float shredderX = 250f;
     private float shredderY = 590f;
@@ -46,6 +47,7 @@ public class Level3 implements Level, BackgroundedLevel {
         documents.clear();
         platforms.clear();
         obstacles.clear();
+        lasers.clear();
                 
         float w = 1280;
         float h = 800;
@@ -95,6 +97,10 @@ public class Level3 implements Level, BackgroundedLevel {
         // added so Level3 has 5 docs total
         documents.add(new Rectangle(600, 120, DOC_SIZE, DOC_SIZE));
 
+        // Laser (cyan, semi-transparent) - adjustable position for gameplay
+        // NOTE: This laser is only shown when playing Level3 standalone
+        // When transitioning to Level3_1, only Level3_1's 2 lasers are shown
+        lasers.add(new Rectangle(400, 265, 70, 170));
 
         // Keep the rectangle for gameplay/collision, but we'll draw the animated shredder over it
         // shredder = new Rectangle(80, 420, 50, 50);
@@ -110,7 +116,7 @@ public class Level3 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-    
+    @Override public Array<Rectangle> getLasers() { return lasers; }
 
     @Override public Rectangle getShredder() { return shredder; }
 
@@ -186,10 +192,10 @@ public class Level3 implements Level, BackgroundedLevel {
         if (platforms.size > 0) {
             Rectangle p = platforms.get(0);          // first-floor platform
             float x = p.x + 100f;                    // spawn further right on the platform
-            float y = p.y + p.height + 500f;               // player feet exactly on top of platform
+            float y = p.y + p.height;                // player bottom edge at platform top
             return new float[]{ x, y };
         }
-        return new float[]{ 200f, 100f };
+        return new float[]{ 200f, 500f };
     }
 
     public float[] getReturnSpawn() {
