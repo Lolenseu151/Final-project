@@ -203,4 +203,9 @@ public class Level5_1 implements Level, BackgroundedLevel {
         // shared shredder visuals are handled by LevelManager (no per-level shredder draw)
     }
 
+    @Override
+    public String getMusicPath() {
+        return "assets/Sounds/Level Music.mp3";
+    }
+
 }
