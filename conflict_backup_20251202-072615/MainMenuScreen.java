@@ -29,7 +29,6 @@ public class MainMenuScreen implements Screen {
     private final ShapeRenderer shapeRenderer;
         private BitmapFont titleFont;
         private BitmapFont buttonFont;
-        private Texture titleFontTexture;
         // Fixed title font size for pixel look
         private String foundTtfPath = null;
         private final int titleFontSize = 64;
@@ -48,6 +47,8 @@ public class MainMenuScreen implements Screen {
     private float runAnimTime = 0f;
     // number of columns in the loaded run sprite sheet (detected at runtime)
     private int runColumns = 8;
+<<<<<<< HEAD
+=======
 
     // NEW: cat runner
     private Texture catTexture;
@@ -77,12 +78,13 @@ public class MainMenuScreen implements Screen {
     private float birdX = Float.NaN;
     private float birdY = Float.NaN;
     private float birdSpeed = 45f; // pixels/sec
-    // NEW: horizontal runner state ΓÇö moves left->right, then resets after a delay
+    // NEW: horizontal runner state — moves left->right, then resets after a delay
     private float runX = Float.NaN;            // current x position (initialised on first draw)
     private float runSpeed = 260f;             // pixels per second
     private float runRestartDelay = 0.9f;      // seconds to wait after reaching end before restarting
     private float runPauseTimer = 0f;          // countdown when paused
     private boolean runPaused = false;         // true while waiting to restart
+>>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
     // Menu animation tuning (slower motion for main menu)
     private final float MENU_RUN_FRAME_DURATION = 0.16f; // longer frame -> slower animation
     private final float MENU_RUN_SPEED_FACTOR = 0.6f;    // scale applied to delta when advancing time
@@ -104,17 +106,9 @@ public class MainMenuScreen implements Screen {
     // desired height in pixels (used when RUN_SIZE_MODE_DESIRED_H)
     private final float RUN_DESIRED_HEIGHT = 96f;
     // screen-relative height (fraction of screen height) used when RUN_SIZE_MODE_SCREEN_REL
-    private final float RUN_SCREEN_HEIGHT_RATIO = 0.23f; // reduced so character is smaller on the menu
+    private final float RUN_SCREEN_HEIGHT_RATIO = 0.30f; // 25% of screen height (increased)
     // Button font scale (1.0 = normal). Set to 0.9 as requested.
     private final float BUTTON_FONT_SCALE = 0.7f;
-    // Scale multiplier for the custom Start button image.
-    // Edit this value to change how large the button images draw on-screen.
-    //  - 1.0 = native image pixel size
-    //  - >1.0 increases size, <1.0 reduces size
-    // The available area is further limited by `BOX_W`/`BOX_H` (adjust those
-    // if you want a larger hit/placement box for the button). The rendering
-    // code preserves the image aspect ratio and will not stretch images.
-    private final float START_BUTTON_SCALE = 2.0f;
     
     private enum MenuOption {
         START_GAME,
@@ -153,37 +147,6 @@ public class MainMenuScreen implements Screen {
         }
 
         boolean generated = false;
-
-        // PRIORITY: try the Gradient Pexilify bitmap font first so it overrides other fallbacks
-        try {
-            String gradFnt = "fonts/Gradient/Gradient pexilify.fnt";
-            String gradPng = "fonts/Gradient/Gradient pexilify.png";
-            FileHandle fntHandle = null;
-            FileHandle pngHandle = null;
-            if (Gdx.files.internal(gradFnt).exists() && Gdx.files.internal(gradPng).exists()) {
-                fntHandle = Gdx.files.internal(gradFnt);
-                pngHandle = Gdx.files.internal(gradPng);
-            } else {
-                String userDir = System.getProperty("user.dir");
-                String absFnt = userDir + "/assets/" + gradFnt;
-                String absPng = userDir + "/assets/" + gradPng;
-                if (Gdx.files.absolute(absFnt).exists() && Gdx.files.absolute(absPng).exists()) {
-                    fntHandle = Gdx.files.absolute(absFnt);
-                    pngHandle = Gdx.files.absolute(absPng);
-                }
-            }
-            if (fntHandle != null && pngHandle != null) {
-                if (titleFont != null) { try { titleFont.dispose(); } catch (Exception ignored) {} titleFont = null; }
-                if (titleFontTexture != null) { try { titleFontTexture.dispose(); } catch (Exception ignored) {} titleFontTexture = null; }
-                titleFontTexture = new Texture(pngHandle);
-                titleFontTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                titleFont = new BitmapFont(fntHandle, new TextureRegion(titleFontTexture), false);
-                generated = true;
-                Gdx.app.log("MainMenuScreen", "Loaded Gradient title font (priority) from: " + gradFnt);
-            }
-        } catch (Exception e) {
-            Gdx.app.error("MainMenuScreen", "Error while attempting to load Gradient title font (priority)", e);
-        }
         for (String ttfPath : candidates) {
             Gdx.app.log("MainMenuScreen", "Checking for TTF at: " + ttfPath);
             if (Gdx.files.internal(ttfPath).exists()) {
@@ -297,32 +260,6 @@ public class MainMenuScreen implements Screen {
                 titleFont = null;
             }
         }
-        // Try loading the Gradient Pexilify font (.fnt + .png) from assets/fonts/Gradient
-        if (!generated) {
-            String gradFnt = "fonts/Gradient/Gradient pexilify.fnt";
-            String gradPng = "fonts/Gradient/Gradient pexilify.png";
-            try {
-                boolean fntExists = Gdx.files.internal(gradFnt).exists() || Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradFnt).exists();
-                boolean pngExists = Gdx.files.internal(gradPng).exists() || Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradPng).exists();
-                if (fntExists && pngExists) {
-                    // prefer internal if available
-                    FileHandle fntHandle = Gdx.files.internal(gradFnt).exists() ? Gdx.files.internal(gradFnt) : Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradFnt);
-                    FileHandle pngHandle = Gdx.files.internal(gradPng).exists() ? Gdx.files.internal(gradPng) : Gdx.files.absolute(System.getProperty("user.dir") + "/assets/" + gradPng);
-                    titleFontTexture = new Texture(pngHandle);
-                    titleFontTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-                    titleFont = new BitmapFont(fntHandle, new TextureRegion(titleFontTexture), false);
-                    generated = true;
-                    Gdx.app.log("MainMenuScreen", "Loaded Gradient title font from: " + gradFnt);
-                } else {
-                    Gdx.app.log("MainMenuScreen", "Gradient font files not found at: " + gradFnt + " / " + gradPng);
-                }
-            } catch (Exception e) {
-                Gdx.app.error("MainMenuScreen", "Failed to load Gradient title font", e);
-                // ensure titleFont null so fallback continues
-                titleFont = null;
-                if (titleFontTexture != null) { try { titleFontTexture.dispose(); } catch (Exception ignored) {} titleFontTexture = null; }
-            }
-        }
         // If no pixel font was created, force the default font to nearest filtering so scaled text appears pixelated
         if (titleFont == null && game.font != null && game.font.getRegion() != null && game.font.getRegion().getTexture() != null) {
             game.font.getRegion().getTexture().setFilter(TextureFilter.Nearest, TextureFilter.Nearest);
@@ -381,7 +318,7 @@ public class MainMenuScreen implements Screen {
             } else {
                 // fallback to absolute path under project assets
                 String userDir = System.getProperty("user.dir");
-                String abs = userDir + "/assets/MainScreenfx/" + internalName;
+                String abs = userDir + "/assets/" + internalName;
                 if (Gdx.files.absolute(abs).exists()) runHandle = Gdx.files.absolute(abs);
             }
 
@@ -404,6 +341,8 @@ public class MainMenuScreen implements Screen {
             runAnimation = null;
             runTexture = null;
         }
+<<<<<<< HEAD
+=======
 
         // NEW: Load cat runner sprite sheet (Catrun.png)
         try {
@@ -629,49 +568,7 @@ public class MainMenuScreen implements Screen {
             birdTexture = null;
             birdAnimation = null;
         }
-
-        // Load custom Start/Tutorial/Settings button images from `assets/Start/`.
-        // Mapping (files under assets/Start):
-        //  1.png = Tutorial (base), 2.png = Tutorial (hover)
-        //  3.png = Start game (base), 4.png = Start game (hover)
-        //  5.png = Settings (base), 6.png = Settings (hover)
-        try {
-            String baseDir = "Start/";
-
-            // helper to try internal then absolute
-            java.util.function.Function<String, Texture> loadTex = (rel) -> {
-                try {
-                    if (Gdx.files.internal(rel).exists()) return new Texture(Gdx.files.internal(rel));
-                    String userDir = System.getProperty("user.dir");
-                    String abs = userDir + "/assets/" + rel;
-                    if (Gdx.files.absolute(abs).exists()) return new Texture(Gdx.files.absolute(abs));
-                } catch (Exception ignored) {}
-                return null;
-            };
-
-            // tutorial
-            tutorialButtonTexture = loadTex.apply(baseDir + "1.png");
-            tutorialButtonHoverTexture = loadTex.apply(baseDir + "2.png");
-            // start
-            startButtonTexture = loadTex.apply(baseDir + "3.png");
-            startButtonHoverTexture = loadTex.apply(baseDir + "4.png");
-            // settings
-            settingsButtonTexture = loadTex.apply(baseDir + "5.png");
-            settingsButtonHoverTexture = loadTex.apply(baseDir + "6.png");
-
-            // Apply smoothing filter so scaling looks good while preserving aspect
-            Texture[] texs = new Texture[] { tutorialButtonTexture, tutorialButtonHoverTexture,
-                startButtonTexture, startButtonHoverTexture, settingsButtonTexture, settingsButtonHoverTexture };
-            for (Texture t : texs) {
-                if (t != null) t.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-            }
-
-            Gdx.app.log("MainMenuScreen", "Loaded Start button images (if present) from assets/Start/");
-        } catch (Exception e) {
-            Gdx.app.error("MainMenuScreen", "Error loading Start button images", e);
-            // ensure any partial textures are nulled so dispose is safe
-            // (the individual loaders above already return null on failure)
-        }
+>>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
     }
 
     private void generateTitleFontWithSize(int size) {
@@ -721,13 +618,6 @@ public class MainMenuScreen implements Screen {
         // Clear screen
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-
-        // Draw background if available (stretched to fill window)
-        if (backgroundTex != null) {
-            game.batch.begin();
-            game.batch.draw(backgroundTex, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-            game.batch.end();
-        }
         
         drawMenu();
     }
@@ -852,7 +742,7 @@ public class MainMenuScreen implements Screen {
         // Draw menu background panels
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         
-        // Title background removed ΓÇö text will be drawn without a panel
+        // Title background removed — text will be drawn without a panel
         
         // Menu options backgrounds
         drawMenuOptionBox(centerX, centerY + MENU_TOP_OFFSET, MenuOption.START_GAME);
@@ -889,13 +779,14 @@ public class MainMenuScreen implements Screen {
         }
         // Draw running character animation between the title and the buttons, scaled with a small bounce
         if (runAnimation != null) {
-            // compute animation time (we pause advancing the runner's animation while in the restart delay)
-            if (!runPaused) runAnimTime += Gdx.graphics.getDeltaTime();
+            // apply a slowed menu time so the animation appears slower in the menu
             float menuTime = runAnimTime * MENU_RUN_SPEED_FACTOR;
             TextureRegion frame = runAnimation.getKeyFrame(menuTime, true);
             float fw = frame.getRegionWidth();
             float fh = frame.getRegionHeight();
-            // determine draw size preserving existing sizing modes
+            // fixed base Y (centerY + RUN_Y_OFFSET) and small sinusoidal bounce
+            float bounce = (float)Math.sin(menuTime * RUN_BOUNCE_SPEED) * RUN_BOUNCE_AMPLITUDE;
+
             float drawW;
             float drawH;
             switch (RUN_SIZE_MODE) {
@@ -917,121 +808,11 @@ public class MainMenuScreen implements Screen {
                     drawH = fh * RUN_SCALE;
                     break;
             }
-
-            // prepare cat draw sizes using the same sizing mode but scaled down
-            float catDrawW = drawW * catScaleMultiplier;
-            float catDrawH = drawH * catScaleMultiplier;
-            float catGap = -15f; // smaller horizontal gap so cat runs closer to the runner
-
-            // initialize runX and catX on first draw so we know draw sizes
-            if (Float.isNaN(runX)) {
-                runX = -drawW - 5f; // start a little off-screen left
-                catX = runX - (catDrawW + catGap);
-                runPaused = false;
-                runPauseTimer = 0f;
-            }
-
-            // handle pause / restart timer
-            if (runPaused) {
-                runPauseTimer -= Gdx.graphics.getDeltaTime();
-                if (runPauseTimer <= 0f) {
-                    // restart from left
-                    runX = -drawW - 10f;
-                    catX = runX - (catDrawW + catGap);
-                    runPaused = false;
-                    // reset animation time so motion looks consistent
-                    runAnimTime = 0f;
-                }
-            } else {
-                // advance horizontal position
-                float delta = Gdx.graphics.getDeltaTime();
-                runX += runSpeed * delta;
-                // keep cat locked to a fixed offset behind the runX (so it follows exactly)
-                catX = runX - (catDrawW + catGap);
-
-                // bounce and vertical placement as before (bounce uses menuTime so it's synced to animation)
-                float bounce = (float)Math.sin(menuTime * RUN_BOUNCE_SPEED) * RUN_BOUNCE_AMPLITUDE;
-                float drawY = centerY + RUN_Y_OFFSET + bounce;
-
-                // draw cat behind runner if available
-                if (catAnimation != null) {
-                    TextureRegion cframe = catAnimation.getKeyFrame(menuTime, true);
-                    // use drawY (runner bottom) as the cat baseline so feet line up;
-                    // catYOffset remains available for fine tuning if required
-                    float catDrawY = drawY + catYOffset;
-                    game.batch.draw(cframe, catX, catDrawY, catDrawW, catDrawH);
-                }
-
-                // draw main runner
-                game.batch.draw(frame, runX, drawY, drawW, drawH);
-
-                // when the runner fully passes the right edge, start pause before restart
-                float rightEdge = Gdx.graphics.getWidth();
-                if (runX > rightEdge + 10f) {
-                    runPaused = true;
-                    runPauseTimer = runRestartDelay;
-                }
-            }
-        }
-        
-        // NEW: bird drawing (top of screen) ΓÇö use current frame's bounds and explicit target width
-        if (birdTexture != null) {
-            float dt = Gdx.graphics.getDeltaTime();
-            if (birdAnimation != null) birdAnimTime += dt;
-
-            TextureRegion currentFrame = (birdAnimation != null) ? birdAnimation.getKeyFrame(birdAnimTime, true) : null;
-
-            // get frame dims (per-frame preferred)
-            float frameW = currentFrame != null ? currentFrame.getRegionWidth() : (birdFrameW > 0 ? birdFrameW : birdTexture.getWidth());
-            float frameH = currentFrame != null ? currentFrame.getRegionHeight() : (birdFrameH > 0 ? birdFrameH : birdTexture.getHeight());
-
-            // Option B: explicit on-screen width (preferred to avoid including neighbor frames)
-            float targetWidthPx = 16f; // tweak to make bird larger/smaller on screen
-            float drawScale = targetWidthPx / frameW;
-
-            // Bounds derived from the user-drawn line:
-            // leftPercent/rightPercent define the horizontal start/end of the line (0..1 of screen width).
-            // lineYPercent defines vertical position (0..1 from bottom); increase to move bird closer to top.
-            final float leftPercent = 0.06f;   // start of line ~6% from left
-            final float rightPercent = 0.88f;  // end of line ~88% from left
-            final float lineYPercent = 0.92f;  // line vertical position (0 = bottom, 1 = top)
-
-            float screenW = Gdx.graphics.getWidth();
-            float screenH = Gdx.graphics.getHeight();
-            float leftBound = screenW * leftPercent;
-            float rightBound = screenW * rightPercent;
-            // Fallback to full width if computed bounds are invalid
-            if (rightBound <= leftBound + 2f) {
-                leftBound = -frameW * drawScale - 10f;
-                rightBound = screenW + 10f;
-            }
-
-            // vertical placement aligned with line
-            float lineY = screenH * lineYPercent;
-            // offset slightly down so bird sits on/under the line depending on sprite origin
-            float verticalOffset = -4f; // tweak if needed
-            float targetBirdY = lineY + verticalOffset - (frameH * drawScale * 0.5f);
-
-            if (Float.isNaN(birdX) || Float.isNaN(birdY)) {
-                birdX = leftBound - frameW * drawScale - 10f; // start just left of the line start
-                birdY = targetBirdY;
-            }
-
-            birdX += birdSpeed * dt;
-            // wrap when passing rightBound
-            if (birdX > rightBound + 10f) {
-                birdX = leftBound - frameW * drawScale - 10f;
-                // keep vertical in case window resized
-                birdY = targetBirdY;
-            }
-
-            try {
-                if (currentFrame != null) {
-                    game.batch.draw(currentFrame, birdX, birdY, frameW * drawScale, frameH * drawScale);
-                } else {
-                    game.batch.draw(birdTexture, birdX, birdY, frameW * drawScale, frameH * drawScale);
-                }
-            } catch (Exception ignored) {}
+            // Center horizontally, but position vertically using a fixed offset (bottom aligned)
+            float drawX = centerX - (drawW / 2f);
+            // place sprite bottom at centerY + RUN_Y_OFFSET plus bounce
+            float drawY = centerY + RUN_Y_OFFSET + bounce;
+            game.batch.draw(frame, drawX, drawY, drawW, drawH);
         }
         
         
@@ -1052,15 +833,6 @@ public class MainMenuScreen implements Screen {
     }
     
     private void drawMenuOptionBox(float centerX, float y, MenuOption option) {
-        // If the START_GAME/TUTORIAL/SETTINGS option has a custom image, skip drawing the rounded background
-        // but keep ShapeRenderer state consistent by ending and re-beginning.
-        if ((option == MenuOption.START_GAME && startButtonTexture != null) ||
-            (option == MenuOption.TUTORIAL && tutorialButtonTexture != null) ||
-            (option == MenuOption.SETTINGS && settingsButtonTexture != null)) {
-            shapeRenderer.end();
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-            return;
-        }
         // Visual selection is controlled by hover only
         boolean isSelected = (hoveredOption == option);
         float boxW = BOX_W;
@@ -1101,60 +873,6 @@ public class MainMenuScreen implements Screen {
         boolean isSelected = (hoveredOption == option);
         // Choose the button font if available, otherwise fall back to the game's default font
         BitmapFont font = (buttonFont != null) ? buttonFont : game.font;
-        // If user provided Start button textures, draw them for the START_GAME option
-        if (option == MenuOption.START_GAME && startButtonTexture != null) {
-            Texture tex = isSelected && startButtonHoverTexture != null ? startButtonHoverTexture : startButtonTexture;
-            float texW = tex.getWidth();
-            float texH = tex.getHeight();
-            float pad = 6f;
-            float maxW = BOX_W - pad * 2f;
-            float maxH = BOX_H - pad * 2f;
-            float scale = Math.min(maxW / texW, maxH / texH);
-            if (scale <= 0) scale = 1f;
-            scale *= START_BUTTON_SCALE; // apply user-requested increase
-            float drawW = texW * scale;
-            float drawH = texH * scale;
-            float drawX = x - (drawW / 2f);
-            float drawY = y - (drawH / 2f);
-            game.batch.draw(tex, drawX, drawY, drawW, drawH);
-            return;
-        }
-        // Tutorial option uses Start/1.png (base) and Start/2.png (hover)
-        if (option == MenuOption.TUTORIAL && tutorialButtonTexture != null) {
-            Texture tex = isSelected && tutorialButtonHoverTexture != null ? tutorialButtonHoverTexture : tutorialButtonTexture;
-            float texW = tex.getWidth();
-            float texH = tex.getHeight();
-            float pad = 6f;
-            float maxW = BOX_W - pad * 2f;
-            float maxH = BOX_H - pad * 2f;
-            float scale = Math.min(maxW / texW, maxH / texH);
-            if (scale <= 0) scale = 1f;
-            scale *= START_BUTTON_SCALE;
-            float drawW = texW * scale;
-            float drawH = texH * scale;
-            float drawX = x - (drawW / 2f);
-            float drawY = y - (drawH / 2f);
-            game.batch.draw(tex, drawX, drawY, drawW, drawH);
-            return;
-        }
-        // Settings option uses Start/5.png (base) and Start/6.png (hover)
-        if (option == MenuOption.SETTINGS && settingsButtonTexture != null) {
-            Texture tex = isSelected && settingsButtonHoverTexture != null ? settingsButtonHoverTexture : settingsButtonTexture;
-            float texW = tex.getWidth();
-            float texH = tex.getHeight();
-            float pad = 6f;
-            float maxW = BOX_W - pad * 2f;
-            float maxH = BOX_H - pad * 2f;
-            float scale = Math.min(maxW / texW, maxH / texH);
-            if (scale <= 0) scale = 1f;
-            scale *= START_BUTTON_SCALE;
-            float drawW = texW * scale;
-            float drawH = texH * scale;
-            float drawX = x - (drawW / 2f);
-            float drawY = y - (drawH / 2f);
-            game.batch.draw(tex, drawX, drawY, drawW, drawH);
-            return;
-        }
         // apply requested scale while measuring and drawing, then restore previous scale
         float prevScaleX = font.getData().scaleX;
         float prevScaleY = font.getData().scaleY;
@@ -1180,6 +898,7 @@ public class MainMenuScreen implements Screen {
     }
     
     
+    
     @Override
     public void resize(int width, int height) {
         // Update SpriteBatch and ShapeRenderer projection so UI scales with window
@@ -1199,6 +918,12 @@ public class MainMenuScreen implements Screen {
     
     @Override
     public void dispose() {
+<<<<<<< HEAD
+        shapeRenderer.dispose();
+        if (titleFont != null) titleFont.dispose();
+        if (buttonFont != null) buttonFont.dispose();
+        if (runTexture != null) runTexture.dispose();
+=======
         // Dispose renderers
         if (shapeRenderer != null) {
             try { shapeRenderer.dispose(); } catch (Exception ignored) {}
@@ -1238,6 +963,6 @@ public class MainMenuScreen implements Screen {
             settingsButtonHoverTexture.dispose();
             settingsButtonHoverTexture = null;
         }
+>>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
     }
-
 }
