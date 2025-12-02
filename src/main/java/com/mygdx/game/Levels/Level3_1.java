@@ -53,6 +53,28 @@ public class Level3_1 implements Level, BackgroundedLevel {
 
         platforms.add(new Rectangle(220, 583, 455, 20));
 
+        // === VERTICAL WALLS (added to platforms for solid collision) ===
+        // You can delete any wall you don't want by removing/commenting the line
+        
+        // LEFT BOUNDARY WALL - prevents player from going too far left (allow some space for return transition)
+        platforms.add(new Rectangle(195, 65, 20, 540)); // Full height left wall
+        
+        // RIGHT BOUNDARY WALL - prevents player from going off right edge
+        platforms.add(new Rectangle(1235, 65, 20, 540)); // Full height right wall
+        
+        
+        
+        
+        // FLOOR 3 - Left blocking wall
+        platforms.add(new Rectangle(200, 435, 20, 150)); // Wall at left edge of floor 3
+        
+        // FLOOR 3 - Right side wall
+        platforms.add(new Rectangle(880, 435, 20, 120)); // Right wall on floor 3
+        
+        // FLOOR 4 (Top floor) - Left wall near shredder
+        platforms.add(new Rectangle(200, 603, 20, 120)); // Left wall for top section
+        
+
         // documents (keep same count as Level3)
         documents.add(new Rectangle(950, 330, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(760, 150, DOC_SIZE, DOC_SIZE));
@@ -114,12 +136,21 @@ public class Level3_1 implements Level, BackgroundedLevel {
                     try {
                         Level3 original = new Level3();
                         if (lm2 != null) {
-                            lm2.loadTwoMaps(original, this);
+                            // Load Level3 only (no levelB) to return to the first map
+                            lm2.loadTwoMaps(original, null);
+                            float[] sp = original.getReturnSpawn();
+                            if (sp != null && sp.length >= 2) {
+                                player.getBounds().setPosition(sp[0], sp[1]);
+                                player.getVelocity().set(0, 0);
+                            }
                         } else if (levelMgr != null) {
                             levelMgr.loadLevel(original);
+                            float[] sp = original.getReturnSpawn();
+                            if (sp != null && sp.length >= 2) {
+                                player.getBounds().setPosition(sp[0], sp[1]);
+                                player.getVelocity().set(0, 0);
+                            }
                         }
-                        float[] sp = original.getReturnSpawn();
-                        if (sp != null && sp.length >= 2) player.reset(sp[0], sp[1]);
                         Gdx.app.log("Level3_1", "Returned to Level3");
                     } catch (Exception e) {
                         Gdx.app.error("Level3_1", "Failed to return to Level3", e);

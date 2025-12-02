@@ -115,7 +115,31 @@ public class Level2 implements Level, BackgroundedLevel {
         documents.add(new Rectangle(500, 40, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(300, 270, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(350, 270, DOC_SIZE, DOC_SIZE));
-        documents.add(new Rectangle(900, 500, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(900, 580, DOC_SIZE, DOC_SIZE));
+
+
+        // ========== WALLS START - Remove these if not needed ==========
+        
+        // Left boundary wall (full height)
+        platforms.add(new Rectangle(15, 0, 15, h));
+        
+        // Right boundary wall (full height) - starts at w-50 to match image wall position
+        platforms.add(new Rectangle(w - 50, 0, 50, h));
+        
+        // Top ceiling wall
+        platforms.add(new Rectangle(0, h - 15, w, 15));
+        
+        // Interior vertical walls (orange markers from image)
+        // First orange column (left area)
+        platforms.add(new Rectangle(655, 420, 30, 150));
+        
+        // Second orange column (right side of middle area)
+        platforms.add(new Rectangle(980, 420, 30, 150));
+        
+        // Third orange column (far right area)
+        platforms.add(new Rectangle(655, 1250, 30, 20));
+        
+        // ========== WALLS END ==========
 
 
         //obstacles.add(new Rectangle(250, 150, 60, 10));
