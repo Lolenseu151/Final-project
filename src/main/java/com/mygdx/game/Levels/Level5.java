@@ -1,14 +1,13 @@
 package com.mygdx.game.Levels;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import com.mygdx.game.Fixer;
-import com.mygdx.game.ILevelManager;
+import com.mygdx.game.ILevelManager; // fallback legacy manager
 import com.mygdx.game.LevelManager2;
-import com.mygdx.game.LevelManager; // fallback legacy manager
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 /**
  * Level5 - edit positions to design
@@ -25,7 +24,6 @@ public class Level5 implements Level, BackgroundedLevel {
     private float shredderY = 590f;
     private float shredderW = 64f;
     private float shredderH = 64f;
-    
 
     // shared document total across Level5 + Level5_1
     public static int SHARED_TOTAL_DOCS = 0;
@@ -37,18 +35,15 @@ public class Level5 implements Level, BackgroundedLevel {
     private static final String BG_FIRST = "Level5Map.png";
     private static final String BG_CONTINUATION = "Level5.1Map.png";
 
-    // legacy constants preserved for loading
-  
-  
-
     // size used for document collision rectangles
     private static final float DOC_SIZE = 36f;
-    
+
     public void init() {
         documents.clear();
         platforms.clear();
         obstacles.clear();
         beams.clear();
+<<<<<<< HEAD
         
         // Reset transition flag
         switchedToContinuation = false;
@@ -57,10 +52,18 @@ public class Level5 implements Level, BackgroundedLevel {
         float h = 800;
         
         // Initialize shredder for Level5 (shared between Level5 and Level5_1)
+=======
+
+        float w = 1280;
+        float h = 800;
+
+        // Initialize shredder collision rectangle
+>>>>>>> fc88fb0d1fd9a122f9fb69d2b580c9d8748e29df
         shredder = new Rectangle(shredderX, shredderY, shredderW, shredderH);
-        
+
         // === Invisible Platforms Matching Level5Map.png ===
         platforms.clear();
+<<<<<<< HEAD
         
         // === LEFT BOUNDARY WALL (Vertical wall at leftmost pillar) ===
         platforms.add(new Rectangle(90, 0, 20, 800)); // Vertical wall from bottom to top
@@ -78,10 +81,22 @@ public class Level5 implements Level, BackgroundedLevel {
         // === FLOOR 3 ===
         platforms.add(new Rectangle(720, 395, 575, 20));
          platforms.add(new Rectangle(115, 395, 480, 20));
+=======
+
+        // === FLOOR 1 (Bottom floor) ===
+        platforms.add(new Rectangle(50, 75, 1220, 20)); // LEFT SIDE
+
+        // === FLOOR 2 ===
+        platforms.add(new Rectangle(1070, 245,150, 20)); // left section
+        platforms.add(new Rectangle(46, 245,935, 20)); // Left section
+
+        // === FLOOR 3 ===
+        platforms.add(new Rectangle(411, 420, 450, 20));
+        platforms.add(new Rectangle(1080, 420, 170, 20));
+>>>>>>> fc88fb0d1fd9a122f9fb69d2b580c9d8748e29df
 
         // === FLOOR 4 (Roof inside section) ===
         platforms.add(new Rectangle(75, 560, 1280, 20));
-
 
         // === Your existing items ===
         documents.add(new Rectangle(900, 100, DOC_SIZE, DOC_SIZE));
@@ -91,17 +106,6 @@ public class Level5 implements Level, BackgroundedLevel {
         documents.add(new Rectangle(600, 120, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(800, 420, DOC_SIZE, DOC_SIZE)); // 6th document
 
-
-
-        //obstacles.add(new Rectangle(250, 150, 60, 10));
-        //obstacles.add(new Rectangle(w - 300, 250, 60, 10));
-
-
-        // Keep the rectangle for gameplay/collision, but we'll draw the animated shredder over it
-        // shredder = new Rectangle(80, 420, 50, 50);
-        // Remove the visible placeholder rectangle so the gray box is not rendered.
-        // (We still keep explicit position/size in shredderX/Y/W/H for drawing the fx)
-       
         // set shared total = this level's docs + continuation level declared docs
         try { SHARED_TOTAL_DOCS = documents.size + Level5_1.DECLARED_DOCS; } catch (Throwable ignored) {}
 
@@ -130,12 +134,12 @@ public class Level5 implements Level, BackgroundedLevel {
     }
 
     @Override
-    public void updateBackground(float deltaTime, ILevelManager levelMgr, 
-                                 Array<Rectangle> documents, Array<Rectangle> obstacles, 
+    public void updateBackground(float deltaTime, ILevelManager levelMgr,
+                                 Array<Rectangle> documents, Array<Rectangle> obstacles,
                                  Fixer player) {
         // Try to get LevelManager2 features if available
         LevelManager2 lm2 = (levelMgr instanceof LevelManager2) ? (LevelManager2) levelMgr : null;
-        
+
         try {
             if (lm2 != null && lm2.getSharedShredder() != null) {
                 lm2.getSharedShredder().update(deltaTime);
@@ -214,4 +218,8 @@ public class Level5 implements Level, BackgroundedLevel {
         // shared shredder visuals are handled by LevelManager (no per-level shredder draw)
     }
 
+    @Override
+    public String getMusicPath() {
+        return "assets/Sounds/Level Music.mp3";
+    }
 }

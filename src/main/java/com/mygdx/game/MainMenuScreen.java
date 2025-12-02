@@ -127,6 +127,10 @@ public class MainMenuScreen implements Screen {
     private boolean downKeyWasPressed = false;
     // Track which option the mouse is currently hovering over (visual only)
     private MenuOption hoveredOption = null;
+    // track previous hovered option to detect hover-enter transitions
+    private MenuOption prevHoveredOption = null;
+    // Track if music has been started for this screen instance
+    private boolean musicStarted = false;
     
     public MainMenuScreen(MyGdxGame game) {
         this.game = game;
@@ -714,6 +718,12 @@ public class MainMenuScreen implements Screen {
     
     @Override
     public void render(float delta) {
+        // Start music on first render if not already started
+        if (!musicStarted) {
+            BackgroundMusicManager.getInstance().playScreenMusic();
+            musicStarted = true;
+        }
+        
         handleInput();
         // advance running animation timer
         runAnimTime += delta;
@@ -796,15 +806,24 @@ public class MainMenuScreen implements Screen {
             float bottomBot = yBot - (BOX_H / 2f);
 
             // Hover: update hoveredOption (visual only) when pointer is over a box
+            MenuOption newHovered = null;
             if (mx >= left && mx <= left + BOX_W && my >= bottomTop && my <= bottomTop + BOX_H) {
-                hoveredOption = MenuOption.START_GAME;
+                newHovered = MenuOption.START_GAME;
             } else if (mx >= left && mx <= left + BOX_W && my >= bottomMid && my <= bottomMid + BOX_H) {
-                hoveredOption = MenuOption.TUTORIAL;
+                newHovered = MenuOption.TUTORIAL;
             } else if (mx >= left && mx <= left + BOX_W && my >= bottomBot && my <= bottomBot + BOX_H) {
-                hoveredOption = MenuOption.SETTINGS;
+                newHovered = MenuOption.SETTINGS;
             } else {
-                hoveredOption = null;
+                newHovered = null;
             }
+            // on hover-enter play centralized hover sound
+            if (newHovered != null && newHovered != prevHoveredOption) {
+                try {
+                    game.getHoverSoundManager().playHover();
+                } catch (Exception ignored) {}
+            }
+            hoveredOption = newHovered;
+            prevHoveredOption = hoveredOption;
 
             // Click / tap activation
             if (Gdx.input.justTouched()) {

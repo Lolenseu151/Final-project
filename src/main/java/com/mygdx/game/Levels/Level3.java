@@ -52,8 +52,8 @@ public class Level3 implements Level, BackgroundedLevel {
         float w = 1280;
         float h = 800;
         
-        // No shredder in Level3 - only Level3_1 has the shredder
-        shredder = null;
+        // Add shredder to Level3 so shredding action can be seen
+        shredder = new Rectangle(shredderX, shredderY, shredderW, shredderH);
         
         // === Invisible Platforms Matching Level1Map.png ===
         platforms.clear();
@@ -114,11 +114,10 @@ public class Level3 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
     @Override public Array<Rectangle> getAuditorBeams() { return beams; }
 
-    // Level3 has no shredder - only Level3_1 has it (shared between both maps)
-    @Override public Rectangle getShredder() { return null; }
+    @Override public Rectangle getShredder() { return shredder; }
 
     // Use this for actual collision checks if needed.
-    public Rectangle getShredderCollisionRect() { return null; }
+    public Rectangle getShredderCollisionRect() { return shredder; }
 
     @Override public int getTotalDocuments() { return SHARED_TOTAL_DOCS; }
     @Override public void dispose() { /* per-level resources disposed by LevelManager */ }
@@ -127,6 +126,11 @@ public class Level3 implements Level, BackgroundedLevel {
     public String getBackgroundPath() {
         // initially return the first part map
         return BG_FIRST;
+    }
+
+    @Override
+    public String getMusicPath() {
+        return "assets/Sounds/Level Music.mp3";
     }
 
     @Override

@@ -1,14 +1,13 @@
 package com.mygdx.game.Levels;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import com.mygdx.game.Fixer;
-import com.mygdx.game.ILevelManager;
+import com.mygdx.game.ILevelManager; // fallback legacy manager
 import com.mygdx.game.LevelManager2;
-import com.mygdx.game.LevelManager; // fallback legacy manager
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 /**
  * Level5_1 - edit positions to design
@@ -214,6 +213,11 @@ public class Level5_1 implements Level, BackgroundedLevel {
         }
 
         // shared shredder visuals are handled by LevelManager (no per-level shredder draw)
+    }
+
+    @Override
+    public String getMusicPath() {
+        return "assets/Sounds/Level Music.mp3";
     }
 
 }

@@ -146,6 +146,11 @@ public class Level1 implements Level, BackgroundedLevel {
     }
 
     @Override
+    public String getMusicPath() {
+        return "assets/Sounds/Level Music.mp3";
+    }
+
+    @Override
     public void updateBackground(float deltaTime, ILevelManager levelMgr, Array<Rectangle> documents,
                                  Array<Rectangle> obstacles, Fixer player) {
         // Advance shredder animation state time
