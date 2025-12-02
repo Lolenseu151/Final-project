@@ -4,6 +4,10 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.mygdx.game.LevelManager;
 import com.mygdx.game.ILevelManager;
@@ -28,6 +32,27 @@ public class Level1 implements Level, BackgroundedLevel {
 
     // centralized shredder visual
     private Shredder shredderVisual = null;
+
+    // --- Intro/dialogue overlay fields ---
+    private Texture introBg = null; // keys.png full-screen overlay
+    private BitmapFont introFont = null; // Pexelify_Sans
+    private final String[] introLines = new String[] {
+        "Fixer! You're in 'The Office'—Level One. Listen up, the clock is running on the audit, and if those documents are found, we're finished.",
+        "Your mission is simple: find and shred every piece of evidence.",
+        "Use the Arrow Keys to move through the cubicles, and if a guard gets too close, use [SPACE] to DASH.",
+        "That dash is a power-up, Fixer, but it burns out fast—you've only got 10 seconds before it needs to recharge. Now move! Stop standing around!"
+    };
+    private boolean showIntro = true;
+    private int introIndex = 0;
+    // Default text positioning — edit these values later as needed
+    public float introTextX = 1400f; // will be centered in init()
+    public float introTextY = 100f;
+    public float introTextWidth = 850f; // reduced wrap width
+    // Continue button
+    private final String continueLabel = "Continue";
+    private float continueX = 1000f;
+    private float continueY = 60f;
+    private Texture underlineTex = null;
 
     private static final float DOC_SIZE = 36f;
     private static final float PLATFORM_H = 15f;
@@ -116,6 +141,70 @@ public class Level1 implements Level, BackgroundedLevel {
                 if (!shredderVisual.hasVisual()) shredderVisual.loadSingle("assets/shredder.png");
             }
         } catch (Exception ignored) {}
+        // --- load intro assets (defensive) ---
+        try {
+            String[] tryPaths = new String[]{"keys.png", "assets/keys.png", "overlay/keys.png", "assets/overlay/keys.png"};
+            for (String p : tryPaths) {
+                try {
+                    if (Gdx.files.internal(p).exists()) { introBg = new Texture(Gdx.files.internal(p)); break; }
+                    if (Gdx.files.absolute(p).exists()) { introBg = new Texture(Gdx.files.absolute(p)); break; }
+                } catch (Exception ignored) {}
+            }
+            if (introBg != null) Gdx.app.log("Level1", "Loaded introBg from available path");
+            else Gdx.app.log("Level1", "Intro background not found in known paths");
+        } catch (Exception ignored) {}
+        try {
+            if (introFont == null) {
+                String[][] fontPaths = new String[][]{
+                    {"fonts/Pexelify_Sans.fnt","fonts/Pexelify_Sans.png"},
+                    {"assets/fonts/Pexelify_Sans.fnt","assets/fonts/Pexelify_Sans.png"},
+                    {"assets/fonts/Pexelify_Sans.fnt","fonts/Pexelify_Sans.png"}
+                };
+                for (String[] p : fontPaths) {
+                    try {
+                        String fnt = p[0]; String png = p[1];
+                        if (Gdx.files.internal(fnt).exists() && Gdx.files.internal(png).exists()) {
+                            introFont = new BitmapFont(Gdx.files.internal(fnt), Gdx.files.internal(png), false);
+                            break;
+                        } else if (Gdx.files.internal(fnt).exists()) {
+                            introFont = new BitmapFont(Gdx.files.internal(fnt));
+                            break;
+                        }
+                    } catch (Exception ignored) {}
+                }
+                if (introFont == null) introFont = new BitmapFont();
+                introFont.setColor(com.badlogic.gdx.graphics.Color.WHITE);
+                if (introFont == null) Gdx.app.log("Level1","Using default BitmapFont for intro (Pexelify not found)");
+                else Gdx.app.log("Level1","Loaded intro font");
+            }
+        } catch (Exception ignored) {}
+        // underline texture for hover effect (1x1 white pixel)
+        try {
+            Pixmap pm = new Pixmap(1,1, Pixmap.Format.RGBA8888);
+            pm.setColor(1f,1f,1f,1f);
+            pm.fill();
+            underlineTex = new Texture(pm);
+            pm.dispose();
+        } catch (Exception ignored) { underlineTex = null; }
+
+        // Adjust font scale and center text/continue after font is loaded
+        try {
+            if (introFont != null) {
+                // reduce font size slightly for a more compact dialog
+                try {
+                    introFont.getData().setScale(0.9f);
+                } catch (Exception ignored) {}
+                // center the text block horizontally and nudge it slightly to the right
+                introTextX = (1280f - introTextWidth) / 2f + 40f;
+                // center the Continue label horizontally
+                try {
+                    GlyphLayout cont = new GlyphLayout(introFont, continueLabel);
+                    continueX = (1280f - cont.width) / 2f;
+                } catch (Exception ignored) {}
+                // place the Continue label a bit above the bottom (lowered)
+                continueY = 60f;
+            }
+        } catch (Exception ignored) {}
     }
 
     @Override public Array<Rectangle> getDocuments() { return documents; }
@@ -138,6 +227,10 @@ public class Level1 implements Level, BackgroundedLevel {
             try { shredderVisual.dispose(); } catch (Exception ignored) {}
             shredderVisual = null;
         }
+        // dispose intro assets
+        if (introBg != null) { try { introBg.dispose(); } catch (Exception ignored) {} introBg = null; }
+        if (introFont != null) { try { introFont.dispose(); } catch (Exception ignored) {} introFont = null; }
+        if (underlineTex != null) { try { underlineTex.dispose(); } catch (Exception ignored) {} underlineTex = null; }
     }
 
     @Override
@@ -156,6 +249,30 @@ public class Level1 implements Level, BackgroundedLevel {
         // Advance shredder animation state time
         if (shredderVisual != null) {
             shredderVisual.update(deltaTime);
+        }
+        // If the intro/dialogue is visible, pause gameplay updates here and handle input to advance
+        if (showIntro) {
+            try {
+                boolean advanced = false;
+                if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE) || Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) advanced = true;
+                if (Gdx.input.justTouched()) {
+                    int tx = Gdx.input.getX();
+                    int ty = Gdx.graphics.getHeight() - Gdx.input.getY();
+                    GlyphLayout cont = new GlyphLayout(introFont, continueLabel);
+                    float cx = continueX;
+                    float cy = continueY;
+                    Gdx.app.log("Level1", "Touch at: " + tx + "," + ty + " Continue area: x=" + cx + ".." + (cx + cont.width) + " y=" + (cy - cont.height) + ".." + cy + " cont.width=" + cont.width + " cont.height=" + cont.height);
+                    // allow a small padding around the Continue label for easier tapping
+                    float pad = 8f;
+                    if (tx >= cx - pad && tx <= cx + cont.width + pad && ty >= (cy - cont.height) - pad && ty <= cy + pad) advanced = true;
+                    // do not advance on a global touch; require click on Continue label
+                }
+                if (advanced) {
+                    introIndex++;
+                    if (introIndex >= introLines.length) showIntro = false;
+                }
+            } catch (Exception ignored) {}
+            return; // skip other gameplay updates while intro is shown
         }
         // Example: track documents collected and adjust visual state
     }
@@ -177,6 +294,51 @@ public class Level1 implements Level, BackgroundedLevel {
         } else {
             // No shredder visual to draw.
         }
+
+        // Note: overlay rendering moved to renderOverlay() so it can be drawn above documents/platforms
+    }
+
+    /**
+     * Draw overlays that must appear on top of gameplay (documents/platforms).
+     * Called by LevelManager after documents are drawn.
+     */
+    @Override
+    public void renderOverlay(SpriteBatch batch) {
+        if (!showIntro) return;
+        try {
+            // log that render reached the intro overlay (useful to confirm draw path)
+            Gdx.app.log("Level1", "renderOverlay: showIntro=" + showIntro + " introIndex=" + introIndex);
+            if (introBg != null) batch.draw(introBg, 0, 0, 1280, 800);
+            if (introFont != null) {
+                GlyphLayout layout = new GlyphLayout();
+                layout.setText(introFont, introLines[introIndex], com.badlogic.gdx.graphics.Color.WHITE, introTextWidth, com.badlogic.gdx.utils.Align.left, true);
+                introFont.draw(batch, layout, introTextX, introTextY + layout.height);
+                // draw Continue label with a visible translucent rectangle behind it for debugging
+                GlyphLayout cont = new GlyphLayout(introFont, continueLabel);
+                float cx = continueX;
+                float cy = continueY;
+                // draw translucent background so the clickable area is obvious
+                if (underlineTex != null) {
+                    batch.setColor(1f, 0f, 0f, 0.25f);
+                    float pad = 6f;
+                    batch.draw(underlineTex, cx - pad, cy - cont.height - pad, cont.width + pad * 2f, cont.height + pad * 2f);
+                    batch.setColor(1f,1f,1f,1f);
+                }
+                introFont.draw(batch, continueLabel, cx, cy);
+                int mx = Gdx.input.getX();
+                int my = Gdx.graphics.getHeight() - Gdx.input.getY();
+                boolean hover = mx >= cx && mx <= cx + cont.width && my >= (cy - cont.height) && my <= cy;
+                if (hover && underlineTex != null) {
+                    float pad2 = 2f;
+                    batch.draw(underlineTex, cx, cy - cont.height - pad2, cont.width, 2f);
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    public boolean isOverlayBlocking() {
+        return showIntro;
     }
 
 }

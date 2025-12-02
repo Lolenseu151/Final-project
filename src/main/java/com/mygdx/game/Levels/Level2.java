@@ -65,6 +65,12 @@ public class Level2 implements Level, BackgroundedLevel {
     private float jsX = JS_LEFT_X;
     private boolean jsFacingRight = true;
     private Rectangle jsRect = null;
+    // --- JS caught/pause UI state ---
+    private boolean caughtPending = false;
+    private float caughtTimer = 0f;
+    private static final float CAUGHT_DELAY = 3.0f;
+    private Texture jsCaughtTex = null;
+    private TextureRegion jsCaughtRegion = null;
 
     
 
@@ -188,6 +194,20 @@ public class Level2 implements Level, BackgroundedLevel {
                 jsFrames = new TextureRegion[tmp.size()];
                 tmp.toArray(jsFrames);
             }
+            // load the 'caught' frame (assets/kmjs/5.png) used when JS captures the player
+            try {
+                if (jsCaughtTex != null) { try { jsCaughtTex.dispose(); } catch (Exception ignored) {} jsCaughtTex = null; jsCaughtRegion = null; }
+                String p5 = "assets/kmjs/5.png";
+                if (Gdx.files.internal(p5).exists()) {
+                    jsCaughtTex = new Texture(Gdx.files.internal(p5));
+                    jsCaughtTex.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                    jsCaughtRegion = new TextureRegion(jsCaughtTex);
+                } else if (Gdx.files.absolute(p5).exists()) {
+                    jsCaughtTex = new Texture(Gdx.files.absolute(p5));
+                    jsCaughtTex.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                    jsCaughtRegion = new TextureRegion(jsCaughtTex);
+                }
+            } catch (Exception ignored) {}
         } catch (Exception ignored) {}
 
         // Reset JS patrol state so edits to JS_LEFT_X/JS_RIGHT_X apply when init() runs
@@ -226,6 +246,12 @@ public class Level2 implements Level, BackgroundedLevel {
             try { shredderVisual.dispose(); } catch (Exception ignored) {}
             shredderVisual = null;
         }
+        // dispose caught texture if loaded
+        if (jsCaughtTex != null) {
+            try { jsCaughtTex.dispose(); } catch (Exception ignored) {}
+            jsCaughtTex = null;
+            jsCaughtRegion = null;
+        }
     }
 
     @Override
@@ -244,6 +270,41 @@ public class Level2 implements Level, BackgroundedLevel {
         // Advance shredder animation state time
         if (shredderVisual != null) {
             shredderVisual.update(deltaTime);
+        }
+        // If we are in a caught pending state, advance timer and only set GAMEOVER after delay
+        if (caughtPending) {
+            try {
+                caughtTimer += deltaTime;
+                if (caughtTimer >= CAUGHT_DELAY) {
+                    caughtPending = false;
+                    // Now set GAMEOVER via reflection on current screen (same approach as before)
+                    try {
+                        Object app = Gdx.app.getApplicationListener();
+                        if (app instanceof com.badlogic.gdx.Game) {
+                            Screen screen = ((com.badlogic.gdx.Game) app).getScreen();
+                            if (screen != null) {
+                                java.lang.reflect.Field f = null;
+                                try { f = screen.getClass().getDeclaredField("currentState"); } catch (NoSuchFieldException nsf) {
+                                    Class<?> sc = screen.getClass().getSuperclass();
+                                    if (sc != null) { try { f = sc.getDeclaredField("currentState"); } catch (Exception ignored) {} }
+                                }
+                                if (f != null) {
+                                    f.setAccessible(true);
+                                    Class<?> enumType = f.getType();
+                                    if (enumType.isEnum()) {
+                                        Object val = java.lang.Enum.valueOf((Class) enumType, "GAMEOVER");
+                                        f.set(screen, val);
+                                        Gdx.app.log("Level2", "JS caught delay expired — setting GAMEOVER");
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                } else {
+                    // while pending, skip normal JS updates/collisions
+                    return;
+                }
+            } catch (Exception ignored) {}
         }
         // Update JS (walking obstacle) animation and movement
         try {
@@ -327,9 +388,32 @@ public class Level2 implements Level, BackgroundedLevel {
                                             f.setAccessible(true);
                                             Class<?> enumType = f.getType();
                                             if (enumType.isEnum()) {
-                                                Object val = java.lang.Enum.valueOf((Class) enumType, "GAMEOVER");
-                                                f.set(screen, val);
-                                                Gdx.app.log("Level2", "JS caught the player — forcing GAMEOVER via reflection");
+                                                // Instead of forcing GAMEOVER immediately, start a caught delay
+                                                if (!caughtPending) {
+                                                    caughtPending = true;
+                                                    caughtTimer = 0f;
+                                                    Gdx.app.log("Level2", "JS caught the player — starting caught delay");
+                                                    try {
+                                                        // Attempt to play kmjs SFX via the game's HoverSoundManager (use reflection to avoid direct dependency)
+                                                        Object appObj = Gdx.app.getApplicationListener();
+                                                        if (appObj != null) {
+                                                            try {
+                                                                java.lang.reflect.Method getHsm = appObj.getClass().getMethod("getHoverSoundManager");
+                                                                Object hsm = getHsm.invoke(appObj);
+                                                                if (hsm != null) {
+                                                                    try {
+                                                                        java.lang.reflect.Method play = hsm.getClass().getMethod("playKmjs");
+                                                                        play.invoke(hsm);
+                                                                    } catch (NoSuchMethodException nsme) {
+                                                                        // method not present: ignore
+                                                                    }
+                                                                }
+                                                            } catch (NoSuchMethodException nsme) {
+                                                                // game class doesn't expose getHoverSoundManager
+                                                            }
+                                                        }
+                                                    } catch (Exception ignored) {}
+                                                }
                                             }
                                         }
                                     }
@@ -362,7 +446,31 @@ public class Level2 implements Level, BackgroundedLevel {
 
         // Draw JS (walking obstacle) on top of background/shredder
         try {
-            if (jsFrames != null && jsFrames.length > 0) {
+            if (caughtPending && jsCaughtRegion != null) {
+                // Draw the special caught frame while in the caught delay
+                try {
+                    float effW = JS_W * JS_SCALE;
+                    float effH = JS_H * JS_SCALE;
+                    float texW = jsCaughtRegion.getRegionWidth();
+                    float texH = jsCaughtRegion.getRegionHeight();
+                    float baseY = JS_Y + JS_Y_OFFSET;
+                    if (texW <= 0f || texH <= 0f) {
+                        batch.draw(jsCaughtRegion, jsX, baseY, effW, effH);
+                    } else {
+                        float scale = Math.min(effW / texW, effH / texH);
+                        float drawW = texW * scale;
+                        float drawH = texH * scale;
+                        float drawX = jsX + (effW - drawW) * 0.5f;
+                        float drawY = baseY + (effH - drawH) * 0.5f;
+                        batch.draw(jsCaughtRegion, drawX, drawY, drawW, drawH);
+                    }
+                } catch (Exception ignored) {
+                    float effW = JS_W * JS_SCALE;
+                    float effH = JS_H * JS_SCALE;
+                    float baseY = JS_Y + JS_Y_OFFSET;
+                    batch.draw(jsCaughtRegion, jsX, baseY, effW, effH);
+                }
+            } else if (jsFrames != null && jsFrames.length > 0) {
                 int idx = (int)((jsAnimTime / Math.max(0.0001f, JS_FRAME_DURATION)) % jsFrames.length);
                 TextureRegion fr = jsFrames[idx];
                 // Ensure frame facing matches jsFacingRight (flip if necessary)
