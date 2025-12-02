@@ -14,8 +14,8 @@ import com.badlogic.gdx.utils.Array;
  *
  * Visual rules implemented:
  * - IDLE: display frame 1 (shredderFx/1.png)
- * - READY: display frame 10 (shredderFx/10.png)
- * - ACTIVE: loop frames 2..8 (shredderFx/2.png .. shredderFx/8.png)
+ * - READY: display frame 2 (shredderFx/2.png)
+ * - ACTIVE: loop frames 3..10 (shredderFx/3.png .. shredderFx/10.png)
  */
 public class Shredder {
 
@@ -77,14 +77,17 @@ public class Shredder {
 
     /**
      * Load frames from a folder and prepare the Idle/Ready/Active visuals.
-     * Attempts to load 1..maxFrames and explicitly tries to load frame 10.
+     * Attempts to load 1..maxFrames and also ensures up to frame 10 is probed
+     * so the mapping (1 idle, 2 ready, 3..10 active) works even when
+     * callers pass a smaller maxFrames.
      */
     public void loadFromFolder(String folder, int maxFrames) {
         disposeTextures();
         if (folder == null) return;
 
         Array<TextureRegion> allRegs = new Array<>();
-        for (int i = 1; i <= maxFrames; i++) {
+        int probeLimit = Math.max(maxFrames, 10); // ensure we probe up to 10
+        for (int i = 1; i <= probeLimit; i++) {
             Texture t = tryLoadTextureForIndex(folder, i);
             if (t != null) {
                 loadedTextures.add(t);
@@ -94,22 +97,13 @@ public class Shredder {
             }
         }
 
-        // try frame 10 separately
-        Texture readyTex = null;
-        if (maxFrames < 10 || allRegs.size < 10 || allRegs.get(9) == null) {
-            readyTex = tryLoadTextureForIndex(folder, 10);
-            if (readyTex != null) loadedTextures.add(readyTex);
-        }
-
-        // set idle (frame 1)
+        // Mapping per design: idle=frame1, ready=frame2, active=frames3..10
         if (allRegs.size >= 1 && allRegs.get(0) != null) idleRegion = allRegs.get(0);
-        // set ready (frame 10)
-        if (allRegs.size >= 10 && allRegs.get(9) != null) readyRegion = allRegs.get(9);
-        else if (readyTex != null) readyRegion = new TextureRegion(readyTex);
+        if (allRegs.size >= 2 && allRegs.get(1) != null) readyRegion = allRegs.get(1);
 
-        // active frames 2..8
+        // active frames 3..10 (indices 2..9)
         Array<TextureRegion> activeRegs = new Array<>();
-        for (int j = 2; j <= 8; j++) {
+        for (int j = 3; j <= 10; j++) {
             int idx = j - 1;
             if (idx < allRegs.size) {
                 TextureRegion r = allRegs.get(idx);
@@ -118,7 +112,7 @@ public class Shredder {
         }
         if (activeRegs.size > 0) activeAnim = new Animation<TextureRegion>(frameDuration, activeRegs);
 
-        // generic fallback
+        // generic fallback: any frames we loaded in order
         Array<TextureRegion> genericRegs = new Array<>();
         for (TextureRegion tr : allRegs) if (tr != null) genericRegs.add(tr);
         if (genericRegs.size > 0) genericAnim = new Animation<TextureRegion>(frameDuration, genericRegs);
