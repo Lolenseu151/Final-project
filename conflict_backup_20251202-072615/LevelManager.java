@@ -15,17 +15,21 @@ import com.badlogic.gdx.math.Rectangle;
 // import com.badlogic.gdx.utils.reflect.Method;
 import com.badlogic.gdx.utils.Array;
 // ADDED: BackgroundedLevel lives in com.mygdx.game.Levels
-// Use Level/BackgroundedLevel types from the `Levels` subpackage to avoid duplicate-type ambiguity
+<<<<<<< HEAD
+import com.mygdx.game.BackgroundedLevel;
+import com.mygdx.game.Level;
+=======
 import com.mygdx.game.Levels.BackgroundedLevel;
 import com.mygdx.game.Levels.Level;
-import com.mygdx.game.ILevelManager;
 import com.mygdx.game.Levels.Shredder;
+>>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
 
 /**
  * LevelManager - Manages all level elements including obstacles, documents, and shredders
  * Responsible for level layout, collision detection, and objective tracking
  */
-public class LevelManager implements ILevelManager {
+<<<<<<< HEAD
+public class LevelManager {
     /** Listener callback for level completion events. */
     public interface LevelCompleteListener {
         void onLevelComplete();
@@ -39,7 +43,9 @@ public class LevelManager implements ILevelManager {
     public void setLevelCompleteListener(LevelCompleteListener l) {
         this.levelCompleteListener = l;
     }
-
+=======
+public class LevelManager implements ILevelManager {
+>>>>>>> 2cf52741eb5fb376eff3ee13015fccf2832c5975
     // Level elements
     private final Array<Rectangle> documents;      // Incriminating documents to collect
     private final Array<Rectangle> obstacles;      // Red Tape obstacles (slow player)
