@@ -43,31 +43,22 @@ public class Level5 implements Level, BackgroundedLevel {
         platforms.clear();
         obstacles.clear();
         beams.clear();
-<<<<<<< HEAD
-        
+
         // Reset transition flag
         switchedToContinuation = false;
-        
+
         float w = 1280;
         float h = 800;
-        
+
         // Initialize shredder for Level5 (shared between Level5 and Level5_1)
-=======
-
-        float w = 1280;
-        float h = 800;
-
-        // Initialize shredder collision rectangle
->>>>>>> fc88fb0d1fd9a122f9fb69d2b580c9d8748e29df
         shredder = new Rectangle(shredderX, shredderY, shredderW, shredderH);
 
         // === Invisible Platforms Matching Level5Map.png ===
         platforms.clear();
-<<<<<<< HEAD
-        
+
         // === LEFT BOUNDARY WALL (Vertical wall at leftmost pillar) ===
         platforms.add(new Rectangle(90, 0, 20, 800)); // Vertical wall from bottom to top
-        
+
         // === FLOOR 1 (Bottom floor) ===
         platforms.add(new Rectangle(130, 75, 1160, 20)); // LEFT SIDE
        
@@ -81,19 +72,6 @@ public class Level5 implements Level, BackgroundedLevel {
         // === FLOOR 3 ===
         platforms.add(new Rectangle(720, 395, 575, 20));
          platforms.add(new Rectangle(115, 395, 480, 20));
-=======
-
-        // === FLOOR 1 (Bottom floor) ===
-        platforms.add(new Rectangle(50, 75, 1220, 20)); // LEFT SIDE
-
-        // === FLOOR 2 ===
-        platforms.add(new Rectangle(1070, 245,150, 20)); // left section
-        platforms.add(new Rectangle(46, 245,935, 20)); // Left section
-
-        // === FLOOR 3 ===
-        platforms.add(new Rectangle(411, 420, 450, 20));
-        platforms.add(new Rectangle(1080, 420, 170, 20));
->>>>>>> fc88fb0d1fd9a122f9fb69d2b580c9d8748e29df
 
         // === FLOOR 4 (Roof inside section) ===
         platforms.add(new Rectangle(75, 560, 1280, 20));
