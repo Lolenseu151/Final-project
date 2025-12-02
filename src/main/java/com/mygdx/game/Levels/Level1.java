@@ -39,8 +39,8 @@ public class Level1 implements Level, BackgroundedLevel {
     private final String[] introLines = new String[] {
         "Fixer! You're in 'The Office' Level One. Listen up, the clock is running on the audit, and if those documents are found, we're finished.",
         "Your mission is simple: find and shred every piece of evidence.",
-        "Use the Arrow Keys to move through the cubicles, and if a guard gets too close, use [SPACE] to DASH.",
-        "That dash is a power-up, Fixer, but it burns out fast—you've only got 10 seconds before it needs to recharge. Now move! Stop standing around!"
+        "Use the Arrow Keys to move through the cubicles, and if time is running out or a guard gets too close, use [SPACE] to DASH.",
+        "That dash is a power-up, Fixer, but it burns out fast you've only got 10 seconds before it needs to recharge. Now move! Stop standing around!"
     };
     private boolean showIntro = true;
     private int introIndex = 0;
@@ -48,7 +48,7 @@ public class Level1 implements Level, BackgroundedLevel {
         public float introTextX = 1400f; // will be centered in init()
         // introTextY is the TOP baseline for the block so it grows downward
         // Lower this value to move the block downward on the screen
-        public float introTextY = 190f; // lowered to move the intro block down
+        public float introTextY = 200f; // lowered further to move the intro block down
 
     public float introTextWidth = 850f; // reduced wrap width
     // Continue button
