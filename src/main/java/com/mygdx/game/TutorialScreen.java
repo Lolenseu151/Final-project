@@ -488,6 +488,12 @@ public class TutorialScreen implements Screen {
             talingMusic = null;
         }
 
+        // Stop the background music from MainMenuScreen/SettingsScreen/LevelSelectScreen
+        // Tutorial has its own music tracks
+        try {
+            BackgroundMusicManager.getInstance().stopMusic();
+        } catch (Exception ignored) {}
+
         // (Hover sound is provided centrally via HoverSoundManager on MyGdxGame)
     }
 

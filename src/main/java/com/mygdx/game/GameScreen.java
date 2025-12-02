@@ -98,6 +98,8 @@ public class GameScreen implements Screen {
         // Tutorial talking overlay (shown when first doc collected)
         private com.badlogic.gdx.graphics.Texture overlayTalkingTex;
         private boolean overlayTalkingVisible = false;
+        // Track if Level 1's intro has been shown (to prevent showing on retry)
+        private boolean level1IntroShown = false;
         // Win / GameOver overlays
         private com.badlogic.gdx.graphics.Texture overlayWinTex;
         private com.badlogic.gdx.graphics.Texture overlayGameOverTex;
@@ -244,6 +246,11 @@ public class GameScreen implements Screen {
             levelManager = new LevelManager();
             if (level != null) {
                 levelManager.loadLevel(level);
+                // For Level 1, restore intro state from previous attempt
+                if (currentLevel == 1 && level instanceof com.mygdx.game.Levels.Level1) {
+                    Gdx.app.log("GameScreen", "Level1 loaded - restoring intro state: level1IntroShown=" + level1IntroShown);
+                    ((com.mygdx.game.Levels.Level1) level).setIntroShown(level1IntroShown);
+                }
                 // Start playing background music for the level using global manager
                 String musicPath = level.getMusicPath();
                 if (musicPath != null && !musicPath.isEmpty()) {
@@ -833,6 +840,27 @@ public class GameScreen implements Screen {
             int minutes = (int) (remainingTime / 60);
             int seconds = (int) (remainingTime % 60);
             timeLabel.setText(String.format("Time: %d:%02d", minutes, seconds));
+        }
+        
+        // Track Level 1 intro state for retry handling
+        if (currentLevel == 1 && levelManager != null) {
+            try {
+                Object level = levelManager.getCurrentLevel();
+                if (level instanceof com.mygdx.game.Levels.Level1) {
+                    com.mygdx.game.Levels.Level1 l1 = (com.mygdx.game.Levels.Level1) level;
+                    // Use reflection to check showIntro field
+                    try {
+                        java.lang.reflect.Field f = com.mygdx.game.Levels.Level1.class.getDeclaredField("showIntro");
+                        f.setAccessible(true);
+                        boolean showIntro = f.getBoolean(l1);
+                        // If intro is no longer shown, mark it as shown
+                        if (!showIntro && !level1IntroShown) {
+                            Gdx.app.log("GameScreen", "Level1 intro dismissed - setting level1IntroShown to true");
+                            level1IntroShown = true;
+                        }
+                    } catch (Exception ignored) {}
+                }
+            } catch (Exception ignored) {}
         }
         
         // Check win condition

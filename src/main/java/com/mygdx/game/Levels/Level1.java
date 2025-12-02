@@ -226,6 +226,13 @@ public class Level1 implements Level, BackgroundedLevel {
     // Use this for actual collision checks if needed.
     public Rectangle getShredderCollisionRect() { return shredder; }
 
+    /**
+     * Set whether the intro/dialogue has already been shown (for retry handling)
+     */
+    public void setIntroShown(boolean shown) {
+        this.showIntro = !shown;  // if shown=true, showIntro=false
+    }
+
     @Override public int getTotalDocuments() { return totalDocs; }
 
     @Override public void dispose() {
