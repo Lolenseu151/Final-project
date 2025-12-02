@@ -48,8 +48,7 @@ public class Level2 implements Level {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-    @Override public Array<Rectangle> getAuditorBeams() { return beams; }
-    @Override public Rectangle getShredder() { return shredder; }
+        @Override public Rectangle getShredder() { return shredder; }
     @Override public int getTotalDocuments() { return totalDocs; }
     @Override public void dispose() {}
 
