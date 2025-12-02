@@ -12,7 +12,7 @@ public class DesktopLauncher {
         config.setFullscreenMode(null); // Disable fullscreen
         config.setDecorated(true); // Show window border
         config.setResizable(true); // Allow window resizing
-        config.useVsync(true);
+        config.useVsync(true); 
         
         // Enable debug logging
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "DEBUG");
