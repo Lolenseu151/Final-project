@@ -18,8 +18,7 @@ public class Level3 implements Level, BackgroundedLevel {
     private final Array<Rectangle> documents = new Array<>();
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
-    private final Array<Rectangle> beams = new Array<>();
-    private Rectangle shredder;
+        private Rectangle shredder;
     // Shredder position/size matching Level3_1 for consistency
     private float shredderX = 250f;
     private float shredderY = 590f;
@@ -47,8 +46,7 @@ public class Level3 implements Level, BackgroundedLevel {
         documents.clear();
         platforms.clear();
         obstacles.clear();
-        beams.clear();
-        
+                
         float w = 1280;
         float h = 800;
         
@@ -112,7 +110,7 @@ public class Level3 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-    @Override public Array<Rectangle> getAuditorBeams() { return beams; }
+    
 
     @Override public Rectangle getShredder() { return shredder; }
 

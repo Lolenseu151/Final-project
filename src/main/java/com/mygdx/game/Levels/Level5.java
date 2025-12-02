@@ -19,7 +19,7 @@ public class Level5 implements Level, BackgroundedLevel {
     private final Array<Rectangle> obstacles = new Array<>();
     private final Array<Rectangle> beams = new Array<>();
     private Rectangle shredder;
-    // Shredder position/size matching Level3_1 for consistency
+    // Shredder position/size matching Level3 for consistency
     private float shredderX = 250f;
     private float shredderY = 590f;
     private float shredderW = 64f;
@@ -93,7 +93,7 @@ public class Level5 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-    @Override public Array<Rectangle> getAuditorBeams() { return beams; }
+   
 
     // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
     // If your collision code relies on getShredder(), update it to call getShredderCollisionRect().

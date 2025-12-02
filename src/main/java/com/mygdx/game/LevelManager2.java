@@ -22,8 +22,8 @@ public class LevelManager2 implements ILevelManager {
 
     // Combined level elements (merged from map A and map B)
     private final Array<Rectangle> documents;      // Incriminating documents to collect
-    private final Array<Rectangle> obstacles;      // Red Tape obstacles (slow player)
-    private final Array<Rectangle> auditorBeams;   // Auditor Beams (time penalties)
+    private final Array<Rectangle> obstacles;     // Red Tape obstacles (slow player)
+    private final Array<Rectangle> lasers;         // Lasers (visual beams)
     private final Array<Rectangle> platforms;      // Platforms/floors for player to stand on
     private Rectangle shredder;                    // The shredder (win condition)
 
@@ -58,11 +58,14 @@ public class LevelManager2 implements ILevelManager {
 
     // Shared shredder visual
     private Shredder sharedShredder;
+    
+    // Laser visual effects
+    private Array<LaserFX> laserFXList = new Array<>();
 
     public LevelManager2() {
         this.documents = new Array<>();
         this.obstacles = new Array<>();
-        this.auditorBeams = new Array<>();
+        this.lasers = new Array<>();
         this.platforms = new Array<>();
         this.documentsCollected = 0;
         this.levelComplete = false;
@@ -157,21 +160,19 @@ public class LevelManager2 implements ILevelManager {
     private void initializeLevel() {
         documents.clear();
         obstacles.clear();
-        auditorBeams.clear();
         platforms.clear();
 
         placePlatforms();
         placeDocuments();
         placeObstacles();
-        placeAuditorBeams();
         placeShredder();
 
         totalDocuments = documents.size;
         documentsCollected = 0;
         levelComplete = false;
 
-        Gdx.app.log("LevelManager2", String.format("Initialized combined level: docs=%d platforms=%d obs=%d beams=%d",
-            totalDocuments, platforms.size, obstacles.size, auditorBeams.size));
+        Gdx.app.log("LevelManager2", String.format("Initialized combined level: docs=%d platforms=%d obs=%d",
+            totalDocuments, platforms.size, obstacles.size));
     }
 
     private void placePlatforms() {
@@ -207,12 +208,6 @@ public class LevelManager2 implements ILevelManager {
         obstacles.add(new Rectangle(screenWidth - 280, 125 + PLATFORM_HEIGHT + 5, OBSTACLE_WIDTH, OBSTACLE_HEIGHT));
         obstacles.add(new Rectangle(70, 250 + PLATFORM_HEIGHT + 5, 50, OBSTACLE_HEIGHT));
         obstacles.add(new Rectangle(350, 250 + PLATFORM_HEIGHT + 5, 50, OBSTACLE_HEIGHT));
-    }
-
-    private void placeAuditorBeams() {
-        float screenHeight = Gdx.graphics.getHeight();
-        auditorBeams.add(new Rectangle(350, 0, BEAM_WIDTH, screenHeight));
-        auditorBeams.add(new Rectangle(550, 0, BEAM_WIDTH, screenHeight));
     }
 
     private void placeShredder() {
@@ -366,12 +361,6 @@ public class LevelManager2 implements ILevelManager {
             }
         }
         player.setSlowed(slowed);
-
-        for (Rectangle beam : auditorBeams) {
-            if (player.getBounds().overlaps(beam)) {
-                timePenalty += 2f * deltaTime;
-            }
-        }
 
         if (documentsCollected >= totalDocuments && rectsOverlap(player.getBounds(), shredder)) {
             if (!levelComplete && !shredPending) {
@@ -583,11 +572,6 @@ public class LevelManager2 implements ILevelManager {
             shapeRenderer.rect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
         }
 
-        shapeRenderer.setColor(1, 1, 0, 0.5f);
-        for (Rectangle beam : auditorBeams) {
-            shapeRenderer.rect(beam.x, beam.y, beam.width, beam.height);
-        }
-
         if (shredder != null) {
             // Don't render shredder for Level3 until it transitions to Level3_1
             boolean isLevel3Only = (currentLevelA != null && 
@@ -632,6 +616,16 @@ public class LevelManager2 implements ILevelManager {
                     font.draw(batch, "D" + docNum, doc.x + 5, doc.y + drawDocSize + 15);
                 }
                 docNum++;
+            }
+            batch.end();
+        }
+        
+        // Render animated lasers
+        if (laserFXList.size > 0) {
+            batch.begin();
+            for (LaserFX laserFX : laserFXList) {
+                laserFX.update(Gdx.graphics.getDeltaTime());
+                laserFX.render(batch);
             }
             batch.end();
         }
@@ -729,11 +723,10 @@ public class LevelManager2 implements ILevelManager {
             } catch (Exception ignored) {}
         }
 
-        // Always clear and reload platforms, obstacles, beams
+        // Always clear and reload platforms, obstacles, lasers
         platforms.clear();
         obstacles.clear();
-        auditorBeams.clear();
-
+        lasers.clear();
         try {
             if (levelA != null) {
                 // Only add levelA platforms if levelB is null (not transitioning)
@@ -743,8 +736,8 @@ public class LevelManager2 implements ILevelManager {
                 }
                 Array<Rectangle> obs = levelA.getObstacles();
                 if (obs != null) obstacles.addAll(obs);
-                Array<Rectangle> beams = levelA.getAuditorBeams();
-                if (beams != null) auditorBeams.addAll(beams);
+                Array<Rectangle> lasersA = levelA.getLasers();
+                if (lasersA != null) lasers.addAll(lasersA);
             }
         } catch (Exception ignored) {}
 
@@ -755,11 +748,23 @@ public class LevelManager2 implements ILevelManager {
                 if (plats != null) platforms.addAll(plats);
                 Array<Rectangle> obs = levelB.getObstacles();
                 if (obs != null) obstacles.addAll(obs);
-                Array<Rectangle> beams = levelB.getAuditorBeams();
-                if (beams != null) auditorBeams.addAll(beams);
+                Array<Rectangle> lasersB = levelB.getLasers();
+                if (lasersB != null) lasers.addAll(lasersB);
             }
         } catch (Exception ignored) {}
-
+        
+        // Create LaserFX animations for each laser
+        for (LaserFX fx : laserFXList) {
+            try { fx.dispose(); } catch (Exception ignored) {}
+        }
+        laserFXList.clear();
+        for (Rectangle laser : lasers) {
+            LaserFX fx = new LaserFX(laser, 0.15f); // Slower animation
+            laserFXList.add(fx);
+        }
+        
+        Gdx.app.log("LevelManager2", "Loaded " + lasers.size + " lasers from level classes");
+        
         // choose shredder: prefer B then A; if both null use default manager's placement
         shredder = getLevelShredder(levelB);
         if (shredder == null) shredder = getLevelShredder(levelA);
@@ -873,6 +878,10 @@ public class LevelManager2 implements ILevelManager {
             try { sharedShredder.dispose(); } catch (Exception ignored) {}
             sharedShredder = null;
         }
+        for (LaserFX fx : laserFXList) {
+            try { fx.dispose(); } catch (Exception ignored) {}
+        }
+        laserFXList.clear();
     }
 
     private boolean rectsOverlap(Rectangle a, Rectangle b) {

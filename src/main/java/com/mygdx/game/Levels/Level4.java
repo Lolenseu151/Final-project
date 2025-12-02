@@ -16,8 +16,7 @@ public class Level4 implements Level, BackgroundedLevel {
     private final Array<Rectangle> documents = new Array<>();
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
-    private final Array<Rectangle> beams = new Array<>();
-    private Rectangle shredder;
+        private Rectangle shredder;
     // use explicit position/size for visual shredder (no rectangle placeholder)
     private float shredderX = 1000f;
     private float shredderY = 415f;
@@ -41,9 +40,7 @@ public class Level4 implements Level, BackgroundedLevel {
         documents.clear();
         platforms.clear();
         obstacles.clear();
-        beams.clear();
-
-        float w = 1280;
+                float w = 1280;
         float h = 800;
 
         // === Invisible Platforms Matching Level1Map.png ===
@@ -109,7 +106,7 @@ public class Level4 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-    @Override public Array<Rectangle> getAuditorBeams() { return beams; }
+    
 
     // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
     // If your collision code relies on getShredder(), update it to call getShredderCollisionRect().

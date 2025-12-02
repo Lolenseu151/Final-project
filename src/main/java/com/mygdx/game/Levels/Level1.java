@@ -17,7 +17,7 @@ public class Level1 implements Level, BackgroundedLevel {
     private final Array<Rectangle> documents = new Array<>();
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
-    private final Array<Rectangle> beams = new Array<>();
+    private final Array<Rectangle> lasers = new Array<>();
     private Rectangle shredder;
     // use explicit position/size for visual shredder (no rectangle placeholder)
     private float shredderX = 80f;
@@ -42,7 +42,7 @@ public class Level1 implements Level, BackgroundedLevel {
         documents.clear();
         platforms.clear();
         obstacles.clear();
-        beams.clear();
+        lasers.clear();
 
         float w = 1280;
         float h = 800;
@@ -93,10 +93,9 @@ public class Level1 implements Level, BackgroundedLevel {
         // Wall for floor 4 right edge
         platforms.add(new Rectangle(1215, 560, 15, 240)); // from floor 4 to top
 
-
-        //obstacles.add(new Rectangle(250, 150, 60, 10));
-        //obstacles.add(new Rectangle(w - 300, 250, 60, 10));
-
+        // Lasers (cyan, semi-transparent) - you can control these easily
+       
+        lasers.add(new Rectangle(820, 250, 80, 140));
 
         // Keep the rectangle for gameplay/collision, but we'll draw the animated shredder over it
         // shredder = new Rectangle(80, 420, 50, 50);
@@ -121,7 +120,7 @@ public class Level1 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-    @Override public Array<Rectangle> getAuditorBeams() { return beams; }
+    @Override public Array<Rectangle> getLasers() { return lasers; }
 
     // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
     // If your collision code relies on getShredder(), update it to call getShredderCollisionRect().

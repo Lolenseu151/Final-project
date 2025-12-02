@@ -8,7 +8,12 @@ public interface Level {
     Array<Rectangle> getDocuments();
     Array<Rectangle> getPlatforms();
     Array<Rectangle> getObstacles();
-    Array<Rectangle> getAuditorBeams();
+    
+    // Lasers (cyan visual beams you can control)
+    default Array<Rectangle> getLasers() {
+        return new Array<>(); // Default: no lasers
+    }
+    
     Rectangle getShredder();
     int getTotalDocuments();
     void dispose();

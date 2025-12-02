@@ -20,8 +20,7 @@ public class Level2 implements Level, BackgroundedLevel {
     private final Array<Rectangle> documents = new Array<>();
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
-    private final Array<Rectangle> beams = new Array<>();
-    private Rectangle shredder;
+        private Rectangle shredder;
     // use explicit position/size for visual shredder (no rectangle placeholder)
     private float shredderX = 1000f;
     private float shredderY = 415f;
@@ -72,9 +71,7 @@ public class Level2 implements Level, BackgroundedLevel {
         documents.clear();
         platforms.clear();
         obstacles.clear();
-        beams.clear();
-
-            // dispose JS textures if any
+                    // dispose JS textures if any
             try {
                 if (jsFrames != null) {
                     for (TextureRegion tr : jsFrames) {
@@ -167,7 +164,7 @@ public class Level2 implements Level, BackgroundedLevel {
         // === Initialize JS (walking obstacle) textures/frames ===
         try {
             // Try to load a small sprite-sheet folder first (assets/kmjs/1.png ...)
-            java.util.ArrayList<TextureRegion> tmp = new java.util.ArrayList<TextureRegion>();
+            java.util.ArrayList<TextureRegion> tmp = new java.util.ArrayList<>();
             for (int i = 1; i <= 4; i++) {
                 String p = String.format("assets/kmjs/%d.png", i);
                 try {
@@ -185,8 +182,7 @@ public class Level2 implements Level, BackgroundedLevel {
                 }
             }
             if (tmp.size() > 0) {
-                jsFrames = new TextureRegion[tmp.size()];
-                tmp.toArray(jsFrames);
+                jsFrames = tmp.toArray(new TextureRegion[0]);
             }
         } catch (Exception ignored) {}
 
@@ -209,7 +205,7 @@ public class Level2 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-    @Override public Array<Rectangle> getAuditorBeams() { return beams; }
+    
 
     // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
     // If your collision code relies on getShredder(), update it to call getShredderCollisionRect().
