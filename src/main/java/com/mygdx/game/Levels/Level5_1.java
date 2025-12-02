@@ -29,11 +29,10 @@ public class Level5_1 implements Level, BackgroundedLevel {
 
     // shared document total across Level5 + Level5_1
     public static int SHARED_TOTAL_DOCS = 0;
-    public static final int DECLARED_DOCS = 5; // this level intends to contain 5 docs
+    public static final int DECLARED_DOCS = 6; // this level intends to contain 6 docs
 
     // Background switching state
     private boolean switchedToContinuation = false;
-    private static final String BG_FIRST = "Level5Map.png";
     private static final String BG_CONTINUATION = "Level5.1Map.png";
 
     // legacy constants preserved for loading
@@ -80,8 +79,8 @@ public class Level5_1 implements Level, BackgroundedLevel {
         documents.add(new Rectangle(500, 80, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(300, 270, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(350, 270, DOC_SIZE, DOC_SIZE));
-        // added so Level5_1 has 5 docs total
         documents.add(new Rectangle(600, 120, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(200, 420, DOC_SIZE, DOC_SIZE)); // 6th document
 
 
 
@@ -117,8 +116,7 @@ public class Level5_1 implements Level, BackgroundedLevel {
 
     @Override
     public String getBackgroundPath() {
-        // initially return the first part map
-        return BG_FIRST;
+        return BG_CONTINUATION;
     }
 
     @Override
@@ -136,30 +134,36 @@ public class Level5_1 implements Level, BackgroundedLevel {
 
         try {
             if (player != null && player.getBounds() != null && platforms.size > 0) {
-                Rectangle firstFloor = platforms.get(0);
-                float rightEdge = firstFloor.x + firstFloor.width;
+                Rectangle leftEdgePlatform = platforms.get(0);
                 Rectangle pb = player.getBounds();
                 final float TOL = 12f;
-                boolean nearFloorY = pb.y <= (firstFloor.y + firstFloor.height + 8f);
-
-                if (!switchedToContinuation && nearFloorY && (pb.x + pb.width) >= (rightEdge - TOL)) {
+                boolean nearFloorY = pb.y <= (leftEdgePlatform.y + leftEdgePlatform.height + 8f);
+                boolean movingLeft = false;
+                try { movingLeft = (player.getVelocity() != null && player.getVelocity().x < -40f); } 
+                catch (Exception ignored) { movingLeft = false; }
+                
+                if (nearFloorY && pb.x <= (leftEdgePlatform.x + TOL) && movingLeft) {
                     try {
                         Level5 original = new Level5();
-                        // Use LevelManager2 merge API if available
                         if (lm2 != null) {
-                            lm2.loadTwoMaps(original, this);
+                            // Load Level5 only (no levelB) to return to the first map
+                            lm2.loadTwoMaps(original, null);
+                            float[] sp = original.getReturnSpawn();
+                            if (sp != null && sp.length >= 2) {
+                                player.getBounds().setPosition(sp[0], sp[1]);
+                                player.getVelocity().set(0, 0);
+                            }
                         } else if (levelMgr != null) {
-                            // legacy fallback
                             levelMgr.loadLevel(original);
+                            float[] sp = original.getReturnSpawn();
+                            if (sp != null && sp.length >= 2) {
+                                player.getBounds().setPosition(sp[0], sp[1]);
+                                player.getVelocity().set(0, 0);
+                            }
                         }
-                        float[] sp = original.getReturnSpawn();
-                        if (sp != null && sp.length >= 2) {
-                            try { player.reset(sp[0], sp[1]); } catch (Exception ignored) {}
-                        }
-                        switchedToContinuation = true;
                         Gdx.app.log("Level5_1", "Returned to Level5");
                     } catch (Exception e) {
-                        Gdx.app.error("Level5", "Failed to load continuation level", e);
+                        Gdx.app.error("Level5_1", "Failed to return to Level5", e);
                     }
                 }
             }

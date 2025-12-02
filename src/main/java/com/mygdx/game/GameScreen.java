@@ -305,6 +305,14 @@ public class GameScreen implements Screen {
                     } catch (Exception e) {
                         fixer.reset(100, 0);
                     }
+                } else if (currentLevel == 5 && level instanceof Level5) {
+                    try {
+                        float[] sp = ((Level5)level).getEntranceSpawn();
+                        if (sp != null && sp.length >= 2) fixer.reset(sp[0], sp[1]);
+                        else fixer.reset(640, 580);
+                    } catch (Exception e) {
+                        fixer.reset(640, 580);
+                    }
                 } else {
                     fixer.reset(100, 0);
                 }

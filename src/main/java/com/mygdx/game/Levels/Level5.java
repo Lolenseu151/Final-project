@@ -29,7 +29,7 @@ public class Level5 implements Level, BackgroundedLevel {
 
     // shared document total across Level5 + Level5_1
     public static int SHARED_TOTAL_DOCS = 0;
-    public static final int DECLARED_DOCS = 5; // this level intends to contain 5 docs
+    public static final int DECLARED_DOCS = 6; // this level intends to contain 6 docs
 
     // Background switching state
     private boolean switchedToContinuation = false;
@@ -49,30 +49,33 @@ public class Level5 implements Level, BackgroundedLevel {
         obstacles.clear();
         beams.clear();
         
+        // Reset transition flag
+        switchedToContinuation = false;
+        
         float w = 1280;
         float h = 800;
         
-        // Initialize shredder collision rectangle
-        shredder = new Rectangle(shredderX, shredderY, shredderW, shredderH);
+        // No shredder in Level5 - only Level5_1 has the shredder
+        shredder = null;
         
         // === Invisible Platforms Matching Level5Map.png ===
         platforms.clear();
         
         // === FLOOR 1 (Bottom floor) ===
-        platforms.add(new Rectangle(50, 75, 1220, 20)); // LEFT SIDE
+        platforms.add(new Rectangle(130, 75, 1160, 20)); // LEFT SIDE
        
 
         // === FLOOR 2 ===
-        platforms.add(new Rectangle(1070, 245,150, 20)); // left section
-        platforms.add(new Rectangle(46, 245,935, 20)); // Left section
+        platforms.add(new Rectangle(710, 245,575, 20)); // left section
+        platforms.add(new Rectangle(135, 245,480, 20)); // Left section
        
 
         // === FLOOR 3 ===
-        platforms.add(new Rectangle(411, 420, 450, 20));
-         platforms.add(new Rectangle(1080, 420, 170, 20));
+        platforms.add(new Rectangle(710, 395, 575, 20));
+         platforms.add(new Rectangle(135, 395, 480, 20));
 
         // === FLOOR 4 (Roof inside section) ===
-        platforms.add(new Rectangle(597, 583, 656, 20));
+        platforms.add(new Rectangle(75, 560, 1280, 20));
 
 
         // === Your existing items ===
@@ -80,8 +83,8 @@ public class Level5 implements Level, BackgroundedLevel {
         documents.add(new Rectangle(500, 80, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(300, 270, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(350, 270, DOC_SIZE, DOC_SIZE));
-        // added so Level5 has 5 docs total
         documents.add(new Rectangle(600, 120, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(800, 420, DOC_SIZE, DOC_SIZE)); // 6th document
 
 
 
@@ -134,15 +137,15 @@ public class Level5 implements Level, BackgroundedLevel {
             }
         } catch (Exception ignored) {}
 
+        // Check if player reaches the right edge to transition to Level5_1
         try {
             if (player != null && player.getBounds() != null && platforms.size > 0) {
-                Rectangle firstFloor = platforms.get(0);
-                float rightEdge = firstFloor.x + firstFloor.width;
                 Rectangle pb = player.getBounds();
-                final float TOL = 12f;
-                boolean nearFloorY = pb.y <= (firstFloor.y + firstFloor.height + 8f);
-
-                if (!switchedToContinuation && nearFloorY && (pb.x + pb.width) >= (rightEdge - TOL)) {
+                final float TOL = 20f;
+                final float SCREEN_WIDTH = 1280f;
+                
+                // Check if player is near the right edge of the screen (works from any floor)
+                if (!switchedToContinuation && (pb.x + pb.width) >= (SCREEN_WIDTH - TOL)) {
                     try {
                         Level5_1 cont = new Level5_1();
                         // Use LevelManager2 merge API if available
@@ -168,14 +171,14 @@ public class Level5 implements Level, BackgroundedLevel {
 
     // Provide entrance spawn positions so GameScreen can set initial player position
     public float[] getEntranceSpawn() {
-        // place player on top of the first platform so feet sit exactly on the surface
-        if (platforms.size > 0) {
-            Rectangle p = platforms.get(0);          // first-floor platform
-            float x = p.x + 40f;                    // tweak horizontal offset as needed
-            float y = p.y + p.height;               // player feet exactly on top of platform
+        // Spawn player at the center of the top platform (near the door with clock)
+        if (platforms.size >= 4) {
+            Rectangle topPlatform = platforms.get(3);  // FLOOR 4 (top platform at y=560)
+            float x = 640f;                            // center of screen (1280/2)
+            float y = topPlatform.y + topPlatform.height; // player feet on top of platform
             return new float[]{ x, y };
         }
-        return new float[]{ 200f, 100f };
+        return new float[]{ 640f, 580f };
     }
 
     public float[] getReturnSpawn() {
@@ -183,13 +186,11 @@ public class Level5 implements Level, BackgroundedLevel {
             Rectangle firstFloor = platforms.get(0);
             float rightEdge = firstFloor.x + firstFloor.width;
             float x = rightEdge - 64f - 20f; // assume player width ~64
-            // Match entrance height so returning places player at same vertical level
             float y = firstFloor.y + firstFloor.height; // top of platform
             return new float[]{ x, y };
         }
         return new float[]{ 100f, 90f };
     }
-        
 
     @Override
     public void renderBackground(SpriteBatch batch, Texture backgroundTex) {
