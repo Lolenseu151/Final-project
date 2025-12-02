@@ -36,7 +36,9 @@ public class Level3_1 implements Level, BackgroundedLevel {
     public static final int DECLARED_DOCS = 5;
 
     public void init() {
-        documents.clear(); platforms.clear(); obstacles.clear();         // continuation area layout: different platforms and doc positions
+        documents.clear(); platforms.clear(); obstacles.clear(); 
+
+        // continuation area layout: different platforms and doc positions
         // 1st level platform (extends from left edge)
         platforms.add(new Rectangle(215, 65, 1020, 20)); 
         
@@ -89,7 +91,7 @@ public class Level3_1 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-    
+
 
     @Override public Rectangle getShredder() { return null; }
     public Rectangle getShredderCollisionRect() { return shredder; }
