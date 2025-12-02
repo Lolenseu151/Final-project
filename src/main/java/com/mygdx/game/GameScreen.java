@@ -340,6 +340,25 @@ public class GameScreen implements Screen {
                     docFont.getData().setScale(0.95f);
                 }
             }
+
+            // Load stat font for overlay stat text (documents/time) and apply scale
+            try {
+                statFont = new BitmapFont(
+                        Gdx.files.internal("assets/smallwhite/Small_white.fnt"),
+                        Gdx.files.internal("assets/smallwhite/Small_white.png"),
+                        false);
+                statFont.getData().setScale(STAT_FONT_SCALE);
+                Gdx.app.log("GameScreen", "Loaded stat font from assets/smallwhite/");
+            } catch (Exception e) {
+                try {
+                    statFont = new BitmapFont();
+                    statFont.getData().setScale(STAT_FONT_SCALE);
+                    Gdx.app.log("GameScreen", "Using default font for stats");
+                } catch (Exception ex) {
+                    statFont = null;
+                    Gdx.app.log("GameScreen", "Stat font not available");
+                }
+            }
             
             // (Removed) timer icon - we now render the audit timer centered using the audit background image
             
@@ -1496,10 +1515,10 @@ public class GameScreen implements Screen {
 
         // Draw stats: documents collected and time at win
         try {
-            String docs = "Documents: " + lastEventDocs + "/" + (levelManager != null ? levelManager.getTotalDocuments() : 0);
+            String docs = "     " + lastEventDocs + "/" + (levelManager != null ? levelManager.getTotalDocuments() : 0);
             int minutes = (int) (lastEventTime / 60);
             int seconds = (int) (lastEventTime % 60);
-            String time = String.format("Time: %d:%02d", minutes, seconds);
+            String time = String.format("     %d:%02d", minutes, seconds);
 
             com.badlogic.gdx.graphics.g2d.GlyphLayout g1 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, docs);
             com.badlogic.gdx.graphics.g2d.GlyphLayout g2 = new com.badlogic.gdx.graphics.g2d.GlyphLayout(game.font, time);
