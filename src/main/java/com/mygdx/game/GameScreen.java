@@ -71,7 +71,7 @@ public class GameScreen implements Screen {
     private boolean pauseOverlayVisible = false;
     private float docIconY;
     // Scale for the overlay stat font (adjust to increase/decrease stat text size)
-    public static float STAT_FONT_SCALE = 3.0f;
+    public static float STAT_FONT_SCALE = 2.0f;
     private float floatTimer = 0f;  // Track time for floating animation
     private BitmapFont uiFont;  // Font for timer and doc counter text
     private BitmapFont docFont; // Smaller font for document count only
