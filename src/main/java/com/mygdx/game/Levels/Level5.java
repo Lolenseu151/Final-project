@@ -19,9 +19,9 @@ public class Level5 implements Level, BackgroundedLevel {
     private final Array<Rectangle> obstacles = new Array<>();
     private final Array<Rectangle> beams = new Array<>();
     private Rectangle shredder;
-    // Shredder position/size matching Level3 for consistency
-    private float shredderX = 250f;
-    private float shredderY = 590f;
+    // Shredder position/size - topmost floor, leftmost bedroom
+    private float shredderX = 180f;
+    private float shredderY = 300f;
     private float shredderW = 64f;
     private float shredderH = 64f;
 
@@ -60,7 +60,7 @@ public class Level5 implements Level, BackgroundedLevel {
         platforms.add(new Rectangle(90, 0, 20, 800)); // Vertical wall from bottom to top
 
         // === FLOOR 1 (Bottom floor) ===
-        platforms.add(new Rectangle(130, 75, 1160, 20)); // LEFT SIDE
+        platforms.add(new Rectangle(130, 55, 1160, 20)); // LEFT SIDE
        
 
         // === FLOOR 2 ===
