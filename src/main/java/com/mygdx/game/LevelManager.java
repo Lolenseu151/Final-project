@@ -480,8 +480,8 @@ public class LevelManager implements ILevelManager {
             for (Rectangle laser : lasers) {
                 if (player != null && player.getBounds() != null && laser != null && player.getBounds().overlaps(laser)) {
                     // apply 15 seconds penalty and slow player for 6 seconds
-                    timePenalty += 15f;
-                    try { player.applySlow(6.0f); } catch (Exception ignored) {}
+                    timePenalty += 10f;
+                    try { player.applySlow(5.0f); } catch (Exception ignored) {}
                     laserHitCooldown = 1.0f; // 1 second cooldown to avoid flood
                     Gdx.app.log("LevelManager", "Player hit laser: -15s penalty and slowed 6s");
                     break;
@@ -835,10 +835,14 @@ public class LevelManager implements ILevelManager {
         platforms.clear(); platforms.addAll(level.getPlatforms());
         obstacles.clear(); obstacles.addAll(level.getObstacles());
         lasers.clear(); 
-        try {
-            lasers.addAll(level.getLasers());
-        } catch (Exception e) {
-            // Level might not have getLasers method
+        // Only load lasers from Level3_1 (not Level3) to avoid duplication
+        // Level3 has 1 laser, Level3_1 has 2 lasers - we only want the 2 from Level3_1
+        if (!className.equals("Level3")) {  // Skip Level3's laser, only use Level3_1
+            try {
+                lasers.addAll(level.getLasers());
+            } catch (Exception e) {
+                // Level might not have getLasers method
+            }
         }
         
         // Create LaserFX animations for each laser
@@ -876,6 +880,10 @@ public class LevelManager implements ILevelManager {
                 if (!sharedShredder.hasVisual()) {
                     try { sharedShredder.loadFromFolder("shredderFx", 9); } catch (Exception ignored) {}
                 }
+                // Re-apply the level's shredder rect after loading visuals because
+                // `loadFromFolder` may resize the rect based on texture size. Re-setting
+                // it here ensures per-level scales (like Level1's scaled rect) are honored.
+                try { sharedShredder.setRect(shredder); } catch (Exception ignored) {}
                     // If the level defines a `shredderVisual` field, point it at the sharedShredder
                     try {
                         java.lang.reflect.Field f = level.getClass().getDeclaredField("shredderVisual");
@@ -883,6 +891,25 @@ public class LevelManager implements ILevelManager {
                         Object curr = f.get(level);
                         if (curr == null || curr != sharedShredder) {
                             try { f.set(level, sharedShredder); } catch (Exception ignored) {}
+                        }
+                    } catch (Exception ignored) {}
+                    // If the level provides a per-level visual scale (shredderScale), apply it
+                    // to the shared shredder's rect so visuals are larger while collisions
+                    // remain based on the level's shredder rect.
+                    try {
+                        java.lang.reflect.Field scaleField = level.getClass().getDeclaredField("shredderScale");
+                        scaleField.setAccessible(true);
+                        Object sv = scaleField.get(level);
+                        if (sv instanceof Number) {
+                            float scale = ((Number) sv).floatValue();
+                            if (scale > 0f && sharedShredder != null && shredder != null) {
+                                // center the visual around the collision rect so enlargement stays aligned
+                                float vw = shredder.width * scale;
+                                float vh = shredder.height * scale;
+                                float vx = shredder.x - (vw - shredder.width) / 2f;
+                                float vy = shredder.y - (vh - shredder.height) / 2f;
+                                try { sharedShredder.setRect(new Rectangle(vx, vy, vw, vh)); } catch (Exception ignored) {}
+                            }
                         }
                     } catch (Exception ignored) {}
             }

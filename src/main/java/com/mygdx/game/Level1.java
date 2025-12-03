@@ -21,8 +21,9 @@ public class Level1 implements Level, BackgroundedLevel {
     private final Array<Rectangle> obstacles = new Array<>();
         private Rectangle shredder;
     // use explicit position/size for visual shredder (no rectangle placeholder)
-    private float shredderX = 80f;
-    private float shredderY = 415f;
+    // place shredder at right-bottom for this level (background assumed 1280x800)
+    private float shredderX = 1200f;
+    private float shredderY = 10f;
     private float shredderW = 36f; // was 50f
     private float shredderH = 36f; // was 50f
     private int totalDocs = 0;
@@ -168,7 +169,7 @@ public class Level1 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
         // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
     // If your collision code relies on getShredder(), update it to call getShredderCollisionRect().
-    @Override public Rectangle getShredder() { return null; }
+    @Override public Rectangle getShredder() { return shredder; }
 
     // Use this for actual collision checks if needed.
     public Rectangle getShredderCollisionRect() { return shredder; }

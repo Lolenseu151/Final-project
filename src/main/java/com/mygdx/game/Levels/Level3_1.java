@@ -16,7 +16,8 @@ public class Level3_1 implements Level, BackgroundedLevel {
     private final Array<Rectangle> documents = new Array<>();
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
-        private Rectangle shredder;
+    private final Array<Rectangle> lasers = new Array<>();
+    private Rectangle shredder;
 
     // keep same shredder coords as Level3 for consistency
     private float shredderX = 250f;
@@ -36,7 +37,7 @@ public class Level3_1 implements Level, BackgroundedLevel {
     public static final int DECLARED_DOCS = 5;
 
     public void init() {
-        documents.clear(); platforms.clear(); obstacles.clear(); 
+        documents.clear(); platforms.clear(); obstacles.clear(); lasers.clear(); 
 
         // continuation area layout: different platforms and doc positions
         // 1st level platform (extends from left edge)
@@ -81,6 +82,13 @@ public class Level3_1 implements Level, BackgroundedLevel {
         documents.add(new Rectangle(500, 80, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(520, 400, DOC_SIZE, DOC_SIZE));
 
+        // Lasers (cyan, semi-transparent) - adjustable positions for gameplay
+        // Laser 1: Left side
+        lasers.add(new Rectangle(250, 250, 60, 120));
+        
+        // Laser 2: Right side
+        lasers.add(new Rectangle(1000, 280, 80, 140));
+
         shredder = new Rectangle(shredderX, shredderY, shredderW, shredderH);
         totalDocs = documents.size;
         // ensure the shared total is updated when this continuation is initialized
@@ -91,7 +99,7 @@ public class Level3_1 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-
+    @Override public Array<Rectangle> getLasers() { return lasers; }
 
     @Override public Rectangle getShredder() { return null; }
     public Rectangle getShredderCollisionRect() { return shredder; }

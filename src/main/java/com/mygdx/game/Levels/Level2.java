@@ -25,12 +25,13 @@ public class Level2 implements Level, BackgroundedLevel {
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
     private final Array<Rectangle> beams = new Array<>();
+    private final Array<Rectangle> lasers = new Array<>();
     private Rectangle shredder;
     // use explicit position/size for visual shredder (no rectangle placeholder)
     private float shredderX = 1000f;
     private float shredderY = 415f;
-    private float shredderW = 36f; // was 50f
-    private float shredderH = 36f; // was 50f
+    private float shredderW = 80f; // was 50f
+    private float shredderH = 80f; // was 50f
     private int totalDocs = 0;
 
     // centralized shredder visual
@@ -104,6 +105,7 @@ public class Level2 implements Level, BackgroundedLevel {
         platforms.clear();
         obstacles.clear();
         beams.clear();
+        lasers.clear();
 
             // dispose JS textures if any
             try {
@@ -142,12 +144,13 @@ public class Level2 implements Level, BackgroundedLevel {
 
 
         // === Your existing items ===
-        documents.add(new Rectangle(900, 100, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(600, 100, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(500, 40, DOC_SIZE, DOC_SIZE));
         documents.add(new Rectangle(300, 270, DOC_SIZE, DOC_SIZE));
-        documents.add(new Rectangle(350, 270, DOC_SIZE, DOC_SIZE));
-        documents.add(new Rectangle(900, 580, DOC_SIZE, DOC_SIZE));
-
+        documents.add(new Rectangle(150, 270, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(600, 580, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(800, 700, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(400, 500, DOC_SIZE, DOC_SIZE));
 
         // ========== WALLS START - Remove these if not needed ==========
         
@@ -176,6 +179,14 @@ public class Level2 implements Level, BackgroundedLevel {
         //obstacles.add(new Rectangle(250, 150, 60, 10));
         //obstacles.add(new Rectangle(w - 300, 250, 60, 10));
 
+        // Lasers (cyan, semi-transparent) - adjustable positions for gameplay
+        // Laser 1: Left side, positioned vertically to create a challenge
+        lasers.add(new Rectangle(350, 220, 80, 200));
+        
+        // Laser 2: Right side, positioned differently for variety
+        lasers.add(new Rectangle(1010, 220, 80, 200));
+        
+       
 
         // Keep the rectangle for gameplay/collision, but we'll draw the animated shredder over it
         // shredder = new Rectangle(80, 420, 50, 50);
@@ -304,7 +315,7 @@ public class Level2 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
-   
+    @Override public Array<Rectangle> getLasers() { return lasers; }
 
     // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
     // If your collision code relies on getShredder(), update it to call getShredderCollisionRect().

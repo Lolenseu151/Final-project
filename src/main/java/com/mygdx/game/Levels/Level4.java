@@ -17,12 +17,13 @@ public class Level4 implements Level, BackgroundedLevel {
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
     private final Array<Rectangle> beams = new Array<>();
+    private final Array<Rectangle> lasers = new Array<>();
     private Rectangle shredder;
     // use explicit position/size for visual shredder (no rectangle placeholder)
-    private float shredderX = 1000f;
-    private float shredderY = 415f;
-    private float shredderW = 36f; // was 50f
-    private float shredderH = 36f; // was 50f
+    private float shredderX = 300f;
+    private float shredderY = 215f;
+    private float shredderW = 80f; // was 50f
+    private float shredderH = 80f; // was 50f
     private int totalDocs = 0;
 
     // centralized shredder visual
@@ -42,6 +43,7 @@ public class Level4 implements Level, BackgroundedLevel {
         platforms.clear();
         obstacles.clear();
         beams.clear();
+        lasers.clear();
 
         float w = 1280;
         float h = 800;
@@ -75,16 +77,28 @@ public class Level4 implements Level, BackgroundedLevel {
         platforms.add(new Rectangle(1185, 60, 20, 500)); // Right boundary pillar wall
 
         // === Your existing items ===
-        documents.add(new Rectangle(900, 100, DOC_SIZE, DOC_SIZE));
-        documents.add(new Rectangle(500, 40, DOC_SIZE, DOC_SIZE));
-        documents.add(new Rectangle(300, 270, DOC_SIZE, DOC_SIZE));
-        documents.add(new Rectangle(350, 270, DOC_SIZE, DOC_SIZE));
-        documents.add(new Rectangle(900, 500, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(230, 80, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(800, 100, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(100, 320, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(450, 610, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(1000, 630, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(1100, 400, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(700, 300, DOC_SIZE, DOC_SIZE));
+        documents.add(new Rectangle(1100, 300, DOC_SIZE, DOC_SIZE));
 
 
         //obstacles.add(new Rectangle(250, 150, 60, 10));
         //obstacles.add(new Rectangle(w - 300, 250, 60, 10));
 
+        // Lasers (cyan, semi-transparent) - adjustable positions for gameplay
+        // Laser 1: Left side
+        lasers.add(new Rectangle(200, 260, 60, 160));
+        
+        // Laser 2: Right side
+        lasers.add(new Rectangle(1000, 260, 80, 160));
+        
+        // Laser 3: Middle area
+        lasers.add(new Rectangle(800, 405, 70, 160));
 
         // Keep the rectangle for gameplay/collision, but we'll draw the animated shredder over it
         // shredder = new Rectangle(80, 420, 50, 50);
@@ -109,6 +123,7 @@ public class Level4 implements Level, BackgroundedLevel {
     @Override public Array<Rectangle> getDocuments() { return documents; }
     @Override public Array<Rectangle> getPlatforms() { return platforms; }
     @Override public Array<Rectangle> getObstacles() { return obstacles; }
+    @Override public Array<Rectangle> getLasers() { return lasers; }
 
 
     // Return null so external debug renderers won't draw the shredder collision rectangle (removes the red box).
@@ -122,11 +137,14 @@ public class Level4 implements Level, BackgroundedLevel {
 
     // Set initial spawn position at the center door on first floor
     public float[] getEntranceSpawn() {
-        // Center of the map at the door on first floor
-        // The door appears to be at approximately x=640 (screen center is 1280/2 = 640)
-        float centerX = 640f;
-        float y = 80f; // Top of first floor platform
-        return new float[]{ centerX, y };
+        // Spawn player on the first floor platform inside house
+        if (platforms.size > 0) {
+            Rectangle firstFloor = platforms.get(0);
+            float x = 200f;                           // left side position
+            float y = firstFloor.y + firstFloor.height; // player bottom edge at platform top
+            return new float[]{ x, y };
+        }
+        return new float[]{ 200f, 500f };
     }
 
     @Override public void dispose() {
