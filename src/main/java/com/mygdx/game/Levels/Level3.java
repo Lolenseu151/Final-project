@@ -1,14 +1,14 @@
 package com.mygdx.game.Levels;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import com.mygdx.game.Fixer;
-import com.mygdx.game.ILevelManager;
+import com.mygdx.game.ILevelManager; // fallback legacy manager
+import com.mygdx.game.JSObstacle;
 import com.mygdx.game.LevelManager2;
-import com.mygdx.game.LevelManager; // fallback legacy manager
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 /**
  * Level3 - edit positions to design
@@ -109,6 +109,37 @@ public class Level3 implements Level, BackgroundedLevel {
        
         // set shared total = this level's docs + continuation level declared docs
         try { SHARED_TOTAL_DOCS = documents.size + Level3_1.DECLARED_DOCS; } catch (Throwable ignored) {}
+
+        // Add a reusable JS obstacle (visual handled by LevelManager's obstacle rendering)
+        try {
+            // patrol from 600 -> 900 at y=445, width=60,height=110, speed=60,
+            // sightDistance=35, sightVerticalTolerance=0.1, scale=1.0, caughtDelay=3s
+            JSObstacle.addTo(obstacles,
+                600f, 900f, // leftX, rightX
+                85f,       // y
+                60f, 110f,  // w, h
+                60f,        // speed px/sec
+                35f,        // sight distance
+                0.1f,       // sight vertical tolerance
+                10.5f,       // scale multiplier for visual size (increased)
+                3f          // caught delay seconds
+            );
+        } catch (Exception ignored) {}
+
+                try {
+            // patrol from 600 -> 900 at y=445, width=60,height=110, speed=60,
+            // sightDistance=35, sightVerticalTolerance=0.1, scale=1.0, caughtDelay=3s
+            JSObstacle.addTo(obstacles,
+                600f, 900f, // leftX, rightX
+                -435f,       // y
+                60f, 110f,  // w, h
+                60f,        // speed px/sec
+                35f,        // sight distance
+                0.1f,       // sight vertical tolerance
+                10f,       // scale multiplier for visual size (increased)
+                3f          // caught delay seconds
+            );
+        } catch (Exception ignored) {}
 
         // shredder visual will be managed by LevelManager (shared instance)
     }

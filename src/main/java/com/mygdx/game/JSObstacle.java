@@ -1,29 +1,171 @@
 package com.mygdx.game;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+
 /**
- * JSObstacle - small utility wrapper for creating "JS" style obstacles.
- *
- * This class provides factory/helpers so levels can add the same obstacle
- * consistently without duplicating Rectangle creation code.
- *
- * Usage examples:
- * - Rectangle r = JSObstacle.createRect(x,y,w,h);
- * - JSObstacle.addTo(obstaclesArray, x,y,w,h); // adds and returns Rectangle
+ * JSObstacle - utility wrapper that creates a collision rectangle and also
+ * provides an optional animated visual (KMJS sprite frames) for any level
+ * that wants a visible JS. Callers can keep using `addTo(obstacles, ...)`
+ * as before; this class will also register an internal visual instance
+ * that is drawn automatically via `renderAll(batch)`.
  */
 public class JSObstacle {
     private Rectangle rect;
-    private String tag = "JS";
+    private boolean facingRight = true; // visual facing hint
 
-    public JSObstacle(float x, float y, float w, float h) {
-        this.rect = new Rectangle(x, y, w, h);
+    // Per-instance behavior tunables
+    private float leftX = 0f;
+    private float rightX = 0f;
+    private float speed = 60f;
+    private float sightDistance = 35f;
+    private float sightVerticalTolerance = 0.1f; // fraction of height
+    private float caughtDelay = 3.0f;
+    private boolean caughtPending = false;
+    private float caughtTimer = 0f;
+    // How long to wait (seconds) after detection before switching to GAMEOVER
+    private float gameOverDelay = 2.0f;
+
+    // Shared static frames for KMJS visuals (loaded once on demand)
+    private static TextureRegion[] sharedFrames = null;
+    private static Texture sharedCaughtTex = null;
+    private static com.badlogic.gdx.graphics.g2d.TextureRegion sharedCaughtRegion = null;
+    private static boolean framesLogged = false;
+
+    // Instances to draw (each holds a reference to the same Rectangle returned to levels)
+    private static final ArrayList<JSObstacle> instances = new ArrayList<>();
+    // When one JS catches the player, prevent other JS instances from also entering caught state
+    private static boolean anyCaughtActive = false;
+
+    private float animTime = 0f;
+    // visual scale stored so rendering and hitbox adjustments can be consistent
+    private float visualScale = 1f;
+    // Fraction (0..1) of the texture width that represents the character center in the image.
+    // For a 4000px-wide image with character centered at 2000px, use 0.5f (default).
+    private float centerTextureFraction = 0.5f;
+
+    public JSObstacle(Rectangle r) {
+        this.rect = r;
+        this.facingRight = true;
+        this.leftX = r.x;
+        this.rightX = r.x;
+        ensureFramesLoaded();
     }
+
+    public float getVisualScale() { return visualScale; }
 
     public Rectangle getRect() { return rect; }
 
-    public String getTag() { return tag; }
+    private static void ensureFramesLoaded() {
+        if (sharedFrames != null) return;
+        try {
+            java.util.ArrayList<TextureRegion> tmp = new java.util.ArrayList<>();
+            // Try common candidate base paths first (both with and without leading 'assets/')
+            String[] bases = new String[]{"assets/kmjs", "kmjs"};
+            for (String base : bases) {
+                try {
+                    for (int i = 1; i <= 4; i++) {
+                        String p = String.format("%s/%d.png", base, i);
+                        try {
+                            if (Gdx.files.internal(p).exists()) {
+                                Texture t = new Texture(Gdx.files.internal(p));
+                                t.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                                tmp.add(new TextureRegion(t));
+                                continue;
+                            }
+                            if (Gdx.files.absolute(p).exists()) {
+                                Texture t = new Texture(Gdx.files.absolute(p));
+                                t.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                                tmp.add(new TextureRegion(t));
+                                continue;
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                    // If we found frames in this base, stop searching other bases
+                    if (tmp.size() > 0) break;
+                } catch (Exception ignored) {}
+            }
+
+            // If still empty, try listing png files in known directories and load them sorted by name.
+            if (tmp.isEmpty()) {
+                for (String base : bases) {
+                    try {
+                        com.badlogic.gdx.files.FileHandle dir = Gdx.files.internal(base);
+                        if (dir != null && dir.exists() && dir.isDirectory()) {
+                            com.badlogic.gdx.files.FileHandle[] files = dir.list("png");
+                            java.util.Arrays.sort(files, (a,b) -> a.name().compareToIgnoreCase(b.name()));
+                            for (com.badlogic.gdx.files.FileHandle fh : files) {
+                                try {
+                                    Texture t = new Texture(fh);
+                                    t.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                                    tmp.add(new TextureRegion(t));
+                                } catch (Exception ignored) {}
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                    if (!tmp.isEmpty()) break;
+                }
+            }
+
+            if (tmp.size() > 0) sharedFrames = tmp.toArray(new TextureRegion[0]);
+            if (sharedFrames != null && !framesLogged) {
+                Gdx.app.log("JSObstacle", "Loaded JS frames: " + sharedFrames.length);
+                framesLogged = true;
+            }
+
+            // load optional caught texture: prefer a file explicitly named '5.png' else pick a frame that contains '5' in name
+            try {
+                // try exact names first
+                String[] caughtCandidates = new String[]{"assets/kmjs/5.png", "kmjs/5.png"};
+                boolean loadedCaught = false;
+                for (String p5 : caughtCandidates) {
+                    try {
+                        if (Gdx.files.internal(p5).exists()) {
+                            sharedCaughtTex = new Texture(Gdx.files.internal(p5));
+                            sharedCaughtTex.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                            loadedCaught = true;
+                            break;
+                        }
+                        if (Gdx.files.absolute(p5).exists()) {
+                            sharedCaughtTex = new Texture(Gdx.files.absolute(p5));
+                            sharedCaughtTex.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                            loadedCaught = true;
+                            break;
+                        }
+                    } catch (Exception ignored) {}
+                }
+                // if not found, scan directories for file names containing '5' (handles names like '5 (3).png')
+                if (!loadedCaught) {
+                    for (String base : new String[]{"assets/kmjs", "kmjs"}) {
+                        try {
+                            com.badlogic.gdx.files.FileHandle d = Gdx.files.internal(base);
+                            if (d != null && d.exists() && d.isDirectory()) {
+                                com.badlogic.gdx.files.FileHandle[] files = d.list("png");
+                                for (com.badlogic.gdx.files.FileHandle fh : files) {
+                                    if (fh.name().contains("5")) {
+                                        try { sharedCaughtTex = new Texture(fh); sharedCaughtTex.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear); loadedCaught = true; Gdx.app.log("JSObstacle", "Loaded caught texture: " + fh.path()); break; } catch (Exception ignored) {}
+                                    }
+                                }
+                            }
+                        } catch (Exception ignored) {}
+                        if (loadedCaught) break;
+                    }
+                }
+                if (sharedCaughtTex != null) {
+                    try { sharedCaughtRegion = new com.badlogic.gdx.graphics.g2d.TextureRegion(sharedCaughtTex); } catch (Exception ignored) { sharedCaughtRegion = null; }
+                }
+            } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            sharedFrames = null;
+        }
+    }
 
     /**
      * Create a Rectangle instance for a JS obstacle.
@@ -34,12 +176,292 @@ public class JSObstacle {
 
     /**
      * Add a JS obstacle rectangle to an existing obstacles array and return it.
-     * This keeps level code tidy: JSObstacle.addTo(obstacles, x,y,w,h);
+     * Also register an internal visual instance to be rendered by `renderAll`.
      */
     public static Rectangle addTo(Array<Rectangle> obstacles, float x, float y, float w, float h) {
-        if (obstacles == null) return createRect(x,y,w,h);
+        if (obstacles == null) return createRect(x, y, w, h);
         Rectangle r = createRect(x, y, w, h);
         obstacles.add(r);
+        JSObstacle inst = new JSObstacle(r);
+        instances.add(inst);
+        Gdx.app.log("JSObstacle", String.format("Added JS instance at %.1f,%.1f size %.1fx%.1f (total=%d)", r.x, r.y, r.width, r.height, instances.size()));
         return r;
+    }
+
+    /**
+     * Add a JS obstacle with behavior configuration.
+     */
+    public static Rectangle addTo(Array<Rectangle> obstacles,
+                                  float leftX, float rightX, float y,
+                                  float w, float h,
+                                  float speed, float sightDistance,
+                                  float sightVerticalTolerance, float scale,
+                                  float caughtDelay) {
+        if (obstacles == null) return createRect(leftX, y, w, h);
+        // create rect positioned at leftX
+        Rectangle r = createRect(leftX, y, w * scale, h * scale);
+        obstacles.add(r);
+        JSObstacle inst = new JSObstacle(r);
+        inst.leftX = leftX;
+        inst.rightX = rightX;
+        inst.speed = speed;
+        inst.sightDistance = sightDistance;
+        inst.sightVerticalTolerance = sightVerticalTolerance;
+        inst.caughtDelay = caughtDelay;
+        inst.visualScale = scale;
+        instances.add(inst);
+        Gdx.app.log("JSObstacle", String.format("Added JS instance (configured) left=%.1f right=%.1f y=%.1f size=%.1fx%.1f speed=%.1f sight=%.1f (total=%d)", leftX, rightX, y, r.width, r.height, speed, sightDistance, instances.size()));
+        return r;
+    }
+
+    /**
+     * Returns true if the provided rectangle belongs to a registered JS visual instance.
+     */
+    public static boolean isRegisteredRect(Rectangle r) {
+        if (r == null) return false;
+        for (JSObstacle jo : instances) {
+            if (jo != null && jo.rect == r) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Update all registered JS instances (movement, sight checks).
+     */
+    public static void updateAll(float dt, Fixer player) {
+        if (instances.isEmpty()) return;
+        ensureFramesLoaded();
+        Iterator<JSObstacle> it = instances.iterator();
+        while (it.hasNext()) {
+            JSObstacle jo = it.next();
+            if (jo == null || jo.rect == null) { it.remove(); continue; }
+            try {
+                jo.update(dt, player);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    private void update(float dt, Fixer player) {
+        // If we're in a caught pending state, advance its timer and trigger GAMEOVER after `gameOverDelay`.
+        if (caughtPending) {
+            caughtTimer += dt;
+            if (caughtTimer >= gameOverDelay) {
+                // trigger GAMEOVER via helper
+                try { triggerGameOver(); } catch (Exception ignored) {}
+                // clear global caught lock so subsequent runs won't be blocked
+                anyCaughtActive = false;
+                caughtPending = false;
+                caughtTimer = 0f;
+            }
+            // while pending, skip patrol/movement
+            return;
+        }
+
+        // Patrol between leftX and rightX
+        if (rightX > leftX + 1f) {
+            float dir = facingRight ? 1f : -1f;
+            float move = speed * dt * dir;
+            rect.x += move;
+            if (rect.x > rightX) { rect.x = rightX; facingRight = false; }
+            if (rect.x < leftX) { rect.x = leftX; facingRight = true; }
+        }
+
+        // sight and catch logic
+        if (player != null && player.getBounds() != null) {
+            Rectangle pb = player.getBounds();
+            float playerCenterX = pb.x + pb.width * 0.5f;
+            float jsCenterX = rect.x + rect.width * 0.5f;
+            boolean playerIsInFront = (facingRight && playerCenterX > jsCenterX) || (!facingRight && playerCenterX < jsCenterX);
+            
+                {
+                boolean directOverlap = rect.overlaps(pb);
+                boolean inSight = false;
+                    if (playerIsInFront) {
+                    // Horizontal sight: compute sight origin based on the visual center inside the texture
+                    float centerFrac = this.centerTextureFraction;
+                    // If frames are present we can sanity-check against their widths; otherwise fall back to 0.5
+                    try { if (sharedFrames != null && sharedFrames.length > 0) {
+                        TextureRegion sample = sharedFrames[0];
+                        if (sample != null && sample.getRegionWidth() > 0) {
+                            // keep centerFrac as-is; user-provided fraction maps pixels to world rect
+                        }
+                    }} catch (Exception ignored) {}
+                    float visualCenterX = rect.x + rect.width * centerFrac;
+                    float sightW = sightDistance;
+                    float sightStart = facingRight ? visualCenterX : (visualCenterX - sightW);
+                    boolean inHorizontalSight = (playerCenterX >= sightStart && playerCenterX <= (sightStart + sightW));
+
+                    // Vertical tolerance: require player's center to be near JS center vertically
+                    float sightH = rect.height * sightVerticalTolerance;
+                    if (sightH < 2f) sightH = 2f;
+                    float jsCenterY = rect.y + rect.height * 0.5f;
+                    float playerCenterY = pb.y + pb.height * 0.5f;
+                    float vertDist = Math.abs(playerCenterY - jsCenterY);
+                    boolean verticalOk = vertDist <= (sightH * 0.5f);
+
+                    inSight = inHorizontalSight && verticalOk;
+                }
+                // Only catch if player is in front (sight) OR if directly overlapping while in front.
+                // This prevents the player from being caught when sneaking behind JS.
+                if (inSight || (directOverlap && playerIsInFront)) {
+                    // Only allow one JS to enter caught state at a time
+                    // Log diagnostic info to help debug false-positive catches
+                    try {
+                        int idx = instances.indexOf(this);
+                        float playerCenterY = pb.y + pb.height * 0.5f;
+                        float jsCenterY = rect.y + rect.height * 0.5f;
+                        Gdx.app.log("JSObstacle", String.format("CatchAttempt idx=%d jsX=%.1f playerX=%.1f jsY=%.1f playerY=%.1f inSight=%b overlap=%b playerIsInFront=%b", idx, jsCenterX, playerCenterX, jsCenterY, playerCenterY, inSight, directOverlap, playerIsInFront));
+                    } catch (Exception ignored) {}
+
+                    if (!anyCaughtActive) {
+                        anyCaughtActive = true;
+                        // try to play kmjs sfx (only for the active catcher)
+                        try {
+                            Object appObj = Gdx.app.getApplicationListener();
+                            if (appObj != null) {
+                                try {
+                                    java.lang.reflect.Method getHsm = appObj.getClass().getMethod("getHoverSoundManager");
+                                    Object hsm = getHsm.invoke(appObj);
+                                    if (hsm != null) {
+                                        try {
+                                            java.lang.reflect.Method play = hsm.getClass().getMethod("playKmjs");
+                                            play.invoke(hsm);
+                                        } catch (NoSuchMethodException nsme) {}
+                                    }
+                                } catch (NoSuchMethodException nsme) {}
+                            }
+                        } catch (Exception ignored) {}
+
+                        // GAMEOVER will be triggered after `gameOverDelay` elapses (caughtPending timer)
+                        // mark visual as pending so the caught frame can be drawn briefly if needed
+                        caughtPending = true;
+                        caughtTimer = 0f;
+                    }
+                }
+            }
+        }
+    }
+
+    // Helper to set the screen's currentState to GAMEOVER via reflection (mirrors Level2 behavior)
+    private void triggerGameOver() {
+        try {
+            Object app = Gdx.app.getApplicationListener();
+            if (app instanceof com.badlogic.gdx.Game) {
+                com.badlogic.gdx.Screen screen = ((com.badlogic.gdx.Game) app).getScreen();
+                if (screen != null) {
+                    java.lang.reflect.Field f = null;
+                    try { f = screen.getClass().getDeclaredField("currentState"); } catch (NoSuchFieldException nsf) {
+                        Class<?> sc = screen.getClass().getSuperclass();
+                        if (sc != null) { try { f = sc.getDeclaredField("currentState"); } catch (Exception ignored) {} }
+                    }
+                    if (f != null) {
+                        f.setAccessible(true);
+                        Class<?> enumType = f.getType();
+                        if (enumType.isEnum()) {
+                            Object val = java.lang.Enum.valueOf((Class) enumType, "GAMEOVER");
+                            try { f.set(screen, val); } catch (Exception ignored) {}
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Render all registered JS visuals. Call from LevelManager's batch phase.
+     */
+    public static void renderAll(SpriteBatch batch) {
+        if (instances.isEmpty()) return;
+        ensureFramesLoaded();
+        // If no frames loaded, nothing to draw
+        if (sharedFrames == null || sharedFrames.length == 0) return;
+
+        float dt = Gdx.graphics.getDeltaTime();
+        batch.begin();
+        try {
+            Iterator<JSObstacle> it = instances.iterator();
+            while (it.hasNext()) {
+                JSObstacle jo = it.next();
+                if (jo == null || jo.rect == null) { it.remove(); continue; }
+                jo.animTime += dt;
+                int idx = (int) ((jo.animTime / 0.12f) % sharedFrames.length);
+                TextureRegion fr = sharedFrames[idx];
+                if (fr == null) continue;
+
+                // draw caught texture if pending
+                if (jo.caughtPending && sharedCaughtRegion != null) {
+                    try {
+                        float texW = sharedCaughtRegion.getRegionWidth();
+                        float texH = sharedCaughtRegion.getRegionHeight();
+                        float effW = jo.rect.width;
+                        float effH = jo.rect.height;
+                        float drawW = effW;
+                        float drawH = effH;
+                        float drawX = jo.rect.x;
+                        float drawY = jo.rect.y;
+                        if (texW > 0 && texH > 0) {
+                            float scale = Math.min(effW / texW, effH / texH);
+                            drawW = texW * scale;
+                            drawH = texH * scale;
+                            drawX = jo.rect.x + (effW - drawW) * 0.5f;
+                            drawY = jo.rect.y + (effH - drawH) * 0.5f;
+                        }
+                        // If the JS is facing left, mirror the caught texture so the reaction faces the player
+                        boolean flipCaught = !jo.facingRight;
+                        if (!flipCaught) {
+                            batch.draw(sharedCaughtRegion, drawX, drawY, drawW, drawH);
+                        } else {
+                            // draw mirrored by using a negative width
+                            batch.draw(sharedCaughtRegion, drawX + drawW, drawY, -drawW, drawH);
+                        }
+                        continue;
+                    } catch (Exception ignored) {}
+                }
+
+                float texW = fr.getRegionWidth();
+                float texH = fr.getRegionHeight();
+                float effW = jo.rect.width;
+                float effH = jo.rect.height;
+                float drawW = effW;
+                float drawH = effH;
+                float drawX = jo.rect.x;
+                float drawY = jo.rect.y;
+                if (texW > 0 && texH > 0) {
+                    float scale = Math.min(effW / texW, effH / texH);
+                    drawW = texW * scale;
+                    drawH = texH * scale;
+                    drawX = jo.rect.x + (effW - drawW) * 0.5f;
+                    drawY = jo.rect.y + (effH - drawH) * 0.5f;
+                }
+                // draw flipped if facing left
+                boolean flip = !jo.facingRight;
+                if (fr.isFlipX() != flip) fr.flip(true, false);
+                batch.draw(fr, drawX, drawY, drawW, drawH);
+            }
+        } catch (Exception ignored) {}
+        batch.end();
+    }
+
+    /**
+     * Clear all registered JS visuals (called when loading a new level)
+     */
+    public static void clearAll() {
+        // Dispose textures we created in sharedFrames
+        if (sharedFrames != null) {
+            for (TextureRegion tr : sharedFrames) {
+                try {
+                    Texture t = tr.getTexture();
+                    if (t != null) { t.dispose(); }
+                } catch (Exception ignored) {}
+            }
+            sharedFrames = null;
+        }
+        if (sharedCaughtTex != null) {
+            try { sharedCaughtTex.dispose(); } catch (Exception ignored) {}
+            sharedCaughtTex = null;
+        }
+        instances.clear();
+        // Reset global caught lock on level clear so future levels can catch again
+        anyCaughtActive = false;
     }
 }

@@ -229,6 +229,9 @@ public class LevelManager2 implements ILevelManager {
     public float update(float deltaTime, Fixer player) {
         float timePenalty = 0f;
 
+        // Update any JS obstacle AI (movement, sight checks)
+        try { com.mygdx.game.JSObstacle.updateAll(deltaTime, player); } catch (Exception ignored) {}
+
         // Pass 'this' (ILevelManager) to updateBackground so levels can use either manager type
         try {
             if (currentLevelA instanceof BackgroundedLevel) {
@@ -582,6 +585,10 @@ public class LevelManager2 implements ILevelManager {
 
         shapeRenderer.setColor(0.8f, 0.1f, 0.1f, 1);
         for (Rectangle obstacle : obstacles) {
+            // skip drawing rectangles that correspond to a visual JS obstacle
+            try {
+                if (com.mygdx.game.JSObstacle.isRegisteredRect(obstacle)) continue;
+            } catch (Exception ignored) {}
             shapeRenderer.rect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
         }
 
@@ -606,6 +613,9 @@ public class LevelManager2 implements ILevelManager {
         }
 
         shapeRenderer.end();
+
+        // Render any JS obstacle visuals registered by levels (e.g., KMJS sprites)
+        try { com.mygdx.game.JSObstacle.renderAll(batch); } catch (Exception ignored) {}
 
         if (documents.size > 0) {
             batch.begin();
@@ -680,6 +690,9 @@ public class LevelManager2 implements ILevelManager {
             backgroundTex.dispose();
             backgroundTex = null;
         }
+
+        // Clear any JS obstacle visuals from a previous level so visuals don't leak
+        try { com.mygdx.game.JSObstacle.clearAll(); } catch (Exception ignored) {}
 
         // store references for callbacks
         this.currentLevelA = levelA;
@@ -902,6 +915,7 @@ public class LevelManager2 implements ILevelManager {
             try { fx.dispose(); } catch (Exception ignored) {}
         }
         laserFXList.clear();
+        try { com.mygdx.game.JSObstacle.clearAll(); } catch (Exception ignored) {}
     }
 
     private boolean rectsOverlap(Rectangle a, Rectangle b) {
