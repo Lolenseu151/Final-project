@@ -25,8 +25,9 @@ dependencies {
 }
 
 application {
-    // If Gradle complains, change to mainClassName = 'com.mygdx.game.desktop.DesktopLauncher'
-    mainClass = 'com.mygdx.game.desktop.DesktopLauncher'
+    // Use DesktopRunLevel3 to start directly on Level 3 for quick testing.
+    // If you want to revert to the normal launcher, set this back to DesktopLauncher.
+    mainClass = 'com.mygdx.game.desktop.DesktopRunLevel3'
 }
 
 // Set working directory for the run task to find assets

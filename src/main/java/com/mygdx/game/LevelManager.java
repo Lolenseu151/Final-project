@@ -65,6 +65,7 @@ public class LevelManager implements ILevelManager {
     private final Array<Rectangle> obstacles;      // Red Tape obstacles (slow player)
     private final Array<Rectangle> lasers;         // Lasers (visual beams you can control)
     private final Array<Rectangle> platforms;      // Platforms/floors for player to stand on
+    private final com.badlogic.gdx.utils.Array<com.mygdx.game.SlopedPlatform> slopedPlatforms = new com.badlogic.gdx.utils.Array<>();
     private Rectangle shredder;                    // The shredder (win condition)
 
     // Level state
@@ -572,6 +573,24 @@ public class LevelManager implements ILevelManager {
         final float EPS = 0.6f; // small offset to prevent sticking
         final float MIN_HORIZONTAL_OVERLAP = Math.max(6f, p.width * 0.25f);
 
+        // First, check sloped platforms (land on slope if crossing top)
+        try {
+            for (com.mygdx.game.SlopedPlatform slope : slopedPlatforms) {
+                if (slope == null) continue;
+                // use player's center X to sample the slope
+                float cx = p.x + p.width * 0.5f;
+                if (!slope.containsX(cx)) continue;
+                float slopeY = slope.getYAt(cx);
+                // if we were above slope and now intersect it while moving down, land
+                if (vy <= 0f && prevBottom >= slopeY - EPS && p.y <= slopeY + EPS) {
+                    p.y = slopeY;
+                    player.setVelocityY(0f);
+                    player.setOnGround(true);
+                    return;
+                }
+            }
+        } catch (Exception ignored) {}
+
         for (Rectangle platform : platforms) {
             if (!p.overlaps(platform)) continue;
 
@@ -846,6 +865,22 @@ public class LevelManager implements ILevelManager {
         currentLevel = level;  // STORE FOR CALLBACKS
         documents.clear(); documents.addAll(level.getDocuments());
         platforms.clear(); platforms.addAll(level.getPlatforms());
+        // Try to load optional sloped platforms exposed by the level (getSlopedPlatforms())
+        slopedPlatforms.clear();
+        try {
+            java.lang.reflect.Method m = level.getClass().getMethod("getSlopedPlatforms");
+            Object o = m.invoke(level);
+            if (o instanceof com.badlogic.gdx.utils.Array) {
+                com.badlogic.gdx.utils.Array<?> arr = (com.badlogic.gdx.utils.Array<?>) o;
+                for (Object s : arr) {
+                    if (s instanceof com.mygdx.game.SlopedPlatform) slopedPlatforms.add((com.mygdx.game.SlopedPlatform) s);
+                }
+            } else if (o instanceof java.util.List) {
+                for (Object s : (java.util.List<?>) o) {
+                    if (s instanceof com.mygdx.game.SlopedPlatform) slopedPlatforms.add((com.mygdx.game.SlopedPlatform) s);
+                }
+            }
+        } catch (Exception ignored) {}
         obstacles.clear(); obstacles.addAll(level.getObstacles());
         lasers.clear(); 
         // Only load lasers from Level3_1 (not Level3) to avoid duplication

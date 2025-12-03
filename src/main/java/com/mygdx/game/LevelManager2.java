@@ -25,6 +25,7 @@ public class LevelManager2 implements ILevelManager {
     private final Array<Rectangle> obstacles;     // Red Tape obstacles (slow player)
     private final Array<Rectangle> lasers;         // Lasers (visual beams)
     private final Array<Rectangle> platforms;      // Platforms/floors for player to stand on
+    private final Array<SlopedPlatform> slopedPlatforms; // optional sloped platforms
     private Rectangle shredder;                    // The shredder (win condition)
 
     // per-map references (for callbacks / visuals)
@@ -70,6 +71,7 @@ public class LevelManager2 implements ILevelManager {
         this.obstacles = new Array<>();
         this.lasers = new Array<>();
         this.platforms = new Array<>();
+        this.slopedPlatforms = new Array<>();
         this.documentsCollected = 0;
         this.levelComplete = false;
 
@@ -450,6 +452,32 @@ public class LevelManager2 implements ILevelManager {
         float prevTop = prevY + p.height;
         float prevBottom = prevY;
         final float EPS = 0.6f;
+        // Check sloped platforms first (if any)
+        try {
+            if (slopedPlatforms != null && slopedPlatforms.size > 0) {
+                float cx = p.x + p.width * 0.5f;
+                for (SlopedPlatform sp : slopedPlatforms) {
+                    if (sp == null) continue;
+                    if (!sp.containsX(cx)) continue;
+                    float slopeY = sp.getYAt(cx);
+                    if (vy <= 0f) {
+                        if (prevBottom >= slopeY - EPS && p.y < slopeY + EPS) {
+                            p.y = slopeY;
+                            player.setVelocityY(0f);
+                            player.setOnGround(true);
+                            return;
+                        }
+                    } else {
+                        if (prevTop <= slopeY + EPS && (p.y + p.height) > slopeY + EPS) {
+                            p.y = slopeY - p.height - EPS;
+                            player.setVelocityY(0f);
+                            player.setOnGround(false);
+                            return;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
         final float MIN_HORIZONTAL_OVERLAP = Math.max(6f, p.width * 0.25f);
 
         for (Rectangle platform : platforms) {
@@ -652,6 +680,24 @@ public class LevelManager2 implements ILevelManager {
             }
             batch.end();
         }
+
+        // === PHASE: Level-specific overlays (draw on top of documents) ===
+        try {
+            // Prefer currentLevelB overlay (if present) so continuation overlays draw above A
+            if (currentLevelB instanceof BackgroundedLevel) {
+                batch.begin();
+                ((BackgroundedLevel) currentLevelB).renderOverlay(batch);
+                batch.end();
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            if (currentLevelA instanceof BackgroundedLevel) {
+                batch.begin();
+                ((BackgroundedLevel) currentLevelA).renderOverlay(batch);
+                batch.end();
+            }
+        } catch (Exception ignored) {}
     }
 
     public void reset() {
@@ -751,8 +797,22 @@ public class LevelManager2 implements ILevelManager {
 
         // Always clear and reload platforms, obstacles, lasers
         platforms.clear();
+        slopedPlatforms.clear();
         obstacles.clear();
         lasers.clear();
+        // Try to load sloped platforms from levels (if they expose getSlopedPlatforms())
+        try {
+            if (levelA != null) {
+                try {
+                    java.lang.reflect.Method m = levelA.getClass().getMethod("getSlopedPlatforms");
+                    Object o = m.invoke(levelA);
+                    if (o instanceof Array) {
+                        @SuppressWarnings("unchecked") Array<SlopedPlatform> arr = (Array<SlopedPlatform>) o;
+                        if (arr != null) slopedPlatforms.addAll(arr);
+                    }
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
         try {
             if (levelA != null) {
                 // Only add levelA platforms if levelB is null (not transitioning)
@@ -776,6 +836,19 @@ public class LevelManager2 implements ILevelManager {
                 if (obs != null) obstacles.addAll(obs);
                 Array<Rectangle> lasersB = levelB.getLasers();
                 if (lasersB != null) lasers.addAll(lasersB);
+                // Try to load slopes from levelB as well (replace/augment any from A)
+                try {
+                    java.lang.reflect.Method m = levelB.getClass().getMethod("getSlopedPlatforms");
+                    Object o = m.invoke(levelB);
+                    if (o instanceof Array) {
+                        @SuppressWarnings("unchecked") Array<SlopedPlatform> arr = (Array<SlopedPlatform>) o;
+                        if (arr != null) {
+                            // Prefer B's slopes over A's when present
+                            slopedPlatforms.clear();
+                            slopedPlatforms.addAll(arr);
+                        }
+                    }
+                } catch (Exception ignored) {}
             }
         } catch (Exception ignored) {}
         

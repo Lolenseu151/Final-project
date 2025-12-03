@@ -25,8 +25,8 @@ public class JSObstacle {
     private float leftX = 0f;
     private float rightX = 0f;
     private float speed = 60f;
-    private float sightDistance = 35f;
-    private float sightVerticalTolerance = 0.1f; // fraction of height
+    private float sightDistance = 70f;
+    private float sightVerticalTolerance = 0.3f; // fraction of height
     private float caughtDelay = 3.0f;
     private boolean caughtPending = false;
     private float caughtTimer = 0f;
@@ -47,9 +47,10 @@ public class JSObstacle {
     private float animTime = 0f;
     // visual scale stored so rendering and hitbox adjustments can be consistent
     private float visualScale = 1f;
-    // Fraction (0..1) of the texture width that represents the character center in the image.
-    // For a 4000px-wide image with character centered at 2000px, use 0.5f (default).
-    private float centerTextureFraction = 0.5f;
+
+    // Vertical tolerance (in pixels) for sight checks — player center must be within this
+    // distance of the JS center to be considered on the same floor/platform.
+    private static final float JS_VERTICAL_TOLERANCE_PX = 40f;
 
     public JSObstacle(Rectangle r) {
         this.rect = r;
@@ -277,33 +278,37 @@ public class JSObstacle {
                 boolean directOverlap = rect.overlaps(pb);
                 boolean inSight = false;
                     if (playerIsInFront) {
-                    // Horizontal sight: compute sight origin based on the visual center inside the texture
-                    float centerFrac = this.centerTextureFraction;
-                    // If frames are present we can sanity-check against their widths; otherwise fall back to 0.5
-                    try { if (sharedFrames != null && sharedFrames.length > 0) {
-                        TextureRegion sample = sharedFrames[0];
-                        if (sample != null && sample.getRegionWidth() > 0) {
-                            // keep centerFrac as-is; user-provided fraction maps pixels to world rect
-                        }
-                    }} catch (Exception ignored) {}
-                    float visualCenterX = rect.x + rect.width * centerFrac;
-                    float sightW = sightDistance;
-                    float sightStart = facingRight ? visualCenterX : (visualCenterX - sightW);
+                    // Horizontal sight: start from sprite center so the ray originates from the
+                    // midpoint (roughly pixel 2000 of the 4000px art). Still treat sightDistance as
+                    // "distance beyond the visible front", so we add half the sprite width to cover
+                    // the guard's body before extending outward.
+                    float centerX = rect.x + rect.width * 0.5f;
+                    float halfWidth = rect.width * 0.5f;
+                    float sightW = sightDistance + halfWidth;
+                    float sightStart = facingRight ? centerX : (centerX - sightW);
                     boolean inHorizontalSight = (playerCenterX >= sightStart && playerCenterX <= (sightStart + sightW));
 
-                    // Vertical tolerance: require player's center to be near JS center vertically
-                    float sightH = rect.height * sightVerticalTolerance;
-                    if (sightH < 2f) sightH = 2f;
-                    float jsCenterY = rect.y + rect.height * 0.5f;
+                    // Require player's bottom to be close to JS base (`rect.y`) so JS only detects
+                    // players on the same floor/platform. This prevents cross-floor detection
+                    // when large visual scales inflate the JS rect height.
                     float playerCenterY = pb.y + pb.height * 0.5f;
-                    float vertDist = Math.abs(playerCenterY - jsCenterY);
-                    boolean verticalOk = vertDist <= (sightH * 0.5f);
+                    float jsCenterY = rect.y + rect.height * 0.5f;
+                    float verticalDelta = Math.abs(playerCenterY - jsCenterY);
+                    boolean verticalOk = verticalDelta <= JS_VERTICAL_TOLERANCE_PX;
 
                     inSight = inHorizontalSight && verticalOk;
+                    // Debug: log sight checks every frame when player is horizontally aligned
+                    if (inHorizontalSight) {
+                        Gdx.app.log("JSObstacleSight", String.format(
+                            "jsCenterY=%.1f playerCenterY=%.1f | delta=%.1f | tol=%.1f | horiz=%b | vertOk=%b | inSight=%b",
+                            jsCenterY, playerCenterY, verticalDelta, JS_VERTICAL_TOLERANCE_PX,
+                            inHorizontalSight, verticalOk, inSight));
+                    }
                 }
-                // Only catch if player is in front (sight) OR if directly overlapping while in front.
-                // This prevents the player from being caught when sneaking behind JS.
-                if (inSight || (directOverlap && playerIsInFront)) {
+                boolean overlapAllowed = directOverlap && playerIsInFront && inSight;
+                // Only catch if player is in front (sight) OR if directly overlapping while also in sight.
+                // This prevents the player from being caught when sneaking behind JS or on other floors.
+                if (inSight || overlapAllowed) {
                     // Only allow one JS to enter caught state at a time
                     // Log diagnostic info to help debug false-positive catches
                     try {

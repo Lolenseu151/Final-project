@@ -2,6 +2,8 @@ package com.mygdx.game.Levels;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
@@ -19,6 +21,7 @@ public class Level3 implements Level, BackgroundedLevel {
     private final Array<Rectangle> platforms = new Array<>();
     private final Array<Rectangle> obstacles = new Array<>();
     private final Array<Rectangle> lasers = new Array<>();
+    private final com.badlogic.gdx.utils.Array<com.mygdx.game.SlopedPlatform> sloped = new com.badlogic.gdx.utils.Array<>();
     private Rectangle shredder;
     // Shredder position/size matching Level3_1 for consistency
     private float shredderX = 250f;
@@ -59,32 +62,32 @@ public class Level3 implements Level, BackgroundedLevel {
         platforms.clear();
         
         // === FLOOR 1 (Bottom floor) ===
-        platforms.add(new Rectangle(50, 65, 1220, 20)); // LEFT SIDE
+        platforms.add(new Rectangle(20, 0, 1290, 20)); // LEFT SIDE
        
 
         // === FLOOR 2 ===
-        platforms.add(new Rectangle(1070, 245,185, 20)); // left section
-        platforms.add(new Rectangle(46, 245,935, 20)); // Left section
+        platforms.add(new Rectangle(1070, 180,185, 20)); // left section
+        platforms.add(new Rectangle(46, 180,935, 20)); // Left section
        
 
         // === FLOOR 3 ===
-        platforms.add(new Rectangle(411, 420, 450, 20));
-         platforms.add(new Rectangle(1080, 420, 170, 20));
+        platforms.add(new Rectangle(411, 355, 450, 20));
+         platforms.add(new Rectangle(1080, 355, 170, 20));
 
         // === FLOOR 4 (Roof inside section) ===
-        platforms.add(new Rectangle(597, 583, 656, 20));
+        platforms.add(new Rectangle(597, 518, 656, 20));
 
         // === VERTICAL WALLS (added to platforms for solid collision) ===
         // You can delete any wall you don't want by removing/commenting the line
         
         // LEFT BOUNDARY WALL - prevents player from going off left edge
-        platforms.add(new Rectangle(30, 75, 20, 530)); // Full height left wall
+        platforms.add(new Rectangle(30, 0, 20, 530)); // Full height left wall
         
         // RIGHT BOUNDARY WALL - removed to allow transition to Level3_1
         // platforms.add(new Rectangle(1270, 250, 20, 530)); // Full height right wall
         
         // FLOOR 3 - Left blocking wall
-        platforms.add(new Rectangle(390, 440, 20, 145)); // Wall at left edge of floor 3
+        platforms.add(new Rectangle(390, 375, 20, 205)); // Wall at left edge of floor 3
         
         // FLOOR 4 - Right exit wall - removed to allow transition
         // platforms.add(new Rectangle(1250, 603, 20, 170)); // Right wall for roof section
@@ -102,6 +105,16 @@ public class Level3 implements Level, BackgroundedLevel {
         // When transitioning to Level3_1, only Level3_1's 2 lasers are shown
         lasers.add(new Rectangle(400, 265, 70, 170));
 
+        // Add a diagonal sloped platform with configurable length and angle
+        // Left endpoint (higher): x=380,y=570
+        float leftX = 700f, leftY = 720f;
+        float length = 500f; // slope length in pixels — change this to adjust
+        double angleDeg = 205.0; // slope angle in degrees (negative = descending to the right)
+        double angleRad = Math.toRadians(angleDeg);
+        float rightX = leftX + (float)(Math.cos(angleRad) * length);
+        float rightY = leftY + (float)(Math.sin(angleRad) * length);
+        sloped.add(new com.mygdx.game.SlopedPlatform(leftX, leftY, rightX, rightY));
+
         // Keep the rectangle for gameplay/collision, but we'll draw the animated shredder over it
         // shredder = new Rectangle(80, 420, 50, 50);
         // Remove the visible placeholder rectangle so the gray box is not rendered.
@@ -116,7 +129,7 @@ public class Level3 implements Level, BackgroundedLevel {
             // sightDistance=35, sightVerticalTolerance=0.1, scale=1.0, caughtDelay=3s
             JSObstacle.addTo(obstacles,
                 600f, 900f, // leftX, rightX
-                85f,       // y
+                20f,       // y
                 60f, 110f,  // w, h
                 60f,        // speed px/sec
                 35f,        // sight distance
@@ -131,7 +144,7 @@ public class Level3 implements Level, BackgroundedLevel {
             // sightDistance=35, sightVerticalTolerance=0.1, scale=1.0, caughtDelay=3s
             JSObstacle.addTo(obstacles,
                 600f, 900f, // leftX, rightX
-                -435f,       // y
+                -480f,       // y
                 60f, 110f,  // w, h
                 60f,        // speed px/sec
                 35f,        // sight distance
@@ -155,7 +168,20 @@ public class Level3 implements Level, BackgroundedLevel {
     public Rectangle getShredderCollisionRect() { return shredder; }
 
     @Override public int getTotalDocuments() { return SHARED_TOTAL_DOCS; }
-    @Override public void dispose() { /* per-level resources disposed by LevelManager */ }
+    // Expose sloped platforms for managers that support slopes.
+    public com.badlogic.gdx.utils.Array<com.mygdx.game.SlopedPlatform> getSlopedPlatforms() {
+        return sloped;
+    }
+    @Override
+    public void dispose() {
+        // Dispose per-level resources if any. Also dispose cached platformPixel to avoid small leak.
+        try {
+            if (platformPixel != null) {
+                try { platformPixel.dispose(); } catch (Exception ignored) {}
+                platformPixel = null;
+            }
+        } catch (Exception ignored) {}
+    }
 
     @Override
     public String getBackgroundPath() {
@@ -247,5 +273,49 @@ public class Level3 implements Level, BackgroundedLevel {
 
         // shared shredder visuals are handled by LevelManager (no per-level shredder draw)
     }
+
+    @Override
+    public void renderOverlay(SpriteBatch batch) {
+        // Draw red platform visuals for Level3 only
+        if (batch == null) return;
+        try {
+            if (platformPixel == null) {
+                Pixmap pm = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+                pm.setColor(Color.WHITE);
+                pm.fill();
+                platformPixel = new Texture(pm);
+                pm.dispose();
+                platformPixel.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+            }
+            Color prev = batch.getColor().cpy();
+            batch.setColor(1f, 0f, 0f, 1f);
+            for (Rectangle p : platforms) {
+                try { batch.draw(platformPixel, p.x, p.y, p.width, p.height); } catch (Exception ignored) {}
+            }
+            // Draw sloped platforms as rotated thin rectangles
+            try {
+                float thickness = 20f;
+                for (com.mygdx.game.SlopedPlatform sp : sloped) {
+                    if (sp == null) continue;
+                    float x1 = sp.x1;
+                    float y1 = sp.y1;
+                    float x2 = sp.x2;
+                    float y2 = sp.y2;
+                    float dx = x2 - x1;
+                    float dy = y2 - y1;
+                    float len = (float)Math.sqrt(dx*dx + dy*dy);
+                    float angle = (float)Math.toDegrees(Math.atan2(dy, dx));
+                    try {
+                        com.badlogic.gdx.graphics.g2d.TextureRegion region = new com.badlogic.gdx.graphics.g2d.TextureRegion(platformPixel);
+                        batch.draw(region, x1, y1 - thickness/2f, 0f, thickness/2f, len, thickness, 1f, 1f, angle);
+                    } catch (Exception ignored) {}
+                }
+            } catch (Exception ignored) {}
+            batch.setColor(prev);
+        } catch (Exception ignored) {}
+    }
+
+    // 1x1 texture used to draw platform rectangles in renderOverlay
+    private static Texture platformPixel = null;
 
 }
