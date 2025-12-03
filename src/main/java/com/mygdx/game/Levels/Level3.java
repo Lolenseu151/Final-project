@@ -59,7 +59,7 @@ public class Level3 implements Level, BackgroundedLevel {
         platforms.clear();
         
         // === FLOOR 1 (Bottom floor) ===
-        platforms.add(new Rectangle(50, 75, 1220, 20)); // LEFT SIDE
+        platforms.add(new Rectangle(50, 55, 1220, 20)); // LEFT SIDE
        
 
         // === FLOOR 2 ===
@@ -188,14 +188,10 @@ public class Level3 implements Level, BackgroundedLevel {
 
     // Provide entrance spawn positions so GameScreen can set initial player position
     public float[] getEntranceSpawn() {
-        // place player on top of the first platform so feet sit exactly on the surface
-        if (platforms.size > 0) {
-            Rectangle p = platforms.get(0);          // first-floor platform
-            float x = p.x + 100f;                    // spawn further right on the platform
-            float y = p.y + p.height;                // player bottom edge at platform top
-            return new float[]{ x, y };
-        }
-        return new float[]{ 200f, 500f };
+        // Spawn player at a good starting position on the first floor
+        // Position them clearly on the bottom-left platform
+        // Adjusted spawn point for better positioning when entering from level select screen
+        return new float[]{ 100f, 500f };  // x=100 (left side), y=100 (safely on first platform at y=75+20)
     }
 
     public float[] getReturnSpawn() {
