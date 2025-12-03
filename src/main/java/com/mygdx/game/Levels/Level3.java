@@ -7,6 +7,7 @@ import com.mygdx.game.Fixer;
 import com.mygdx.game.ILevelManager;
 import com.mygdx.game.LevelManager2;
 import com.mygdx.game.LevelManager; // fallback legacy manager
+import com.mygdx.game.JSObstacle;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
@@ -104,6 +105,37 @@ public class Level3 implements Level, BackgroundedLevel {
         // set shared total = this level's docs + continuation level declared docs
         try { SHARED_TOTAL_DOCS = documents.size + Level3_1.DECLARED_DOCS; } catch (Throwable ignored) {}
 
+        // Add a reusable JS obstacle (visual handled by LevelManager's obstacle rendering)
+        try {
+            // patrol from 600 -> 900 at y=445, width=60,height=110, speed=60,
+            // sightDistance=35, sightVerticalTolerance=0.1, scale=1.0, caughtDelay=3s
+            JSObstacle.addTo(obstacles,
+                600f, 900f, // leftX, rightX
+                85f,       // y
+                60f, 110f,  // w, h
+                60f,        // speed px/sec
+                35f,        // sight distance
+                0.1f,       // sight vertical tolerance
+                10.5f,       // scale multiplier for visual size (increased)
+                3f          // caught delay seconds
+            );
+        } catch (Exception ignored) {}
+
+                try {
+            // patrol from 600 -> 900 at y=445, width=60,height=110, speed=60,
+            // sightDistance=35, sightVerticalTolerance=0.1, scale=1.0, caughtDelay=3s
+            JSObstacle.addTo(obstacles,
+                600f, 900f, // leftX, rightX
+                -435f,       // y
+                60f, 110f,  // w, h
+                60f,        // speed px/sec
+                35f,        // sight distance
+                0.1f,       // sight vertical tolerance
+                10f,       // scale multiplier for visual size (increased)
+                3f          // caught delay seconds
+            );
+        } catch (Exception ignored) {}
+
         // shredder visual will be managed by LevelManager (shared instance)
     }
 
@@ -182,14 +214,24 @@ public class Level3 implements Level, BackgroundedLevel {
 
     // Provide entrance spawn positions so GameScreen can set initial player position
     public float[] getEntranceSpawn() {
-        // place player on top of the first platform so feet sit exactly on the surface
+        // Center the Fixer horizontally, but place vertically on top of the
+        // first platform so the player stands on the surface.
+        // Use actual runtime screen size so centering matches the viewport
+        float screenW = Gdx.graphics.getWidth();
+        float approxPlayerSize = 74f; // matches Fixer sprite size used elsewhere
+        float x = (screenW / 2f) - (approxPlayerSize / 2f);
+
+        // If the first platform exists, place the player's feet just above it.
         if (platforms.size > 0) {
-            Rectangle p = platforms.get(0);          // first-floor platform
-            float x = p.x + 100f;                    // spawn further right on the platform
-            float y = p.y + p.height + 500f;               // player feet exactly on top of platform
+            Rectangle p = platforms.get(0);
+            float y = p.y + p.height + 2f; // small safety offset above platform
             return new float[]{ x, y };
         }
-        return new float[]{ 200f, 100f };
+
+        // Fallback: center vertically if no platform found
+        float screenH = Gdx.graphics.getHeight();
+        float y = (screenH / 2f) - (approxPlayerSize / 2f);
+        return new float[]{ x, y };
     }
 
     public float[] getReturnSpawn() {

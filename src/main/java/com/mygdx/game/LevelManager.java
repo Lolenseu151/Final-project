@@ -356,6 +356,9 @@ public class LevelManager implements ILevelManager {
             ((BackgroundedLevel) currentLevel).updateBackground(deltaTime, this, documents, obstacles, player);
         }
 
+        // Update any JS obstacle AI (movement, sight checks)
+        try { com.mygdx.game.JSObstacle.updateAll(deltaTime, player); } catch (Exception ignored) {}
+
         // Hard clamp player position to prevent going through walls at screen edges
         if (player != null && player.getBounds() != null) {
             Rectangle pb = player.getBounds();
@@ -717,6 +720,10 @@ public class LevelManager implements ILevelManager {
         // Obstacles (red)
         shapeRenderer.setColor(0.8f, 0.1f, 0.1f, 1);
         for (Rectangle obstacle : obstacles) {
+            // skip drawing rectangles that correspond to a visual JS obstacle
+            try {
+                if (com.mygdx.game.JSObstacle.isRegisteredRect(obstacle)) continue;
+            } catch (Exception ignored) {}
             shapeRenderer.rect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
         }
 
@@ -737,6 +744,9 @@ public class LevelManager implements ILevelManager {
         }
 
         shapeRenderer.end();  // *** END SHAPES ***
+
+        // Draw any JS obstacle visuals registered by levels (e.g., KMJS sprites)
+        try { com.mygdx.game.JSObstacle.renderAll(batch); } catch (Exception ignored) {}
 
         // === PHASE 3: Draw documents (SpriteBatch) ===
         if (documents.size > 0) {
@@ -803,6 +813,9 @@ public class LevelManager implements ILevelManager {
     @Override
     public void loadLevel(Level level) {
         if (level == null) return;
+
+        // Clear any JS obstacle visuals from a previous level so visuals don't leak
+        try { com.mygdx.game.JSObstacle.clearAll(); } catch (Exception ignored) {}
 
         // dispose previous background if any
         if (backgroundTex != null) {
