@@ -52,7 +52,7 @@ public class Level4 implements Level, BackgroundedLevel {
         platforms.clear();
 
         // === FLOOR 1 (Bottom floor) ===
-        platforms.add(new Rectangle(95, 60, 1130, 20)); // LEFT SIDE
+        platforms.add(new Rectangle(95, 55, 1130, 20)); // LEFT SIDE
         
        
 

@@ -56,6 +56,7 @@ public class GameScreen implements Screen {
     private boolean initialized = false;                 // prevent re-init on show() after minimize
     private float savedX = Float.NaN, savedY = Float.NaN;
     private float savedVelX = 0f, savedVelY = 0f;
+    private boolean savedOnGround = false;              // save ground state for pause/resume
     private boolean wasPaused = false;                  // true when pause() was called (used to avoid unintended resets)
     
     // Floating UI icons (document counter)
@@ -371,22 +372,31 @@ public class GameScreen implements Screen {
             // which moves the player to a spawn. Instead restore the saved position if available.
             if (wasPaused && !Float.isNaN(savedX)) {
                 try {
+                    Gdx.app.log("GameScreen", "Restoring position in show(): savedX=" + savedX + ", savedY=" + savedY + ", onGround=" + savedOnGround);
                     fixer.getBounds().setPosition(savedX, savedY);
+                    fixer.setOnGround(savedOnGround);
                     com.badlogic.gdx.math.Vector2 vel = fixer.getVelocity();
                     if (vel != null) vel.set(savedVelX, savedVelY);
+                    Gdx.app.log("GameScreen", "After restore in show() - actual position: x=" + fixer.getBounds().x + ", y=" + fixer.getBounds().y);
                 } catch (Exception ignored) {}
+                // Clear the paused flag after successful restoration
+                wasPaused = false;
             } else {
                 // Normal initial spawn behavior (only when not resuming from pause)
                 if (currentLevel == 0) {
                     fixer.reset(100, 50);
-                } else if (currentLevel == 3 && level instanceof Level3) {
-                    try {
-                        float[] sp = ((Level3)level).getEntranceSpawn();
-                        if (sp != null && sp.length >= 2) fixer.reset(sp[0], sp[1]);
-                        else fixer.reset(100, 0);
-                    } catch (Exception e) {
-                        fixer.reset(100, 0);
-                    }
+                } else if (currentLevel == 3) {
+                    // Force spawn in VISIBLE area for Level 3
+                    // Spawn high up on the second floor platform (y=245+20=265)
+                    float spawnX = 150f;
+                    float spawnY = 265f;  // Second floor platform top
+                    
+                    fixer.reset(spawnX, spawnY);
+                    // Force position directly in case reset is suppressed
+                    fixer.getBounds().setPosition(spawnX, spawnY);
+                    fixer.getVelocity().set(0, 0);
+                    fixer.setOnGround(true);
+                    Gdx.app.log("GameScreen", "Level 3: FORCED spawn at x=" + spawnX + ", y=" + spawnY + " (second floor - VISIBLE)");
                 } else if (currentLevel == 4 && level instanceof Level4) {
                     try {
                         float[] sp = ((Level4)level).getEntranceSpawn();
@@ -2023,6 +2033,7 @@ public class GameScreen implements Screen {
             Rectangle b = fixer.getBounds();
             savedX = b.x;
             savedY = b.y;
+            savedOnGround = fixer.isOnGround();
             try {
                 com.badlogic.gdx.math.Vector2 vel = fixer.getVelocity();
                 if (vel != null) {
@@ -2030,6 +2041,7 @@ public class GameScreen implements Screen {
                     savedVelY = vel.y;
                 }
             } catch (Exception ignored) {}
+            Gdx.app.log("GameScreen", "Saved state: pos=(" + savedX + "," + savedY + "), vel=(" + savedVelX + "," + savedVelY + "), onGround=" + savedOnGround);
         }
         // stop updating while paused
         currentState = GameState.PAUSED;
@@ -2049,14 +2061,17 @@ public class GameScreen implements Screen {
         // restore exact saved position/velocity so character remains where the player left it
         if (fixer != null && !Float.isNaN(savedX)) {
             try {
+                Gdx.app.log("GameScreen", "Restoring position in resume(): savedX=" + savedX + ", savedY=" + savedY + ", onGround=" + savedOnGround);
                 fixer.getBounds().setPosition(savedX, savedY);
+                fixer.setOnGround(savedOnGround);
                 com.badlogic.gdx.math.Vector2 vel = fixer.getVelocity();
                 if (vel != null) vel.set(savedVelX, savedVelY);
+                Gdx.app.log("GameScreen", "After restore - actual position: x=" + fixer.getBounds().x + ", y=" + fixer.getBounds().y);
             } catch (Exception ignored) {}
         }
         currentState = GameState.RUNNING;
-        // we resume, clear the paused marker so future show() inits behave normally
-        wasPaused = false;
+        // Don't clear wasPaused here - let show() handle position restoration first
+        // wasPaused will be cleared in show() after position is restored
          // leave input processor null so UI won't accidentally receive input on immediate restore.
          // If you want input restored immediately, re-set the processor here.
     }

@@ -218,6 +218,7 @@ public class LevelManager2 implements ILevelManager {
     }
 
     private void placeShredder() {
+        // This should not be called if level has shredder, but as fallback use default position
         float screenWidth = Gdx.graphics.getWidth();
         shredder = new Rectangle(screenWidth - 80, 10, SHREDDER_SIZE, SHREDDER_SIZE);
     }
@@ -792,10 +793,17 @@ public class LevelManager2 implements ILevelManager {
         
         // choose shredder: prefer B then A; if both null use default manager's placement
         shredder = getLevelShredder(levelB);
-        if (shredder == null) shredder = getLevelShredder(levelA);
-        // Only place a default shredder if both levels are loaded (levelB != null)
-        // For single-map loads that will transition later, don't create a shredder yet
-        if (shredder == null && levelB != null) placeShredder();
+        Gdx.app.log("LevelManager2", "Shredder from levelB: " + (shredder != null ? shredder.x + "," + shredder.y : "null"));
+        if (shredder == null) {
+            shredder = getLevelShredder(levelA);
+            Gdx.app.log("LevelManager2", "Shredder from levelA: " + (shredder != null ? shredder.x + "," + shredder.y : "null"));
+        }
+        // Only place a default shredder if BOTH levels don't have one AND levelB exists
+        // Don't override if levelA provided a shredder
+        if (shredder == null && levelB != null) {
+            Gdx.app.log("LevelManager2", "No shredder from levels, placing default");
+            placeShredder();
+        }
 
         // Setup shared shredder visual
         try {
