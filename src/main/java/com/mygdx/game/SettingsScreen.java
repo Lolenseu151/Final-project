@@ -18,11 +18,11 @@ public class SettingsScreen implements Screen {
     private final MyGdxGame game;
     
     // Animated background
-    private Texture[] bgTextures = new Texture[31];
-    private TextureRegion[] bgRegions = new TextureRegion[31];
+    private Texture[] bgTextures = new Texture[9];
+    private TextureRegion[] bgRegions = new TextureRegion[9];
     private int loadedFrameCount = 0;  // Track how many frames actually loaded
     private float bgAnimTime = 0f;
-    private static final float BG_FRAME_DURATION = 0.1f;  // 0.1 seconds per frame = 3.1 seconds total loop
+    private static final float BG_FRAME_DURATION = 0.3f;  // 0.3 seconds per frame
     
     // Settings PNG graphics
     private Texture soundOnTexture, soundOffTexture;
@@ -88,26 +88,14 @@ public class SettingsScreen implements Screen {
         musicEnabled = prefs.getBoolean("musicEnabled", true);
         selectedQuality = prefs.getInteger("selectedQuality", 0);
         
-        // Load animated Setting Background frames
-        // Files exist as: 11-19 (9 frames) and 110-131 (22 frames) = 31 total frames
-        int[] frameNumbers = new int[31];
-        int idx = 0;
-        // Add frames 11-19
-        for (int i = 11; i <= 19; i++) {
-            frameNumbers[idx++] = i;
-        }
-        // Add frames 110-131
-        for (int i = 110; i <= 131; i++) {
-            frameNumbers[idx++] = i;
-        }
-        
-        bgTextures = new Texture[31];
-        bgRegions = new TextureRegion[31];
+        // Load animated Setting Background frames (1.png to 9.png)
+        bgTextures = new Texture[9];
+        bgRegions = new TextureRegion[9];
         
         String userDir = System.getProperty("user.dir");
-        for (int i = 0; i < frameNumbers.length; i++) {
+        for (int i = 0; i < 9; i++) {
             try {
-                String framePath = "Setting Background/setting_background" + frameNumbers[i] + ".png";
+                String framePath = "Setting Background/" + (i + 1) + ".png";
                 com.badlogic.gdx.files.FileHandle fh = null;
                 if (Gdx.files.internal(framePath).exists()) {
                     fh = Gdx.files.internal(framePath);
@@ -128,7 +116,7 @@ public class SettingsScreen implements Screen {
                 Gdx.app.error("[SettingsScreen]", "Error loading background frame " + (i + 1), e);
             }
         }
-        Gdx.app.log("[SettingsScreen]", "Total loaded frames: " + loadedFrameCount + "/31");
+        Gdx.app.log("[SettingsScreen]", "Total loaded frames: " + loadedFrameCount + "/9");
         
         // Load Settings PNG graphics
         loadSettingTextures();
@@ -296,6 +284,14 @@ public class SettingsScreen implements Screen {
                 musicEnabled = !musicEnabled;
                 prefs.putBoolean("musicEnabled", musicEnabled);
                 prefs.flush();
+                
+                // Control background music based on toggle
+                if (musicEnabled) {
+                    BackgroundMusicManager.getInstance().playScreenMusic();
+                } else {
+                    BackgroundMusicManager.getInstance().stopMusic();
+                }
+                
                 Gdx.app.log("[Settings]", "Music: " + (musicEnabled ? "ON" : "OFF"));
             } else if (menuHovered) {
                 game.setScreen(new MainMenuScreen(game));
@@ -409,8 +405,8 @@ public class SettingsScreen implements Screen {
         game.batch.begin();
         
         // Draw DocumentForm background (the board) - LARGER SIZE
-        float boardWidth = 980f;
-        float boardHeight = 880f;
+        float boardWidth = 850f;
+        float boardHeight = 750f;
         float boardX = screenCenterX - boardWidth / 2f;
         float boardY = screenCenterY - boardHeight / 2f;
         
@@ -424,19 +420,21 @@ public class SettingsScreen implements Screen {
         float boardCenterY = boardY + boardHeight / 2f;
         
         // ===== TOP SECTION: Sound, Music, Menu buttons =====
-        float buttonSize = 120f;
-        float topRowY = boardCenterY - buttonSize / 8.5f;  // Center vertically
-        float topRowSpacing = 100f;  // Distance between buttons
+        float buttonSize = 240f;
+        float topRowY = boardCenterY + 05f;  // Position near top of board
+        float topRowSpacing = 110f;  // Distance between buttons
         
-        // Draw Sound button
-        float soundX = boardCenterX - topRowSpacing - buttonSize / 2f;
-        soundRect.set(soundX, topRowY, buttonSize, buttonSize);
+        // Draw Sound button (slightly larger to match visual size)
+        float soundSize = 260f;
+        float soundX = boardCenterX - topRowSpacing - soundSize / 2f;
+        float soundY = topRowY - 10f;  // Slightly lower
+        soundRect.set(soundX, soundY, soundSize, soundSize);
         
         Texture soundTex = soundEnabled ? soundOnTexture : soundOffTexture;
         if (soundTex != null) {
             // For transparent PNGs, just use white (1,1,1,1) to show the image as-is
             game.batch.setColor(1f, 1f, 1f, 1f);
-            game.batch.draw(soundTex, soundX, topRowY, buttonSize, buttonSize);
+            game.batch.draw(soundTex, soundX, soundY, soundSize, soundSize);
         }
         
         // Draw Music button
@@ -459,9 +457,9 @@ public class SettingsScreen implements Screen {
         }
         
         // ===== BOTTOM SECTION: Quality Level buttons (inside board) =====
-        float qualityRowY = boardCenterY - 200f;  // Adjusted for board
-        float qualitySpacing = 100f;  // Distance between buttons
-        float qualitySize = 90f;
+        float qualityRowY = boardCenterY - 200f;  // Moved down lower
+        float qualitySpacing = 90f;  // Distance between buttons
+        float qualitySize = 100f;
         
         // Low Quality
         float lowX = boardCenterX - qualitySpacing - qualitySize / 2f;
@@ -495,22 +493,22 @@ public class SettingsScreen implements Screen {
         }
         
         // ===== TEXT LABELS =====
-        // Draw Settings_Text - above Music button (FIXED position)
+        // Draw Settings_Text - above top buttons
         if (settingsTextTexture != null) {
-            float textWidth = 330f;  // Increased size
-            float textHeight = 150f;  // Increased size
-            float settingsTextX = boardCenterX - textWidth / 1.9f;
-            float settingsTextY = boardCenterY + 110f;  // Fixed position (won't move with buttons)
+            float textWidth = 280f;
+            float textHeight = 120f;
+            float settingsTextX = boardCenterX - textWidth / 2f;
+            float settingsTextY = boardCenterY + 180f;  // Above top row buttons
             game.batch.setColor(1f, 1f, 1f, 1f);
             game.batch.draw(settingsTextTexture, settingsTextX, settingsTextY, textWidth, textHeight);
         }
         
-        // Draw Graphics_Text - middle between Music and Medium buttons
+        // Draw Graphics_Text - between top and bottom sections
         if (graphicsTextTexture != null) {
-            float textWidth = 220f;  // Increased size
-            float textHeight = 120f;  // Increased size
-            float graphicsTextX = boardCenterX - textWidth / 1.8f;
-            float graphicsTextY = (topRowY + qualityRowY) / 1.8f - textHeight / 2f;  // Middle between top and bottom sections
+            float textWidth = 500f;
+            float textHeight = 410f;
+            float graphicsTextX = boardCenterX - textWidth / 2f;
+            float graphicsTextY = boardCenterY - 230f;  // Moved down
             game.batch.setColor(1f, 1f, 1f, 1f);
             game.batch.draw(graphicsTextTexture, graphicsTextX, graphicsTextY, textWidth, textHeight);
         }
