@@ -483,8 +483,8 @@ public class LevelManager implements ILevelManager {
             for (Rectangle laser : lasers) {
                 if (player != null && player.getBounds() != null && laser != null && player.getBounds().overlaps(laser)) {
                     // apply 15 seconds penalty and slow player for 6 seconds
-                    timePenalty += 15f;
-                    try { player.applySlow(6.0f); } catch (Exception ignored) {}
+                    timePenalty += 10f;
+                    try { player.applySlow(5.0f); } catch (Exception ignored) {}
                     laserHitCooldown = 1.0f; // 1 second cooldown to avoid flood
                     Gdx.app.log("LevelManager", "Player hit laser: -15s penalty and slowed 6s");
                     break;
@@ -789,7 +789,8 @@ public class LevelManager implements ILevelManager {
             }
             batch.end();
         }
-        // === PHASE 4: Level-specific overlays (draw on top of documents) ===
+
+        // === PHASE 5: Level-specific overlays (draw on top of documents) ===
         try {
             if (currentLevel instanceof BackgroundedLevel) {
                 batch.begin();
@@ -847,10 +848,14 @@ public class LevelManager implements ILevelManager {
         platforms.clear(); platforms.addAll(level.getPlatforms());
         obstacles.clear(); obstacles.addAll(level.getObstacles());
         lasers.clear(); 
-        try {
-            lasers.addAll(level.getLasers());
-        } catch (Exception e) {
-            // Level might not have getLasers method
+        // Only load lasers from Level3_1 (not Level3) to avoid duplication
+        // Level3 has 1 laser, Level3_1 has 2 lasers - we only want the 2 from Level3_1
+        if (!className.equals("Level3")) {  // Skip Level3's laser, only use Level3_1
+            try {
+                lasers.addAll(level.getLasers());
+            } catch (Exception e) {
+                // Level might not have getLasers method
+            }
         }
         
         // Create LaserFX animations for each laser
