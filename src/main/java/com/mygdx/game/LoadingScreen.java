@@ -19,7 +19,7 @@ public class LoadingScreen implements Screen {
     private float progress = 0f;
     private float timeElapsed = 0f;
     private float animTimer = 0f;
-    private static final float MIN_LOAD_TIME = 8.0f; // Minimum time to show loading screen
+    private static final float MIN_LOAD_TIME = 6.0f; // Minimum time to show loading screen
     
     // Background animation frames (7 -> 1, reverse order)
     private Array<Texture> bgFrames = new Array<>();
