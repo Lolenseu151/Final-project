@@ -397,14 +397,18 @@ public class GameScreen implements Screen {
                     fixer.getVelocity().set(0, 0);
                     fixer.setOnGround(true);
                     Gdx.app.log("GameScreen", "Level 3: FORCED HIGH spawn at x=" + spawnX + ", y=" + spawnY + " (third floor - HIGHLY VISIBLE)");
-                } else if (currentLevel == 4 && level instanceof Level4) {
-                    try {
-                        float[] sp = ((Level4)level).getEntranceSpawn();
-                        if (sp != null && sp.length >= 2) fixer.reset(sp[0], sp[1]);
-                        else fixer.reset(100, 0);
-                    } catch (Exception e) {
-                        fixer.reset(100, 0);
-                    }
+                } else if (currentLevel == 4) {
+                    // Force spawn in VISIBLE area for Level 4
+                    // Spawn on the third floor platform (y=400+20=420)
+                    float spawnX = 300f;  // Left side of third floor platform
+                    float spawnY = 420f;  // Third floor platform top
+                    
+                    fixer.reset(spawnX, spawnY);
+                    // Force position directly in case reset is suppressed
+                    fixer.getBounds().setPosition(spawnX, spawnY);
+                    fixer.getVelocity().set(0, 0);
+                    fixer.setOnGround(true);
+                    Gdx.app.log("GameScreen", "Level 4: FORCED HIGH spawn at x=" + spawnX + ", y=" + spawnY + " (third floor - HIGHLY VISIBLE)");
                 } else if (currentLevel == 5 && level instanceof Level5) {
                     try {
                         float[] sp = ((Level5)level).getEntranceSpawn();
