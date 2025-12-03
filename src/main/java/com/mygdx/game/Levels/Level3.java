@@ -59,7 +59,7 @@ public class Level3 implements Level, BackgroundedLevel {
         platforms.clear();
         
         // === FLOOR 1 (Bottom floor) ===
-        platforms.add(new Rectangle(50, 55, 1220, 20)); // LEFT SIDE
+        platforms.add(new Rectangle(50, 65, 1220, 20)); // LEFT SIDE
        
 
         // === FLOOR 2 ===
