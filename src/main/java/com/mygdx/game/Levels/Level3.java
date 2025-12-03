@@ -1,15 +1,14 @@
 package com.mygdx.game.Levels;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import com.mygdx.game.Fixer;
-import com.mygdx.game.ILevelManager;
-import com.mygdx.game.LevelManager2;
-import com.mygdx.game.LevelManager; // fallback legacy manager
+import com.mygdx.game.ILevelManager; // fallback legacy manager
 import com.mygdx.game.JSObstacle;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.mygdx.game.LevelManager2;
 
 /**
  * Level3 - edit positions to design
@@ -229,24 +228,12 @@ public class Level3 implements Level, BackgroundedLevel {
 
         // If the first platform exists, place the player's feet just above it.
         if (platforms.size > 0) {
-<<<<<<< HEAD
-            Rectangle p = platforms.get(0);
-            float y = p.y + p.height + 2f; // small safety offset above platform
-            return new float[]{ x, y };
-        }
-
-        // Fallback: center vertically if no platform found
-        float screenH = Gdx.graphics.getHeight();
-        float y = (screenH / 2f) - (approxPlayerSize / 2f);
-        return new float[]{ x, y };
-=======
             Rectangle p = platforms.get(0);          // first-floor platform
-            float x = p.x + 100f;                    // spawn further right on the platform
+            x = p.x + 100f;                          // spawn further right on the platform
             float y = p.y + p.height;                // player bottom edge at platform top
             return new float[]{ x, y };
         }
         return new float[]{ 200f, 500f };
->>>>>>> 0cc5d5894c8a581492ec448a82bc3b5d39606e5d
     }
 
     public float[] getReturnSpawn() {
