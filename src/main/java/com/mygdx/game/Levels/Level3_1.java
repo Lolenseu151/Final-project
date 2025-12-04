@@ -23,6 +23,7 @@ public class Level3_1 implements Level, BackgroundedLevel {
     private final com.badlogic.gdx.utils.Array<com.mygdx.game.SlopedPlatform> sloped = new com.badlogic.gdx.utils.Array<>();
     private Rectangle shredder;
     private static Texture platformPixel = null;
+    private static boolean DRAW_PLATFORM_OVERLAY = false;
 
     // keep same shredder coords as Level3 for consistency
     private float shredderX = 70f;
@@ -224,7 +225,7 @@ public class Level3_1 implements Level, BackgroundedLevel {
 
     @Override
     public void renderOverlay(SpriteBatch batch) {
-        if (batch == null) return;
+        if (!DRAW_PLATFORM_OVERLAY || batch == null) return;
         try {
             if (platformPixel == null) {
                 Pixmap pm = new Pixmap(1, 1, Pixmap.Format.RGBA8888);

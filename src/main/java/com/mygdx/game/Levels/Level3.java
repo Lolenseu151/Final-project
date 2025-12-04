@@ -29,6 +29,8 @@ public class Level3 implements Level, BackgroundedLevel {
     private float shredderY = 20f;
     private float shredderW = 96f;
     private float shredderH = 96f;
+    // Toggle for debugging: when false, platforms remain invisible like other levels
+    private static boolean DRAW_PLATFORM_OVERLAY = false;
     
 
     // shared document total across Level3 + Level3_1
@@ -38,7 +40,6 @@ public class Level3 implements Level, BackgroundedLevel {
     // Background switching state
     private boolean switchedToContinuation = false;
     private static final String BG_FIRST = "Level3Map.png";
-    private static final String BG_CONTINUATION = "Level3.1Map.png";
 
     // legacy constants preserved for loading
   
@@ -53,9 +54,6 @@ public class Level3 implements Level, BackgroundedLevel {
         obstacles.clear();
         lasers.clear();
                 
-        float w = 1280;
-        float h = 800;
-        
         // Add shredder to Level3 so shredding action can be seen
         shredder = new Rectangle(shredderX, shredderY, shredderW, shredderH);
         
@@ -277,7 +275,7 @@ public class Level3 implements Level, BackgroundedLevel {
 
     @Override
     public void renderOverlay(SpriteBatch batch) {
-        // Draw red platform visuals for Level3 only
+        if (!DRAW_PLATFORM_OVERLAY) return; // Keep platforms invisible unless debugging
         if (batch == null || switchedToContinuation) return;
         try {
             if (platformPixel == null) {
