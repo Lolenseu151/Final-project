@@ -320,6 +320,10 @@ public class JSObstacle {
 
                     if (!anyCaughtActive) {
                         anyCaughtActive = true;
+                        if (player != null) {
+                            // Stop player movement immediately once caught
+                            player.setFrozen(true);
+                        }
                         // try to play kmjs sfx (only for the active catcher)
                         try {
                             Object appObj = Gdx.app.getApplicationListener();
@@ -363,8 +367,18 @@ public class JSObstacle {
                         f.setAccessible(true);
                         Class<?> enumType = f.getType();
                         if (enumType.isEnum()) {
-                            Object val = java.lang.Enum.valueOf((Class) enumType, "GAMEOVER");
-                            try { f.set(screen, val); } catch (Exception ignored) {}
+                            Object[] constants = enumType.getEnumConstants();
+                            if (constants != null) {
+                                for (Object constant : constants) {
+                                    if (constant instanceof Enum) {
+                                        Enum<?> e = (Enum<?>) constant;
+                                        if ("GAMEOVER".equals(e.name())) {
+                                            try { f.set(screen, e); } catch (Exception ignored) {}
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

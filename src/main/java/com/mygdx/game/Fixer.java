@@ -433,6 +433,8 @@ public class Fixer {
             return;
         }
 
+        // Clearing frozen state ensures movement resumes after events like JS captures
+        frozen = false;
         bounds.setPosition(x, y); 
         velocity.set(0, 0); 
         stateTime = 0f; 

@@ -36,6 +36,7 @@ public class LevelManager2 implements ILevelManager {
     private int documentsCollected;
     private int totalDocuments;
     private boolean levelComplete;
+    private float laserHitCooldown = 0f;
     // Document-collected callback (optional)
     public interface DocumentCollectedListener { void onDocumentCollected(int collected, int total); }
     private DocumentCollectedListener documentCollectedListener = null;
@@ -50,6 +51,9 @@ public class LevelManager2 implements ILevelManager {
     private static final float BEAM_WIDTH = 5f;
     private static final float SHREDDER_SIZE = 36f;
     private static final float PLATFORM_HEIGHT = 15f;
+    private static final float LASER_PENALTY_SECONDS = 10f;
+    private static final float LASER_SLOW_SECONDS = 5f;
+    private static final float LASER_COOLDOWN_SECONDS = 1f;
 
     // Document textures/animation (shared)
     private Texture documentSheetTex;
@@ -335,6 +339,7 @@ public class LevelManager2 implements ILevelManager {
                                 }
                             } catch (Exception ignored) {}
                         }
+                        setSharedShredderReady();
                     }
                 } catch (Exception ignored) {}
             }
@@ -380,6 +385,21 @@ public class LevelManager2 implements ILevelManager {
         }
         player.setSlowed(slowed);
 
+        if (laserHitCooldown > 0f) {
+            laserHitCooldown -= deltaTime;
+        }
+        if (player != null && player.getBounds() != null && lasers != null && lasers.size > 0 && laserHitCooldown <= 0f) {
+            for (Rectangle laser : lasers) {
+                if (laser != null && player.getBounds().overlaps(laser)) {
+                    timePenalty += LASER_PENALTY_SECONDS;
+                    try { player.applySlow(LASER_SLOW_SECONDS); } catch (Exception ignored) {}
+                    laserHitCooldown = LASER_COOLDOWN_SECONDS;
+                    Gdx.app.log("LevelManager2", "Player hit laser: -" + LASER_PENALTY_SECONDS + "s penalty and slowed");
+                    break;
+                }
+            }
+        }
+
         if (documentsCollected >= totalDocuments && rectsOverlap(player.getBounds(), shredder)) {
             if (!levelComplete && !shredPending) {
                 shredPending = true;
@@ -400,6 +420,7 @@ public class LevelManager2 implements ILevelManager {
                         }
                     }
                 } catch (Exception ignored) {}
+                setSharedShredderActive();
             }
         }
 
@@ -423,6 +444,7 @@ public class LevelManager2 implements ILevelManager {
                         }
                     }
                 } catch (Exception ignored) {}
+                setSharedShredderIdle();
             }
         }
 
@@ -820,10 +842,12 @@ public class LevelManager2 implements ILevelManager {
                     Array<Rectangle> plats = levelA.getPlatforms();
                     if (plats != null) platforms.addAll(plats);
                 }
-                Array<Rectangle> obs = levelA.getObstacles();
-                if (obs != null) obstacles.addAll(obs);
-                Array<Rectangle> lasersA = levelA.getLasers();
-                if (lasersA != null) lasers.addAll(lasersA);
+                if (levelB == null) {
+                    Array<Rectangle> obs = levelA.getObstacles();
+                    if (obs != null) obstacles.addAll(obs);
+                    Array<Rectangle> lasersA = levelA.getLasers();
+                    if (lasersA != null) lasers.addAll(lasersA);
+                }
             }
         } catch (Exception ignored) {}
 
@@ -993,6 +1017,24 @@ public class LevelManager2 implements ILevelManager {
 
     private boolean rectsOverlap(Rectangle a, Rectangle b) {
         return a != null && b != null && a.overlaps(b);
+    }
+
+    private void setSharedShredderReady() {
+        if (sharedShredder != null) {
+            try { sharedShredder.setReady(); } catch (Exception ignored) {}
+        }
+    }
+
+    private void setSharedShredderActive() {
+        if (sharedShredder != null) {
+            try { sharedShredder.setActive(); } catch (Exception ignored) {}
+        }
+    }
+
+    private void setSharedShredderIdle() {
+        if (sharedShredder != null) {
+            try { sharedShredder.setIdle(); } catch (Exception ignored) {}
+        }
     }
 
     private Rectangle getLevelShredder(Level level) {

@@ -41,10 +41,10 @@ public class Level3_1 implements Level, BackgroundedLevel {
 
         // continuation area layout: different platforms and doc positions
         // 1st level platform (extends from left edge)
-        platforms.add(new Rectangle(215, 65, 1020, 20)); 
+        platforms.add(new Rectangle(0, 0, 1020, 20)); 
         
         //2nd level platforms
-        platforms.add(new Rectangle(775, 245, 455, 20));
+        platforms.add(new Rectangle(0, 0, 455, 20));
         platforms.add(new Rectangle(215, 245, 420, 20));
 
         //3rd level platform
@@ -139,7 +139,7 @@ public class Level3_1 implements Level, BackgroundedLevel {
     public float[] getEntranceSpawn() {
         if (platforms.size > 0) {
             Rectangle p = platforms.get(0);
-            float x = p.x + 40f;
+            float x = p.x + 500f;
             float y = p.y + p.height + 12f; // spawn slightly above first-floor platform
             return new float[]{ x, y };
         }

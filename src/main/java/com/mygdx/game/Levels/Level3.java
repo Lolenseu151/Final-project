@@ -23,11 +23,12 @@ public class Level3 implements Level, BackgroundedLevel {
     private final Array<Rectangle> lasers = new Array<>();
     private final com.badlogic.gdx.utils.Array<com.mygdx.game.SlopedPlatform> sloped = new com.badlogic.gdx.utils.Array<>();
     private Rectangle shredder;
+    private boolean spawnJsObstacles = true;
     // Shredder position/size matching Level3_1 for consistency
-    private float shredderX = 250f;
-    private float shredderY = 590f;
-    private float shredderW = 64f;
-    private float shredderH = 64f;
+    private float shredderX = 70f;
+    private float shredderY = 20f;
+    private float shredderW = 96f;
+    private float shredderH = 96f;
     
 
     // shared document total across Level3 + Level3_1
@@ -92,18 +93,14 @@ public class Level3 implements Level, BackgroundedLevel {
         // FLOOR 4 - Right exit wall - removed to allow transition
         // platforms.add(new Rectangle(1250, 603, 20, 170)); // Right wall for roof section
 
-        // === Your existing items ===
-        documents.add(new Rectangle(850, 600, DOC_SIZE, DOC_SIZE));
-        documents.add(new Rectangle(500, 80, DOC_SIZE, DOC_SIZE));
-        documents.add(new Rectangle(300, 270, DOC_SIZE, DOC_SIZE));
-        documents.add(new Rectangle(350, 270, DOC_SIZE, DOC_SIZE));
-        // added so Level3 has 5 docs total
-        documents.add(new Rectangle(600, 120, DOC_SIZE, DOC_SIZE));
+        // === Documents (scattered across flat platforms) ===
+        documents.add(new Rectangle(120, 20, DOC_SIZE, DOC_SIZE));   // bottom floor
+        documents.add(new Rectangle(640, 200, DOC_SIZE, DOC_SIZE));  // middle floor span
+        documents.add(new Rectangle(1100, 200, DOC_SIZE, DOC_SIZE)); // upper-right ledge
+        documents.add(new Rectangle(430, 375, DOC_SIZE, DOC_SIZE));  // third floor ledge
+        documents.add(new Rectangle(760, 538, DOC_SIZE, DOC_SIZE));  // roof platform
 
-        // Laser (cyan, semi-transparent) - adjustable position for gameplay
-        // NOTE: This laser is only shown when playing Level3 standalone
-        // When transitioning to Level3_1, only Level3_1's 2 lasers are shown
-        lasers.add(new Rectangle(400, 265, 70, 170));
+        // Level3 no longer has standalone lasers; hazards resume in Level3_1
 
         // Add a diagonal sloped platform with configurable length and angle
         // Left endpoint (higher): x=380,y=570
@@ -123,36 +120,33 @@ public class Level3 implements Level, BackgroundedLevel {
         // set shared total = this level's docs + continuation level declared docs
         try { SHARED_TOTAL_DOCS = documents.size + Level3_1.DECLARED_DOCS; } catch (Throwable ignored) {}
 
-        // Add a reusable JS obstacle (visual handled by LevelManager's obstacle rendering)
-        try {
-            // patrol from 600 -> 900 at y=445, width=60,height=110, speed=60,
-            // sightDistance=35, sightVerticalTolerance=0.1, scale=1.0, caughtDelay=3s
-            JSObstacle.addTo(obstacles,
-                600f, 900f, // leftX, rightX
-                20f,       // y
-                60f, 110f,  // w, h
-                60f,        // speed px/sec
-                35f,        // sight distance
-                0.1f,       // sight vertical tolerance
-                10.5f,       // scale multiplier for visual size (increased)
-                3f          // caught delay seconds
-            );
-        } catch (Exception ignored) {}
+        if (spawnJsObstacles) {
+            try {
+                JSObstacle.addTo(obstacles,
+                    600f, 900f,
+                    20f,
+                    60f, 110f,
+                    60f,
+                    35f,
+                    0.1f,
+                    10.5f,
+                    3f
+                );
+            } catch (Exception ignored) {}
 
-                try {
-            // patrol from 600 -> 900 at y=445, width=60,height=110, speed=60,
-            // sightDistance=35, sightVerticalTolerance=0.1, scale=1.0, caughtDelay=3s
-            JSObstacle.addTo(obstacles,
-                600f, 900f, // leftX, rightX
-                -480f,       // y
-                60f, 110f,  // w, h
-                60f,        // speed px/sec
-                35f,        // sight distance
-                0.1f,       // sight vertical tolerance
-                10f,       // scale multiplier for visual size (increased)
-                3f          // caught delay seconds
-            );
-        } catch (Exception ignored) {}
+            try {
+                JSObstacle.addTo(obstacles,
+                    500f, 900f,
+                    -480f,
+                    60f, 110f,
+                    60f,
+                    35f,
+                    0.1f,
+                    10f,
+                    3f
+                );
+            } catch (Exception ignored) {}
+        }
 
         // shredder visual will be managed by LevelManager (shared instance)
     }
@@ -212,12 +206,19 @@ public class Level3 implements Level, BackgroundedLevel {
             if (player != null && player.getBounds() != null && platforms.size > 0) {
                 Rectangle firstFloor = platforms.get(0);
                 float rightEdge = firstFloor.x + firstFloor.width;
+                try {
+                    float screenWidth = Gdx.graphics.getWidth();
+                    if (screenWidth > 0f) {
+                        rightEdge = Math.min(rightEdge, screenWidth);
+                    }
+                } catch (Exception ignored) {}
                 Rectangle pb = player.getBounds();
                 final float TOL = 12f;
-                boolean nearFloorY = pb.y <= (firstFloor.y + firstFloor.height + 8f);
+                boolean nearFloorY = pb.y <= (firstFloor.y + firstFloor.height + 60f);
 
                 if (!switchedToContinuation && nearFloorY && (pb.x + pb.width) >= (rightEdge - TOL)) {
                     try {
+                        spawnJsObstacles = false;
                         Level3_1 cont = new Level3_1();
                         // Use LevelManager2 merge API to transition while preserving document count
                         if (lm2 != null) {
@@ -277,7 +278,7 @@ public class Level3 implements Level, BackgroundedLevel {
     @Override
     public void renderOverlay(SpriteBatch batch) {
         // Draw red platform visuals for Level3 only
-        if (batch == null) return;
+        if (batch == null || switchedToContinuation) return;
         try {
             if (platformPixel == null) {
                 Pixmap pm = new Pixmap(1, 1, Pixmap.Format.RGBA8888);

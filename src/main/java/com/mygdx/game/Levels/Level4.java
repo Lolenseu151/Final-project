@@ -21,9 +21,9 @@ public class Level4 implements Level, BackgroundedLevel {
     private Rectangle shredder;
     // use explicit position/size for visual shredder (no rectangle placeholder)
     private float shredderX = 300f;
-    private float shredderY = 215f;
-    private float shredderW = 80f; // was 50f
-    private float shredderH = 80f; // was 50f
+    private float shredderY = 90f;
+    private float shredderW = 100f; // was 50f
+    private float shredderH = 100f; // was 50f
     private int totalDocs = 0;
 
     // centralized shredder visual
