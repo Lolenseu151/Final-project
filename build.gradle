@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'application'
+    id 'edu.sc.seis.launch4j' version '3.0.1'
 }
 
 group = 'com.mygdx.game'
@@ -27,11 +28,42 @@ dependencies {
 application {
     // Default to the standard launcher so the game flows through Loading -> Main Menu -> Level Select.
     mainClass = 'com.mygdx.game.desktop.DesktopLauncher'
+    applicationName = 'Final-project'
 }
 
 // Set working directory for the run task to find assets
 tasks.named('run') {
     workingDir = project.rootDir
+}
+
+tasks.named('jar') {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest { attributes 'Main-Class': application.mainClass.get() }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+tasks.register('prepareExeResources', Copy) {
+    dependsOn(tasks.named('jar'))
+    from('assets')
+    into(layout.buildDirectory.dir('launch4j/assets').get().asFile)
+}
+
+launch4j {
+    outfile = 'Final-project.exe'
+    mainClassName = application.mainClass.get()
+    jarTask = tasks.named('jar')
+    chdir = '%EXEDIR%'
+    jreMinVersion = '17'
+}
+
+tasks.named('createExe') {
+    dependsOn('prepareExeResources')
+}
+
+tasks.register('launch4j') {
+    dependsOn(tasks.named('createExe'))
 }
 
 java {
