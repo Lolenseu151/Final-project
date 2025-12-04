@@ -56,6 +56,7 @@ launch4j {
     jarTask = tasks.named('jar')
     chdir = '%EXEDIR%'
     jreMinVersion = '17'
+    icon = 'build/icons/papertrail.ico'
 }
 
 tasks.named('createExe') {
