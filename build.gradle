@@ -11,9 +11,36 @@ ext {
     gdxVersion = '1.12.0'
 }
 
+def resolveWindowsShortPath(File targetFile) {
+    if (!targetFile.exists()) {
+        logger.warn("Launch4j icon file ${targetFile} does not exist; falling back to default path")
+        return targetFile.absolutePath
+    }
+    if (!org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+        return targetFile.absolutePath
+    }
+    try {
+        def process = ['cmd', '/c', "for %I in (\"${targetFile.absolutePath}\") do @echo %~sI"].execute()
+        process.waitFor()
+        def output = process.text.trim()
+        if (process.exitValue() == 0 && output) {
+            return output
+        }
+    } catch (Exception ignored) {
+    }
+    return targetFile.absolutePath
+}
+
 repositories {
     mavenCentral()
     maven { url 'https://oss.sonatype.org/content/groups/public/' }
+}
+
+subprojects {
+    repositories {
+        mavenCentral()
+        maven { url 'https://oss.sonatype.org/content/groups/public/' }
+    }
 }
 
 dependencies {
@@ -56,7 +83,7 @@ launch4j {
     jarTask = tasks.named('jar')
     chdir = '%EXEDIR%'
     jreMinVersion = '17'
-    icon = 'build/icons/papertrail.ico'
+    icon = resolveWindowsShortPath(file('build/icons/papertrail.ico'))
 }
 
 tasks.named('createExe') {

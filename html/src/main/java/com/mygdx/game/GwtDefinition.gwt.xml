@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module rename-to="finalproject">
+    <inherits name="com.badlogic.gdx.backends.gwt.GdxDefinition"/>
+    <inherits name="com.badlogic.gdx.graphics.g2d.freetype.gwt.EmulateLibgdxFreetype"/>
+
+    <entry-point class="com.mygdx.game.client.HtmlLauncher"/>
+
+    <!-- Exclude the LWJGL desktop launcher from the browser build -->
+    <source path="" excludes="desktop/**"/>
+</module>

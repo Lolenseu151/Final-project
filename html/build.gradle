@@ -1,0 +1,75 @@
+plugins {
+    id 'org.wisepersist.gwt' version '1.1.19'
+    id 'war'
+}
+
+ext {
+    gwtVersion = '2.10.0'
+    gdxVersion = rootProject.ext.gdxVersion
+}
+
+sourceSets {
+    main {
+        java {
+            setSrcDirs([
+                'src/main/java',
+                "${rootProject.projectDir}/src/main/java"
+            ])
+            exclude 'com/mygdx/game/desktop/**'
+        }
+        resources {
+            srcDirs = ['src/main/resources']
+        }
+    }
+}
+
+dependencies {
+    implementation "com.badlogicgames.gdx:gdx:${project.ext.gdxVersion}"
+    implementation "com.badlogicgames.gdx:gdx:${project.ext.gdxVersion}:sources"
+    implementation "com.badlogicgames.gdx:gdx-backend-gwt:${project.ext.gdxVersion}"
+    implementation "com.badlogicgames.gdx:gdx-backend-gwt:${project.ext.gdxVersion}:sources"
+    implementation "com.badlogicgames.gdx:gdx-freetype-gwt:${project.ext.gdxVersion}"
+    implementation "com.badlogicgames.gdx:gdx-freetype-gwt:${project.ext.gdxVersion}:sources"
+}
+
+war {
+    webAppDirectory = file('src/main/webapp')
+    from("${rootProject.projectDir}/assets") {
+        into 'assets'
+    }
+}
+
+project.afterEvaluate {
+    tasks.withType(JavaCompile).configureEach {
+        options.release = 8
+    }
+}
+
+gwt {
+    gwtVersion = project.ext.gwtVersion
+    minHeapSize = '512M'
+    maxHeapSize = '2048M'
+    logLevel = 'INFO'
+    modules 'com.mygdx.game.GwtDefinition'
+    devModules 'com.mygdx.game.GwtDefinition'
+    compiler {
+        strict = true
+        disableClassMetadata = true
+        disableCastChecking = true
+        optimize = 9
+    }
+}
+
+// Keep the browser build supplied with the latest assets
+tasks.register('syncHtmlAssets', Copy) {
+    from("${rootProject.projectDir}/assets")
+    into(layout.buildDirectory.dir('dist/assets').get().asFile)
+}
+
+tasks.named('compileGwt').configure {
+    finalizedBy tasks.named('syncHtmlAssets')
+}
+
+tasks.matching { it.name == 'superDev' }.configureEach {
+    dependsOn tasks.named('syncHtmlAssets')
+}
