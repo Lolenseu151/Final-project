@@ -13,6 +13,16 @@ public class DesktopLauncher {
         config.setDecorated(true); // Show window border
         config.setResizable(true); // Allow window resizing
         config.useVsync(true); 
+        try {
+            // Provide multiple resolutions so the OS can pick the best icon size
+            config.setWindowIcon(
+                "assets/Start/1.png",
+                "assets/Start/2.png",
+                "assets/Start/3.png"
+            );
+        } catch (Exception ignored) {
+            // If any icon is missing we just continue with the default LWJGL icon
+        }
         
         // Enable debug logging
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "DEBUG");
