@@ -83,7 +83,6 @@ launch4j {
     jarTask = tasks.named('jar')
     chdir = '%EXEDIR%'
     jreMinVersion = '17'
-    icon = resolveWindowsShortPath(file('build/icons/papertrail.ico'))
 }
 
 tasks.named('createExe') {
