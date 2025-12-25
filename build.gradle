@@ -4,7 +4,7 @@ plugins {
     id 'edu.sc.seis.launch4j' version '3.0.1'
 }
 
-group = 'com.mygdx.game'
+group = 'com.ctrl_s.game'
 version = '1.0'
 
 ext {
@@ -54,7 +54,7 @@ dependencies {
 
 application {
     // Default to the standard launcher so the game flows through Loading -> Main Menu -> Level Select.
-    mainClass = 'com.mygdx.game.desktop.DesktopLauncher'
+    mainClass = 'com.ctrl_s.game.desktop.DesktopLauncher'
     applicationName = 'Final-project'
 }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # Minimal gradle wrapper shim for Unix-like systems
-GRADLE_VERSION=8.4.1
+GRADLE_VERSION=8.5
 WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)/.gradle-wrapper"
 INSTALL_DIR="$WRAPPER_DIR/gradle-$GRADLE_VERSION"
 mkdir -p "$WRAPPER_DIR"
