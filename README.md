@@ -2,8 +2,10 @@
 
 <div align="center">
 
-**BUKIDNON STATE UNIVERSITY**  
-**COLLEGE OF TECHNOLOGIES**  
+<img src="assets/appendices/Coverpage.png" alt="Cover Page" width="40%">
+
+**BUKIDNON STATE UNIVERSITY**
+**COLLEGE OF TECHNOLOGIES**
 **INFORMATION TECHNOLOGY DEPARTMENT**
 
 *A Project Presented to the Information Technology Department*
@@ -138,5 +140,8 @@ For a detailed list of player keys and system controls, see [Game Commands](docs
 For complete project documentation including methodology, detailed feature descriptions, screenshots, and academic context, see [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md).
 
 ---
-*Developed by: Digal, John Paul; Maureal, Lawrence Joel; Pausal, John Paul; Rivera, Frenzen*  
+*Developed by: Digal, John Paul; Maureal, Lawrence Joel; Pausal, John Paul; Rivera, Frenzen*
 *Ctrl-S Game Studio - BUKIDNON STATE UNIVERSITY*
+
+## Credits
+Special thanks to [Drakaniia](https://github.com/Drakaniia) for refactoring the codebase to make it clean.
