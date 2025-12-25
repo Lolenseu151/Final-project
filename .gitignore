@@ -3,6 +3,8 @@
 build/
 gradle-app.setting
 !gradle/wrapper/gradle-wrapper.jar
+.gradle-wrapper/gradle-*/lib/
+.gradle-wrapper/gradle-*.zip
 
 # IDEA
 .idea/
