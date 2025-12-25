@@ -128,3 +128,15 @@ coverage/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Large files that exceed GitHub limits
+.gradle-wrapper/gradle-8.5/lib/*.jar
+.gradle-wrapper/gradle.zip
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+*.war
+*.ear
+*.bin
