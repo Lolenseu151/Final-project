@@ -1,59 +1,63 @@
-/# Gradle build and IDE artifacts
-/build/
-/.gradle/
-
-# Compiled class files
-*.class
-
-# JARs and distributions
-*.jar
-build/libs/
-build/distributions/
-
-# IntelliJ / IDEA
-/.idea/
-*.iml
-
-# OS files
-.DS_Store
-
-# Misc
-/out/
-bin/# Gradle files
+# Gradle
 .gradle/
-.gradle-wrapper/
 build/
 gradle-app.setting
+!gradle/wrapper/gradle-wrapper.jar
 
-# Ignore Gradle wrapper jar file
-gradle-wrapper.jar
-gradle/wrapper/gradle-wrapper.jar
-
-# Ignore Gradle wrapper properties
-gradle/wrapper/gradle-wrapper.properties
-
-# Compiled class files
-*.class
-
-# Package files
-*.jar
-*.war
-*.ear
-
-# IDE files
+# IDEA
 .idea/
 *.iml
+*.ipr
+*.iws
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# VS Code
 .vscode/
+
+# NetBeans
+nbproject/
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# LibGDX specific
+desktop.ini
+*.swp
+*.swo
+*~
 
 # Logs
 *.log
+logs/
+game_logs.txt
+full_log.txt
+build_output.txt
+tutorial-log.txt
+test_log.txt
 
-# Local configuration file
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+conflict_backup_*/
+backup_sources/
+temp_part*.txt
+scripts/
+
+# User specific configurations
 local.properties
 
-# Distribution archives
-*.tar.gz
-*.zip
-
-# Backup files
-*.bak.gradle/
+# Desktop run configurations
+desktop/src/main/java/com/ctrl_s/game/desktop/DesktopRun*.java
